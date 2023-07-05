@@ -25,6 +25,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
@@ -359,4 +360,3 @@ TEST_CASE("CascadedSelector all-big-int", "[hipcomp][big]")
     verify_selector_result(opts, est_ratio, 2, 1, 1, 20);
   }
 }
-

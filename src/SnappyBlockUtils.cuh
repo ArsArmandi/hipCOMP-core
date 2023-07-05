@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 #include <stdint.h>
@@ -197,5 +198,4 @@ inline __device__ bool nvstr_is_equal(const char *as, uint32_t alen, const char 
 {
     return nvstr_compare<bool, false, false, true>(as, alen, bs, blen);
 }
-
 
