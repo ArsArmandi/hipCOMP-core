@@ -31,7 +31,7 @@
 
 #include <cstddef>
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -41,7 +41,7 @@ namespace highlevel
  *****************************************************************************/
 
 Metadata::Metadata(
-    const nvcompType_t type,
+    const hipcompType_t type,
     const size_t uncompressedBytes,
     const size_t compressedBytes,
     const int compressionType) :
@@ -50,12 +50,12 @@ Metadata::Metadata(
     m_compressedBytes(compressedBytes),
     m_compressionType(compressionType)
 {
-  if (m_uncompressedBytes % sizeOfnvcompType(m_type) != 0) {
+  if (m_uncompressedBytes % sizeOfhipcompType(m_type) != 0) {
     throw std::runtime_error(
         "Number of uncompressed bytes is not a multiple "
         " of the size of the type: "
         + std::to_string(m_uncompressedBytes) + " % "
-        + std::to_string(sizeOfnvcompType(m_type)));
+        + std::to_string(sizeOfhipcompType(m_type)));
   }
 }
 
@@ -63,7 +63,7 @@ Metadata::Metadata(
  * PUBLIC METHODS *************************************************************
  *****************************************************************************/
 
-nvcompType_t Metadata::getValueType() const
+hipcompType_t Metadata::getValueType() const
 {
   return m_type;
 }
@@ -80,7 +80,7 @@ size_t Metadata::getCompressedSize() const
 
 size_t Metadata::getNumUncompressedElements() const
 {
-  return getUncompressedSize() / sizeOfnvcompType(m_type);
+  return getUncompressedSize() / sizeOfhipcompType(m_type);
 }
 
 int Metadata::getCompressionType() const
@@ -102,10 +102,10 @@ void Metadata::setCompressedSize(const size_t bytes)
   m_compressedBytes = bytes;
 }
 
-void Metadata::setValueType(nvcompType_t valueType)
+void Metadata::setValueType(hipcompType_t valueType)
 {
   m_type = valueType;
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

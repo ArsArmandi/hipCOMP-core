@@ -33,7 +33,7 @@
 #include <cassert>
 #include <stdexcept>
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -192,4 +192,4 @@ void LZ4MetadataOnGPU::set_num_chunks(const size_t chunks)
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

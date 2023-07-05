@@ -26,9 +26,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nvcomp.h"
-#include "nvcomp.hpp"
-#include "nvcomp/cascaded.h"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
+#include "hipcomp/cascaded.h"
 
 #include "CascadedCommon.h"
 #include "CascadedCompressionGPU.h"
@@ -37,7 +37,7 @@
 #include "CascadedMetadataOnGPU.h"
 #include "Check.h"
 #include "CudaUtils.h"
-#include "nvcomp_cub.cuh"
+#include "hipcomp_cub.cuh"
 #include "type_macros.h"
 #include "unpack.h"
 
@@ -62,44 +62,44 @@
 
 #define RLE_ELEMS_PER_BLOCK (RLE_THREAD_BLOCK * RLE_ELEMS_PER_THREAD)
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
 
 // internal representations: one kernel per scheme
-enum nvcompScheme_t
+enum hipcompScheme_t
 {
-  NVCOMP_SCHEME_BP,
-  NVCOMP_SCHEME_RLE,
-  NVCOMP_SCHEME_DELTA,
-  NVCOMP_SCHEME_RLE_DELTA, // automatically fused RLE+Delta to reduce mem
+  HIPCOMP_SCHEME_BP,
+  HIPCOMP_SCHEME_RLE,
+  HIPCOMP_SCHEME_DELTA,
+  HIPCOMP_SCHEME_RLE_DELTA, // automatically fused RLE+Delta to reduce mem
                            // traffic
 };
 
-struct nvcompLayer_t;
+struct hipcompLayer_t;
 
-struct nvcompDataNode_t
+struct hipcompDataNode_t
 {
   void* ptr;
-  nvcompType_t type;
+  hipcompType_t type;
   int packing;
 
-  nvcompLayer_t* parentLayer;
+  hipcompLayer_t* parentLayer;
   size_t length;
 
   // to enable BP as a separate layer, default -1
   int pointToId;
 };
 
-struct nvcompLayer_t
+struct hipcompLayer_t
 {
-  nvcompScheme_t scheme;
+  hipcompScheme_t scheme;
   size_t maxOutputSize;
 
-  nvcompDataNode_t* vals;
-  nvcompDataNode_t* runs;
-  nvcompDataNode_t* output;
+  hipcompDataNode_t* vals;
+  hipcompDataNode_t* runs;
+  hipcompDataNode_t* output;
 
   // TODO: can we get rid of those
   int valId;
@@ -107,41 +107,41 @@ struct nvcompLayer_t
   int outputId;
 };
 
-struct nvcompIntConfig_t
+struct hipcompIntConfig_t
 {
   int outputId = 0;
-  nvcompType_t outputType = NVCOMP_TYPE_INT;
+  hipcompType_t outputType = HIPCOMP_TYPE_INT;
   size_t maxOutputSize = 0;
 
-  std::list<nvcompLayer_t> layers = {};
-  std::map<int, nvcompDataNode_t> nodes
-      = {}; // TODO: should we make this nvcompData_t instead of int?
+  std::list<hipcompLayer_t> layers = {};
+  std::map<int, hipcompDataNode_t> nodes
+      = {}; // TODO: should we make this hipcompData_t instead of int?
 
   // compute the workspace size
   size_t getWorkspaceBytes();
-  size_t getWorkspaceBytes(nvcompDataNode_t* node);
+  size_t getWorkspaceBytes(hipcompDataNode_t* node);
 
   // fuse kernels, etc.
   void optimizeLayers();
 };
 
-struct nvcompIntTask_t
+struct hipcompIntTask_t
 {
   // TODO: add CUDA event assigned to this task
 };
 
-struct nvcompIntHandle_t
+struct hipcompIntHandle_t
 {
-  std::unique_ptr<nvcompIntConfig_t> config = nullptr;
+  std::unique_ptr<hipcompIntConfig_t> config = nullptr;
   cudaStream_t stream = 0;
 
   // main decomp functions
   template <typename outputT>
-  nvcompStatus_t decompCPU(
-      nvcompDataNode_t* node, const void** inputData, const void** h_headers);
+  hipcompStatus_t decompCPU(
+      hipcompDataNode_t* node, const void** inputData, const void** h_headers);
   template <typename outputT, typename runT>
-  nvcompStatus_t decompGPU(
-      nvcompDataNode_t* node,
+  hipcompStatus_t decompGPU(
+      hipcompDataNode_t* node,
       const void** inputData,
       const void** h_headers,
       cudaStream_t stream = NULL);
@@ -151,8 +151,8 @@ struct nvcompIntHandle_t
   void* workspaceStorage = nullptr;
 
   // workspace mem management
-  nvcompStatus_t release();
-  nvcompStatus_t
+  hipcompStatus_t release();
+  hipcompStatus_t
   allocateAsync(); // new function that splits of pre-allocated memory
 
   // workspace breakdown
@@ -217,8 +217,8 @@ struct SharedMap
 };
 
 // internal collections
-SharedMap<nvcompConfig_t, nvcompIntConfig_t> configs;
-SharedMap<nvcompHandle_t, nvcompIntHandle_t> handles;
+SharedMap<hipcompConfig_t, hipcompIntConfig_t> configs;
+SharedMap<hipcompHandle_t, hipcompIntHandle_t> handles;
 
 // TODO: can we get rid of these?
 std::mutex config_mutex;
@@ -250,7 +250,7 @@ void checkCompressSize(const size_t numBytes)
   }
 }
 
-std::unique_ptr<nvcompIntConfig_t>
+std::unique_ptr<hipcompIntConfig_t>
 generateConfig(const CascadedMetadata* const metadata)
 {
   const int numRLEs = metadata->getNumRLEs();
@@ -260,14 +260,14 @@ generateConfig(const CascadedMetadata* const metadata)
   int vals_id = 0;
 
   // initialize config
-  const nvcompType_t type = metadata->getValueType();
+  const hipcompType_t type = metadata->getValueType();
 
-  std::unique_ptr<nvcompIntConfig_t> config(new nvcompIntConfig_t);
+  std::unique_ptr<hipcompIntConfig_t> config(new hipcompIntConfig_t);
   config->outputId = vals_id;
   config->outputType = type;
   config->maxOutputSize = metadata->getUncompressedSize();
 
-  const nvcompType_t runType
+  const hipcompType_t runType
       = selectRunsType(metadata->getNumUncompressedElements());
 
   const size_t maxSegmentSize = metadata->getUncompressedSize();
@@ -285,7 +285,7 @@ generateConfig(const CascadedMetadata* const metadata)
       const int valId = ++vals_id;
 
       // add to config
-      nvcompConfigAddRLE_BP(
+      hipcompConfigAddRLE_BP(
           config.get(),
           inputId,
           maxSegmentSize,
@@ -303,10 +303,10 @@ generateConfig(const CascadedMetadata* const metadata)
         const int deltaId = ++vals_id;
 
         if (r == 0) {
-          nvcompConfigAddDelta_BP(
+          hipcompConfigAddDelta_BP(
               config.get(), valId, maxSegmentSize, deltaId, type, bitPacking);
         } else {
-          nvcompConfigAddDelta_BP(
+          hipcompConfigAddDelta_BP(
               config.get(),
               valId,
               maxSegmentSize,
@@ -321,10 +321,10 @@ generateConfig(const CascadedMetadata* const metadata)
       const int deltaId = ++vals_id;
 
       if (r == 0) {
-        nvcompConfigAddDelta_BP(
+        hipcompConfigAddDelta_BP(
             config.get(), inputId, maxSegmentSize, deltaId, type, bitPacking);
       } else {
-        nvcompConfigAddDelta_BP(
+        hipcompConfigAddDelta_BP(
             config.get(),
             inputId,
             maxSegmentSize,
@@ -340,7 +340,7 @@ generateConfig(const CascadedMetadata* const metadata)
   if (numRLEs == 0 && numDeltas == 0) {
     const int inputId = vals_id;
     const int bpId = ++vals_id;
-    nvcompConfigAddBP(config.get(), inputId, maxSegmentSize, bpId, type);
+    hipcompConfigAddBP(config.get(), inputId, maxSegmentSize, bpId, type);
 
     config->nodes[bpId].length = metadata->getNumElementsOf(bpId);
   }
@@ -415,28 +415,28 @@ size_t writeData(
  *            Older API definitions below.  New API calls rely on them.
  **************************************************************************************/
 
-nvcompIntConfig_t* createConfig(const CascadedMetadata* metadata)
+hipcompIntConfig_t* createConfig(const CascadedMetadata* metadata)
 {
   return generateConfig(metadata).release();
 }
 
-void destroyConfig(nvcompIntConfig_t* config)
+void destroyConfig(hipcompIntConfig_t* config)
 {
   delete config;
 }
 
-nvcompStatus_t nvcompConfigAddRLE_BP(
-    nvcompIntConfig_t* const config,
+hipcompStatus_t hipcompConfigAddRLE_BP(
+    hipcompIntConfig_t* const config,
     int outputId,
     size_t maxOutputSize,
     int valId,
-    nvcompType_t valType,
+    hipcompType_t valType,
     int valPacking,
     int runId,
-    nvcompType_t runType,
+    hipcompType_t runType,
     int runPacking)
 {
-  nvcompIntConfig_t& c = *config;
+  hipcompIntConfig_t& c = *config;
 
   // setup input nodes if necessary
   if (c.nodes.find(valId) == c.nodes.end()) {
@@ -451,7 +451,7 @@ nvcompStatus_t nvcompConfigAddRLE_BP(
     c.nodes[outputId] = {NULL, valType, 0, NULL, 0, 0};
   }
 
-  nvcompLayer_t layer = {NVCOMP_SCHEME_RLE,
+  hipcompLayer_t layer = {HIPCOMP_SCHEME_RLE,
                          maxOutputSize,
                          NULL,
                          NULL,
@@ -462,18 +462,18 @@ nvcompStatus_t nvcompConfigAddRLE_BP(
   c.layers.push_back(layer);
   c.nodes[outputId].parentLayer = &c.layers.back();
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompConfigAddDelta_BP(
-    nvcompIntConfig_t* const config,
+hipcompStatus_t hipcompConfigAddDelta_BP(
+    hipcompIntConfig_t* const config,
     int outputId,
     size_t maxOutputSize,
     int valId,
-    nvcompType_t valType,
+    hipcompType_t valType,
     int valPacking)
 {
-  nvcompIntConfig_t& c = *config;
+  hipcompIntConfig_t& c = *config;
 
   // setup the input node if necessary
   if (c.nodes.find(valId) == c.nodes.end()) {
@@ -485,7 +485,7 @@ nvcompStatus_t nvcompConfigAddDelta_BP(
     c.nodes[outputId] = {NULL, valType, 0, NULL, 0, 0};
   }
 
-  nvcompLayer_t layer = {NVCOMP_SCHEME_DELTA,
+  hipcompLayer_t layer = {HIPCOMP_SCHEME_DELTA,
                          maxOutputSize,
                          NULL,
                          NULL,
@@ -496,17 +496,17 @@ nvcompStatus_t nvcompConfigAddDelta_BP(
   c.layers.push_back(layer);
   c.nodes[outputId].parentLayer = &c.layers.back();
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompConfigAddBP(
-    nvcompIntConfig_t* const config,
+hipcompStatus_t hipcompConfigAddBP(
+    hipcompIntConfig_t* const config,
     int outputId,
     size_t maxOutputSize,
     int valId,
-    nvcompType_t valType)
+    hipcompType_t valType)
 {
-  nvcompIntConfig_t& c = *config;
+  hipcompIntConfig_t& c = *config;
 
   // setup the input node if necessary
   if (c.nodes.find(valId) == c.nodes.end()) {
@@ -518,15 +518,15 @@ nvcompStatus_t nvcompConfigAddBP(
     c.nodes[outputId] = {NULL, valType, 0, NULL, 0, 0};
   }
 
-  nvcompLayer_t layer = {
-      NVCOMP_SCHEME_BP, maxOutputSize, NULL, NULL, NULL, valId, -1, outputId};
+  hipcompLayer_t layer = {
+      HIPCOMP_SCHEME_BP, maxOutputSize, NULL, NULL, NULL, valId, -1, outputId};
   c.layers.push_back(layer);
   c.nodes[outputId].parentLayer = &c.layers.back();
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-size_t nvcompIntConfig_t::getWorkspaceBytes(nvcompDataNode_t* /*node*/)
+size_t hipcompIntConfig_t::getWorkspaceBytes(hipcompDataNode_t* /*node*/)
 {
   // TODO: allocate output buffers for each node except the terminal one
   // currently this is done inside decompGPU which will break concurrency (once
@@ -534,7 +534,7 @@ size_t nvcompIntConfig_t::getWorkspaceBytes(nvcompDataNode_t* /*node*/)
   return 0;
 }
 
-size_t nvcompIntConfig_t::getWorkspaceBytes()
+size_t hipcompIntConfig_t::getWorkspaceBytes()
 {
   if (nodes.find(outputId) == nodes.end()) {
     throw std::runtime_error(
@@ -551,13 +551,13 @@ size_t nvcompIntConfig_t::getWorkspaceBytes()
   int numDeltas = 0;
 
   size_t max_input_len = 0;
-  for (const nvcompLayer_t& layer : layers) {
-    if (layer.scheme == NVCOMP_SCHEME_RLE
-        || layer.scheme == NVCOMP_SCHEME_RLE_DELTA) {
+  for (const hipcompLayer_t& layer : layers) {
+    if (layer.scheme == HIPCOMP_SCHEME_RLE
+        || layer.scheme == HIPCOMP_SCHEME_RLE_DELTA) {
       ++numRLEs;
     }
-    if (layer.scheme == NVCOMP_SCHEME_DELTA
-        || layer.scheme == NVCOMP_SCHEME_RLE_DELTA) {
+    if (layer.scheme == HIPCOMP_SCHEME_DELTA
+        || layer.scheme == HIPCOMP_SCHEME_RLE_DELTA) {
       ++numDeltas;
     }
 
@@ -573,23 +573,23 @@ size_t nvcompIntConfig_t::getWorkspaceBytes()
 
   // temp vals, runs, delta, output
   if (numRLEs > 0 || numDeltas > 0) {
-    size += CUDA_MEM_ALIGN(max_input_len * sizeOfnvcompType(outputType));
+    size += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
     if (numRLEs > 0) {
       size += CUDA_MEM_ALIGN(
-          max_input_len * sizeOfnvcompType(selectRunsType(maxOutputSize)));
+          max_input_len * sizeOfhipcompType(selectRunsType(maxOutputSize)));
     }
-    size += CUDA_MEM_ALIGN(max_input_len * sizeOfnvcompType(outputType));
-    size += CUDA_MEM_ALIGN(max_input_len * sizeOfnvcompType(outputType));
+    size += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+    size += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
   }
 
   size_t temp_scan_bytes_run = 0;
   size_t temp_scan_bytes_delta = 0;
-  NVCOMP_TYPE_ONE_SWITCH(
+  HIPCOMP_TYPE_ONE_SWITCH(
       selectRunsType(max_output_len),
       cubDeviceScanTempSpace,
       temp_scan_bytes_run,
       max_input_len);
-  NVCOMP_TYPE_ONE_SWITCH(
+  HIPCOMP_TYPE_ONE_SWITCH(
       outputType, cubDeviceScanTempSpace, temp_scan_bytes_delta, max_input_len);
   size_t temp_scan_bytes = std::max(temp_scan_bytes_run, temp_scan_bytes_delta);
 
@@ -603,31 +603,31 @@ size_t nvcompIntConfig_t::getWorkspaceBytes()
   return size;
 }
 
-nvcompStatus_t nvcompIntHandle_t::release()
+hipcompStatus_t hipcompIntHandle_t::release()
 {
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
 // recursively assign memory for all nodes in our DAG
 // ** Assumes worspaceStorage is already allocated with sufficient space **
-nvcompStatus_t nvcompIntHandle_t::allocateAsync()
+hipcompStatus_t hipcompIntHandle_t::allocateAsync()
 {
-  nvcompIntConfig_t& c = *config;
+  hipcompIntConfig_t& c = *config;
 
-  nvcompType_t outputType = c.outputType;
+  hipcompType_t outputType = c.outputType;
 
   // assign member variables for size
   max_output_len = c.maxOutputSize;
   max_input_len = 0;
   int numRLEs = 0;
   int numDeltas = 0;
-  for (const nvcompLayer_t& layer : c.layers) {
-    if (layer.scheme == NVCOMP_SCHEME_RLE
-        || layer.scheme == NVCOMP_SCHEME_RLE_DELTA) {
+  for (const hipcompLayer_t& layer : c.layers) {
+    if (layer.scheme == HIPCOMP_SCHEME_RLE
+        || layer.scheme == HIPCOMP_SCHEME_RLE_DELTA) {
       ++numRLEs;
     }
-    if (layer.scheme == NVCOMP_SCHEME_DELTA
-        || layer.scheme == NVCOMP_SCHEME_RLE_DELTA) {
+    if (layer.scheme == HIPCOMP_SCHEME_DELTA
+        || layer.scheme == HIPCOMP_SCHEME_RLE_DELTA) {
       ++numDeltas;
     }
 
@@ -643,19 +643,19 @@ nvcompStatus_t nvcompIntHandle_t::allocateAsync()
   // re-use locations
   if (numRLEs > 0 || numDeltas > 0) {
     temp_val = ptr;
-    ptr += CUDA_MEM_ALIGN(max_input_len * sizeOfnvcompType(outputType));
+    ptr += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
     if (numRLEs > 0) {
       temp_run = ptr;
       ptr += CUDA_MEM_ALIGN(
-          max_input_len * sizeOfnvcompType(selectRunsType(max_output_len)));
+          max_input_len * sizeOfhipcompType(selectRunsType(max_output_len)));
     }
     temp_delta = ptr;
-    ptr += CUDA_MEM_ALIGN(max_input_len * sizeOfnvcompType(outputType));
+    ptr += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
 
     // one additional buffer for delta expansion
     // TODO: can we get rid of this one?
     temp_output = ptr;
-    ptr += CUDA_MEM_ALIGN(max_input_len * sizeOfnvcompType(outputType));
+    ptr += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
   }
 
   // allocate temp storage for cub scan using the largest size_t
@@ -664,12 +664,12 @@ nvcompStatus_t nvcompIntHandle_t::allocateAsync()
 
   size_t temp_scan_bytes_run = 0;
   size_t temp_scan_bytes_delta = 0;
-  NVCOMP_TYPE_ONE_SWITCH(
+  HIPCOMP_TYPE_ONE_SWITCH(
       selectRunsType(max_output_len),
       cubDeviceScanTempSpace,
       temp_scan_bytes_run,
       max_input_len);
-  NVCOMP_TYPE_ONE_SWITCH(
+  HIPCOMP_TYPE_ONE_SWITCH(
       outputType, cubDeviceScanTempSpace, temp_scan_bytes_delta, max_input_len);
   temp_scan_bytes = std::max(temp_scan_bytes_run, temp_scan_bytes_delta);
   ptr += CUDA_MEM_ALIGN(temp_scan_bytes);
@@ -682,20 +682,20 @@ nvcompStatus_t nvcompIntHandle_t::allocateAsync()
   start_off = (size_t*)ptr;
   ptr += CUDA_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
 // here we do kernel fusion
-void nvcompIntConfig_t::optimizeLayers()
+void hipcompIntConfig_t::optimizeLayers()
 {
   for (auto it = layers.begin(); it != layers.end();) {
-    if (it->scheme == NVCOMP_SCHEME_DELTA) {
+    if (it->scheme == HIPCOMP_SCHEME_DELTA) {
       int valId = it->valId;
       int outputId = it->outputId;
       if (nodes.find(valId) != nodes.end() && nodes[valId].parentLayer != NULL
-          && nodes[valId].parentLayer->scheme == NVCOMP_SCHEME_RLE) {
+          && nodes[valId].parentLayer->scheme == HIPCOMP_SCHEME_RLE) {
         nodes[outputId].parentLayer = nodes[valId].parentLayer;
-        nodes[outputId].parentLayer->scheme = NVCOMP_SCHEME_RLE_DELTA;
+        nodes[outputId].parentLayer->scheme = HIPCOMP_SCHEME_RLE_DELTA;
         nodes[outputId].parentLayer->outputId = outputId;
         it = layers.erase(it);
         continue;
@@ -706,42 +706,42 @@ void nvcompIntConfig_t::optimizeLayers()
 }
 
 /* These functions may not be needed and removed to simplify codebase */
-nvcompStatus_t nvcompSetWorkspace(
-    nvcompHandle_t /*handle*/,
+hipcompStatus_t hipcompSetWorkspace(
+    hipcompHandle_t /*handle*/,
     void* /*workspaceStorage*/,
     size_t /*workspaceBytes*/)
 {
-  std::cerr << "ERROR: nvcompSetWorkspace is not implemented yet!" << std::endl;
-  return nvcompErrorNotSupported;
+  std::cerr << "ERROR: hipcompSetWorkspace is not implemented yet!" << std::endl;
+  return hipcompErrorNotSupported;
 }
 
-nvcompStatus_t
-nvcompGetWorkspaceSize(nvcompHandle_t handle, size_t* workspaceBytes)
+hipcompStatus_t
+hipcompGetWorkspaceSize(hipcompHandle_t handle, size_t* workspaceBytes)
 {
   *workspaceBytes = handles[handle].workspaceBytes;
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompSetStream(nvcompHandle_t handle, cudaStream_t streamId)
+hipcompStatus_t hipcompSetStream(hipcompHandle_t handle, cudaStream_t streamId)
 {
   handles[handle].stream = streamId;
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompGetStream(nvcompHandle_t handle, cudaStream_t* streamId)
+hipcompStatus_t hipcompGetStream(hipcompHandle_t handle, cudaStream_t* streamId)
 {
   *streamId = handles[handle].stream;
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
 // if the header is not packed this will shallow copy the pointer
 // otherwise unpack into the output buffer
 template <typename inputT, typename outputT>
 void unpackCpu(
-    outputT** output, nvcompDataNode_t* node, const void* hdr, const void* data)
+    outputT** output, hipcompDataNode_t* node, const void* hdr, const void* data)
 {
   const CascadedMetadata::Header header
       = *static_cast<const CascadedMetadata::Header*>(hdr);
@@ -763,9 +763,9 @@ void unpackCpu(
 
 template <typename outputT>
 void unpackCpu(
-    outputT** output, nvcompDataNode_t* node, const void* hdr, const void* data)
+    outputT** output, hipcompDataNode_t* node, const void* hdr, const void* data)
 {
-  NVCOMP_TYPE_TWO_SWITCH_FIRST_ONLY(
+  HIPCOMP_TYPE_TWO_SWITCH_FIRST_ONLY(
       node->type, outputT, unpackCpu, output, node, hdr, data);
 }
 
@@ -774,7 +774,7 @@ void unpackCpu(
 template <typename inputT, typename outputT>
 void unpackGpu(
     outputT* d_output,
-    nvcompDataNode_t* node,
+    hipcompDataNode_t* node,
     const void* data,
     const void* h_hdr,
     cudaStream_t stream)
@@ -808,18 +808,18 @@ void unpackGpu(
 template <typename outputT>
 void unpackGpu(
     outputT* d_output,
-    nvcompDataNode_t* node,
+    hipcompDataNode_t* node,
     const void* data,
     const void* h_hdr,
     cudaStream_t stream)
 {
-  NVCOMP_TYPE_TWO_SWITCH_FIRST_ONLY(
+  HIPCOMP_TYPE_TWO_SWITCH_FIRST_ONLY(
       node->type, outputT, unpackGpu, d_output, node, data, h_hdr, stream);
 }
 
 template <typename outputT>
-nvcompStatus_t nvcompIntHandle_t::decompCPU(
-    nvcompDataNode_t* node, const void** inputHdrs, const void** inputData)
+hipcompStatus_t hipcompIntHandle_t::decompCPU(
+    hipcompDataNode_t* node, const void** inputHdrs, const void** inputData)
 {
   size_t maxOutputSize = config->maxOutputSize;
 
@@ -829,10 +829,10 @@ nvcompStatus_t nvcompIntHandle_t::decompCPU(
   size_t* runs_data = NULL;
   size_t vals_len;
 
-  nvcompLayer_t* layer = node->parentLayer;
+  hipcompLayer_t* layer = node->parentLayer;
 
   // add BP only layer
-  if (layer->scheme == NVCOMP_SCHEME_BP) {
+  if (layer->scheme == HIPCOMP_SCHEME_BP) {
     unpacked_vals.resize(maxOutputSize);
     vals_data = &unpacked_vals[0];
     unpackCpu(
@@ -855,7 +855,7 @@ nvcompStatus_t nvcompIntHandle_t::decompCPU(
     for (int i = 0; i < vals_len; i++) {
       ((outputT*)(node->ptr))[i] = vals_data[i];
     }
-    return nvcompSuccess;
+    return hipcompSuccess;
   }
 
   // compute vals
@@ -896,19 +896,19 @@ nvcompStatus_t nvcompIntHandle_t::decompCPU(
   std::vector<outputT> next;
   next.clear();
   switch (layer->scheme) {
-  case NVCOMP_SCHEME_RLE: {
+  case HIPCOMP_SCHEME_RLE: {
     for (int i = 0; i < vals_len; i++)
       next.insert(next.end(), runs_data[i], vals_data[i]);
     break;
   }
-  case NVCOMP_SCHEME_RLE_DELTA: {
+  case HIPCOMP_SCHEME_RLE_DELTA: {
     for (int i = 0; i < vals_len; i++)
       next.insert(next.end(), runs_data[i], vals_data[i]);
     for (int i = 1; i < next.size(); i++)
       next[i] += next[i - 1];
     break;
   }
-  case NVCOMP_SCHEME_DELTA: {
+  case HIPCOMP_SCHEME_DELTA: {
     next.resize(vals_len);
     next[0] = vals_data[0];
     for (int i = 1; i < vals_len; i++)
@@ -916,7 +916,7 @@ nvcompStatus_t nvcompIntHandle_t::decompCPU(
     break;
   }
   default:
-    return nvcompErrorNotSupported;
+    return hipcompErrorNotSupported;
   }
 
   node->length = next.size();
@@ -930,15 +930,15 @@ nvcompStatus_t nvcompIntHandle_t::decompCPU(
   for (int i = 0; i < next.size(); i++)
     ((outputT*)(node->ptr))[i] = next[i];
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
 // Perform Cascaded decompression on the GPU.
 // Assumes all workspace is pre-allocated and assigned, inputHdrs and inputData
 // are GPU-accessible, and h_headers is CPU-accessible
 template <typename outputT, typename runT>
-nvcompStatus_t nvcompIntHandle_t::decompGPU(
-    nvcompDataNode_t* node,
+hipcompStatus_t hipcompIntHandle_t::decompGPU(
+    hipcompDataNode_t* node,
     const void** inputData,
     const void** h_headers,
     cudaStream_t stream)
@@ -951,8 +951,8 @@ nvcompStatus_t nvcompIntHandle_t::decompGPU(
   outputT* out_ptr
       = CudaUtils::device_pointer(static_cast<outputT*>(node->ptr));
 
-  nvcompLayer_t* layer = node->parentLayer;
-  if (layer->scheme == NVCOMP_SCHEME_BP) {
+  hipcompLayer_t* layer = node->parentLayer;
+  if (layer->scheme == HIPCOMP_SCHEME_BP) {
     // We assume this is the only layer, and we just do it and exit
     layer->vals->ptr = out_ptr;
     unpackGpu(
@@ -966,7 +966,7 @@ nvcompStatus_t nvcompIntHandle_t::decompGPU(
               ->length;
     assert(layer->vals->length <= max_input_len);
 
-    return nvcompSuccess;
+    return hipcompSuccess;
   }
 
   // prepare inputs
@@ -1012,7 +1012,7 @@ nvcompStatus_t nvcompIntHandle_t::decompGPU(
   const size_t input_size = layer->vals->length;
   assert(input_size <= max_input_len);
 
-  if (layer->scheme == NVCOMP_SCHEME_DELTA) {
+  if (layer->scheme == HIPCOMP_SCHEME_DELTA) {
     assert(out_ptr != d_vals);
     CudaUtils::check(
         cub::DeviceScan::InclusiveSum(
@@ -1024,7 +1024,7 @@ nvcompStatus_t nvcompIntHandle_t::decompGPU(
 
     assert(layer->runs->length == input_size);
 
-    if (layer->scheme == NVCOMP_SCHEME_RLE_DELTA) {
+    if (layer->scheme == HIPCOMP_SCHEME_RLE_DELTA) {
       const dim3 block(512);
       const dim3 grid(roundUpDiv(input_size, block.x));
       vecMultKernel<<<grid, block, 0, stream>>>(
@@ -1065,7 +1065,7 @@ nvcompStatus_t nvcompIntHandle_t::decompGPU(
     // expand RLE and apply Delta: buf[r] -> buf[r+1]
     // TODO: implement macro to look nicer?
     switch (layer->scheme) {
-    case NVCOMP_SCHEME_RLE_DELTA:
+    case HIPCOMP_SCHEME_RLE_DELTA:
       expandRLEDelta<
           outputT,
           outputT,
@@ -1082,7 +1082,7 @@ nvcompStatus_t nvcompIntHandle_t::decompGPU(
           start_off);
       CudaUtils::check_last_error("expandRLEDelta failed to launch");
       break;
-    case NVCOMP_SCHEME_RLE:
+    case HIPCOMP_SCHEME_RLE:
       expandRLEDelta<
           outputT,
           outputT,
@@ -1105,38 +1105,38 @@ nvcompStatus_t nvcompIntHandle_t::decompGPU(
     }
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t
-nvcompSetNodeLength(nvcompHandle_t handle, int nodeId, size_t output_length)
+hipcompStatus_t
+hipcompSetNodeLength(hipcompHandle_t handle, int nodeId, size_t output_length)
 {
-  nvcompIntHandle_t& h = handles[handle];
-  nvcompIntConfig_t& c = *h.config;
+  hipcompIntHandle_t& h = handles[handle];
+  hipcompIntConfig_t& c = *h.config;
   c.nodes[nodeId].length = output_length;
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
 // Main function that sets up Cascaded decompression from the old API.
 // the new cascaded decompression API call is just a wrapper around this (though
 // heavily modified to be asynchronous).
 template <typename outputType, typename runType>
-nvcompStatus_t nvcompDecompressLaunch(
-    nvcompHandle_t handle,
+hipcompStatus_t hipcompDecompressLaunch(
+    hipcompHandle_t handle,
     void* outputData,
     const size_t outputSize,
     const void** inputData,
     const void** h_headers)
 {
-  nvcompIntHandle_t& h = handles[handle];
+  hipcompIntHandle_t& h = handles[handle];
 
-  nvcompIntConfig_t& c = *h.config;
+  hipcompIntConfig_t& c = *h.config;
 
   // TODO: assign all the buffers
-  nvcompDataNode_t* terminal_node = &c.nodes[c.outputId];
+  hipcompDataNode_t* terminal_node = &c.nodes[c.outputId];
   terminal_node->ptr = outputData;
 
-  nvcompStatus_t ret = h.decompGPU<outputType, runType>(
+  hipcompStatus_t ret = h.decompGPU<outputType, runType>(
       terminal_node, inputData, h_headers, h.stream);
 
   const size_t neededBytes = terminal_node->length * sizeof(outputType);
@@ -1144,7 +1144,7 @@ nvcompStatus_t nvcompDecompressLaunch(
     std::cerr << "Insufficient space to write decompressed date: given "
               << outputSize << " bytes but need " << neededBytes << " bytes."
               << std::endl;
-    return nvcompErrorInvalidValue;
+    return hipcompErrorInvalidValue;
   }
 
   // this is to enable the correct result for multi-chunk execuation
@@ -1155,21 +1155,21 @@ nvcompStatus_t nvcompDecompressLaunch(
   return ret;
 }
 
-nvcompStatus_t nvcompDecompressLaunch(
-    nvcompHandle_t handle,
+hipcompStatus_t hipcompDecompressLaunch(
+    hipcompHandle_t handle,
     const size_t numUncompressedElements,
     void* const outputData,
     const size_t outputSize,
     const void** const inputData,
     const void** const h_headers)
 {
-  const nvcompType_t outputType = handles[handle].config->outputType;
-  const nvcompType_t runType = selectRunsType(numUncompressedElements);
+  const hipcompType_t outputType = handles[handle].config->outputType;
+  const hipcompType_t runType = selectRunsType(numUncompressedElements);
 
-  NVCOMP_TYPE_TWO_SWITCH_RETURN(
+  HIPCOMP_TYPE_TWO_SWITCH_RETURN(
       outputType,
       runType,
-      nvcompDecompressLaunch,
+      hipcompDecompressLaunch,
       handle,
       outputData,
       outputSize,
@@ -1177,10 +1177,10 @@ nvcompStatus_t nvcompDecompressLaunch(
       h_headers);
 }
 
-nvcompStatus_t nvcompDestroyHandle(nvcompHandle_t handle)
+hipcompStatus_t hipcompDestroyHandle(hipcompHandle_t handle)
 {
-  nvcompIntHandle_t& h = handles[handle];
-  nvcompIntConfig_t& c = *h.config;
+  hipcompIntHandle_t& h = handles[handle];
+  hipcompIntConfig_t& c = *h.config;
 
   // free temp memory
   h.release();
@@ -1191,14 +1191,14 @@ nvcompStatus_t nvcompDestroyHandle(nvcompHandle_t handle)
   // remove the handle from the list
   handles.erase(handle);
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
 // Modified version of handle creation function from previous API to now be
 // asynchronous Assumes workspaceStorage is already allocated.
-nvcompStatus_t nvcompCreateHandleAsync(
-    nvcompHandle_t* handle,
-    std::unique_ptr<nvcompIntConfig_t> config,
+hipcompStatus_t hipcompCreateHandleAsync(
+    hipcompHandle_t* handle,
+    std::unique_ptr<hipcompIntConfig_t> config,
     void* workspaceStorage,
     const size_t workspaceBytes,
     cudaStream_t stream)
@@ -1206,7 +1206,7 @@ nvcompStatus_t nvcompCreateHandleAsync(
 
   std::lock_guard<std::mutex> guard(handle_mutex);
 
-  nvcompIntConfig_t& c = *config;
+  hipcompIntConfig_t& c = *config;
 
   // first - optimize the plan
   c.optimizeLayers();
@@ -1221,13 +1221,13 @@ nvcompStatus_t nvcompCreateHandleAsync(
   if (workspaceBytes < c.getWorkspaceBytes()) {
     std::cerr << "Insufficient workspace size: got " << workspaceBytes
               << " but need " << c.getWorkspaceBytes() << std::endl;
-    return nvcompErrorInvalidValue;
+    return hipcompErrorInvalidValue;
   }
 
   // find the next available id
-  nvcompHandle_t id = handles.find_next();
+  hipcompHandle_t id = handles.find_next();
   *handle = id;
-  nvcompIntHandle_t& h = handles[id];
+  hipcompIntHandle_t& h = handles[id];
 
   h.config = std::move(config);
   h.stream = stream;
@@ -1237,23 +1237,23 @@ nvcompStatus_t nvcompCreateHandleAsync(
 
   h.allocateAsync();
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp
 
-using namespace nvcomp;
-using namespace nvcomp::highlevel;
+using namespace hipcomp;
+using namespace hipcomp::highlevel;
 
 
-void nvcompCascadedDestroyMetadata(void* const metadata_ptr)
+void hipcompCascadedDestroyMetadata(void* const metadata_ptr)
 {
   CascadedMetadata* metadata = static_cast<CascadedMetadata*>(metadata_ptr);
   ::operator delete(metadata);
 }
 
-nvcompStatus_t nvcompCascadedDecompressConfigure(
+hipcompStatus_t hipcompCascadedDecompressConfigure(
     const void* compressed_ptr,
     size_t compressed_bytes,
     void** metadata_ptr,
@@ -1284,13 +1284,13 @@ nvcompStatus_t nvcompCascadedDecompressConfigure(
 
   } catch (const std::exception& e) {
     return Check::exception_to_error(
-        e, "nvcompCascadedDecompressConfigure()");
+        e, "hipcompCascadedDecompressConfigure()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompCascadedDecompressAsync(
+hipcompStatus_t hipcompCascadedDecompressAsync(
     const void* const in_ptr,
     const size_t in_bytes,
     const void* const metadata_ptr,
@@ -1301,7 +1301,7 @@ nvcompStatus_t nvcompCascadedDecompressAsync(
     const size_t out_bytes,
     cudaStream_t stream)
 {
-  nvcompHandle_t handle = -1;
+  hipcompHandle_t handle = -1;
   try {
     CHECK_NOT_NULL(metadata_ptr);
 
@@ -1309,14 +1309,14 @@ nvcompStatus_t nvcompCascadedDecompressAsync(
         = static_cast<const CascadedMetadata*>(metadata_ptr);
 
     if (in_bytes < metadata->getCompressedSize()) {
-      throw NVCompException(
-          nvcompErrorInvalidValue,
+      throw HipCompException(
+          hipcompErrorInvalidValue,
           "in_bytes is smaller than compressed data size: "
               + std::to_string(in_bytes) + " < "
               + std::to_string(metadata->getCompressedSize()));
     }
 
-    std::unique_ptr<nvcompIntConfig_t> c = generateConfig(metadata);
+    std::unique_ptr<hipcompIntConfig_t> c = generateConfig(metadata);
 
     // first - optimize the plan
     c->optimizeLayers();
@@ -1329,7 +1329,7 @@ nvcompStatus_t nvcompCascadedDecompressAsync(
       }
     }
 
-    CHECK_API_CALL(nvcompCreateHandleAsync(
+    CHECK_API_CALL(hipcompCreateHandleAsync(
         &handle, std::move(c), temp_ptr, temp_bytes, stream));
     assert(handle >= 0);
 
@@ -1347,27 +1347,27 @@ nvcompStatus_t nvcompCascadedDecompressAsync(
       cpuHdrs.emplace_back(&hdr);
     }
 
-    nvcompDecompressLaunch(
+    hipcompDecompressLaunch(
         handle,
         metadata->getNumUncompressedElements(),
         out_ptr,
         out_bytes,
         (const void**)inputData.data(),
         (const void**)cpuHdrs.data());
-    nvcompDestroyHandle(handle);
+    hipcompDestroyHandle(handle);
   } catch (const std::exception& e) {
     if (handle >= 0) {
-      nvcompDestroyHandle(handle);
+      hipcompDestroyHandle(handle);
     }
-    return Check::exception_to_error(e, "nvcompCascadedDecompressAsync()");
+    return Check::exception_to_error(e, "hipcompCascadedDecompressAsync()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompCascadedCompressConfigure(
-    const nvcompCascadedFormatOpts* format_opts,
-    nvcompType_t type,
+hipcompStatus_t hipcompCascadedCompressConfigure(
+    const hipcompCascadedFormatOpts* format_opts,
+    hipcompType_t type,
     size_t uncompressed_bytes,
     size_t* metadata_bytes,
     size_t* temp_bytes,
@@ -1379,7 +1379,7 @@ nvcompStatus_t nvcompCascadedCompressConfigure(
 
     checkCompressSize(uncompressed_bytes);
 
-    nvcompCascadedFormatOpts temp_opts;
+    hipcompCascadedFormatOpts temp_opts;
  
     // if no format opts given, assume worst-case temp and output sizes
     if(format_opts == NULL) {
@@ -1397,25 +1397,25 @@ nvcompStatus_t nvcompCascadedCompressConfigure(
       *metadata_bytes = sizeof(CascadedMetadata);
     }
 
-    nvcompCascadedCompressionGPU::computeWorkspaceSize(
+    hipcompCascadedCompressionGPU::computeWorkspaceSize(
         uncompressed_bytes, type, &temp_opts, temp_bytes);
 
-    nvcompCascadedCompressionGPU::generateOutputUpperBound(
+    hipcompCascadedCompressionGPU::generateOutputUpperBound(
         uncompressed_bytes,
         type,
         &temp_opts,
         compressed_bytes);
 
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompCascadedCompressConfigure()");
+    return Check::exception_to_error(e, "hipcompCascadedCompressConfigure()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompCascadedCompressAsync(
-    const nvcompCascadedFormatOpts* const format_opts,
-    const nvcompType_t in_type,
+hipcompStatus_t hipcompCascadedCompressAsync(
+    const hipcompCascadedFormatOpts* const format_opts,
+    const hipcompType_t in_type,
     const void* const in_ptr,
     const size_t in_bytes,
     void* const temp_ptr,
@@ -1428,13 +1428,13 @@ nvcompStatus_t nvcompCascadedCompressAsync(
     checkCompressSize(in_bytes);
 
     CHECK_NOT_NULL(out_bytes);
-    nvcompCascadedFormatOpts final_opts;
+    hipcompCascadedFormatOpts final_opts;
     if(format_opts == NULL) { // need to run auto-selector of NULL
-      nvcompCascadedSelectorOpts selector_opts;
+      hipcompCascadedSelectorOpts selector_opts;
       selector_opts.sample_size = 1024;
       selector_opts.num_samples = 100;
       selector_opts.seed = 1;
-      size_t type_bytes = sizeOfnvcompType(in_type);
+      size_t type_bytes = sizeOfhipcompType(in_type);
 
       // Adjust sample size if input is too small
       if (in_bytes < (selector_opts.sample_size * selector_opts.num_samples * type_bytes)) {
@@ -1449,7 +1449,7 @@ nvcompStatus_t nvcompCascadedCompressAsync(
 
       double est_ratio;
 
-      nvcompStatus_t err = nvcompCascadedSelectorRun(
+      hipcompStatus_t err = hipcompCascadedSelectorRun(
           &selector_opts,
           in_type,
           in_ptr,
@@ -1467,7 +1467,7 @@ nvcompStatus_t nvcompCascadedCompressAsync(
       final_opts.use_bp = format_opts->use_bp;
     }
 
-    nvcompCascadedCompressionGPU::compressAsync(
+    hipcompCascadedCompressionGPU::compressAsync(
         in_ptr,
         in_bytes,
         in_type,
@@ -1478,16 +1478,16 @@ nvcompStatus_t nvcompCascadedCompressAsync(
         out_bytes,
         stream);
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompCascadedCompressAsync()");
+    return Check::exception_to_error(e, "hipcompCascadedCompressAsync()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
 
 size_t CascadedMetadata::getTempBytes() const
 {
-  std::unique_ptr<nvcompIntConfig_t> c = generateConfig(this);
+  std::unique_ptr<hipcompIntConfig_t> c = generateConfig(this);
 
   // first - optimize the plan
   c->optimizeLayers();
@@ -1503,4 +1503,3 @@ size_t CascadedMetadata::getTempBytes() const
   // Return the required temp and output sizes
   return c->getWorkspaceBytes();
 }
-

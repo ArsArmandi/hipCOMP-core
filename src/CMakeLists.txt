@@ -21,37 +21,37 @@ file(GLOB CPP_SOURCES
   ./highlevel/*.cpp)
 
 if (BUILD_STATIC)
-  add_library(nvcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
+  add_library(hipcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
 else()
   if (MSVC_VERSION)
     # we have to export all symbols on windows for a dll
-    add_library(nvcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
+    add_library(hipcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
   else()
-    add_library(nvcomp SHARED ${CUDA_SOURCES} ${CPP_SOURCES})
+    add_library(hipcomp SHARED ${CUDA_SOURCES} ${CPP_SOURCES})
   endif()
 endif()
 
 include_directories("./")
 
-set_property(TARGET nvcomp PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET nvcomp PROPERTY CUDA_ARCHITECTURES ${GPU_ARCHS})
-target_compile_options(nvcomp PRIVATE
+set_property(TARGET hipcomp PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET hipcomp PROPERTY CUDA_ARCHITECTURES ${GPU_ARCHS})
+target_compile_options(hipcomp PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda>)
-target_include_directories(nvcomp PUBLIC
+target_include_directories(hipcomp PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>")
 if(DEFINED CUB_DIR)
-  target_include_directories(nvcomp PRIVATE "${CUB_DIR}")
+  target_include_directories(hipcomp PRIVATE "${CUB_DIR}")
 endif()
-target_include_directories(nvcomp PRIVATE "${CUDAToolkit_INCLUDE_DIRS}")
+target_include_directories(hipcomp PRIVATE "${CUDAToolkit_INCLUDE_DIRS}")
 
 if (bitcomp_FOUND)
-  target_include_directories(nvcomp INTERFACE ${BITCOMP_INCLUDE_DIRS})
-  target_link_libraries(nvcomp PRIVATE bitcomp)
+  target_include_directories(hipcomp INTERFACE ${BITCOMP_INCLUDE_DIRS})
+  target_link_libraries(hipcomp PRIVATE bitcomp)
 endif()
 
 if (gdeflate_FOUND)
-  target_include_directories(nvcomp PRIVATE ${GDEFLATE_INCLUDE_DIRS})
-  target_link_libraries(nvcomp PRIVATE gdeflate)
+  target_include_directories(hipcomp PRIVATE ${GDEFLATE_INCLUDE_DIRS})
+  target_link_libraries(hipcomp PRIVATE gdeflate)
 endif()
 
 if (BUILD_TESTS)

@@ -26,13 +26,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_LZ4_HPP
-#define NVCOMP_LZ4_HPP
+#ifndef HIPCOMP_LZ4_HPP
+#define HIPCOMP_LZ4_HPP
 
 #include "lz4.h"
-#include "nvcomp.hpp"
+#include "hipcomp.hpp"
 
-namespace nvcomp
+namespace hipcomp
 {
 /**
  * @brief C++ wrapper for LZ4 compressor.
@@ -47,7 +47,7 @@ public:
    * A value of `0` will result in the default chunk size being used.
    * @param data_type The type of data to compress.
    */
-  explicit LZ4Compressor(size_t chunk_size, nvcompType_t data_type);
+  explicit LZ4Compressor(size_t chunk_size, hipcompType_t data_type);
 
   /**
    * @brief Create a new LZ4 compressor with the default chunk size.
@@ -82,7 +82,7 @@ public:
    * managed memory for this function to be asynchronous).
    * @param stream The stream to operate on.
    *
-   * @throw NVCompException If compression fails to launch on the stream.
+   * @throw HipCompException If compression fails to launch on the stream.
    */
   void compress_async(
       const void* in_ptr,
@@ -95,7 +95,7 @@ public:
 
 private:
   size_t m_chunk_size;
-  nvcompType_t m_data_type;
+  hipcompType_t m_data_type;
 };
 
 class LZ4Decompressor : public Decompressor
@@ -137,7 +137,7 @@ public:
    * elements.
    * @param stream The stream to operate on.
    *
-   * @throw NVCompException If decompression fails to launch on the stream.
+   * @throw HipCompException If decompression fails to launch on the stream.
    */
   void decompress_async(
       const void* in_ptr,
@@ -157,14 +157,14 @@ private:
  * METHOD IMPLEMENTATIONS *****************************************************
  *****************************************************************************/
 
-inline LZ4Compressor::LZ4Compressor(const size_t chunk_size, nvcompType_t data_type) :
+inline LZ4Compressor::LZ4Compressor(const size_t chunk_size, hipcompType_t data_type) :
     m_chunk_size(chunk_size),
     m_data_type(data_type)
 {
   // do nothing
 }
 
-inline LZ4Compressor::LZ4Compressor() : LZ4Compressor(0, NVCOMP_TYPE_CHAR)
+inline LZ4Compressor::LZ4Compressor() : LZ4Compressor(0, HIPCOMP_TYPE_CHAR)
 {
   // do nothing
 }
@@ -172,17 +172,17 @@ inline LZ4Compressor::LZ4Compressor() : LZ4Compressor(0, NVCOMP_TYPE_CHAR)
 inline void LZ4Compressor::configure(
     const size_t in_bytes, size_t* const temp_bytes, size_t* const out_bytes)
 {
-  nvcompLZ4FormatOpts opts{m_chunk_size};
+  hipcompLZ4FormatOpts opts{m_chunk_size};
 
   size_t metadata_bytes;
-  nvcompStatus_t status = nvcompLZ4CompressConfigure(
+  hipcompStatus_t status = hipcompLZ4CompressConfigure(
       opts.chunk_size == 0 ? nullptr : &opts,
       m_data_type,
       in_bytes,
       &metadata_bytes,
       temp_bytes,
       out_bytes);
-  throwExceptionIfError(status, "nvcompLZ4CompressConfigure() failed");
+  throwExceptionIfError(status, "hipcompLZ4CompressConfigure() failed");
 }
 
 inline void LZ4Compressor::compress_async(
@@ -194,8 +194,8 @@ inline void LZ4Compressor::compress_async(
     size_t* const out_bytes,
     cudaStream_t stream)
 {
-  nvcompLZ4FormatOpts opts{m_chunk_size};
-  nvcompStatus_t status = nvcompLZ4CompressAsync(
+  hipcompLZ4FormatOpts opts{m_chunk_size};
+  hipcompStatus_t status = hipcompLZ4CompressAsync(
       opts.chunk_size == 0 ? nullptr : &opts,
       m_data_type,
       in_ptr,
@@ -205,7 +205,7 @@ inline void LZ4Compressor::compress_async(
       out_ptr,
       out_bytes,
       stream);
-  throwExceptionIfError(status, "nvcompLZ4CompressAsync() failed");
+  throwExceptionIfError(status, "hipcompLZ4CompressAsync() failed");
 }
 
 inline LZ4Decompressor::LZ4Decompressor() :
@@ -218,7 +218,7 @@ inline LZ4Decompressor::LZ4Decompressor() :
 inline LZ4Decompressor::~LZ4Decompressor()
 {
   if (m_metadata_ptr) {
-    nvcompLZ4DestroyMetadata(m_metadata_ptr);
+    hipcompLZ4DestroyMetadata(m_metadata_ptr);
   }
 }
 
@@ -229,7 +229,7 @@ inline void LZ4Decompressor::configure(
     size_t* const out_bytes,
     cudaStream_t stream)
 {
-  nvcompStatus_t status = nvcompLZ4DecompressConfigure(
+  hipcompStatus_t status = hipcompLZ4DecompressConfigure(
       in_ptr,
       in_bytes,
       &m_metadata_ptr,
@@ -237,7 +237,7 @@ inline void LZ4Decompressor::configure(
       temp_bytes,
       out_bytes,
       stream);
-  throwExceptionIfError(status, "nvcompLZ4Configure() failed");
+  throwExceptionIfError(status, "hipcompLZ4Configure() failed");
 }
 
 inline void LZ4Decompressor::decompress_async(
@@ -249,7 +249,7 @@ inline void LZ4Decompressor::decompress_async(
     const size_t out_bytes,
     cudaStream_t stream)
 {
-  nvcompStatus_t status = nvcompLZ4DecompressAsync(
+  hipcompStatus_t status = hipcompLZ4DecompressAsync(
       in_ptr,
       in_bytes,
       m_metadata_ptr,
@@ -259,8 +259,8 @@ inline void LZ4Decompressor::decompress_async(
       out_ptr,
       out_bytes,
       stream);
-  throwExceptionIfError(status, "nvcompLZ4QeueryMetadataAsync() failed");
+  throwExceptionIfError(status, "hipcompLZ4QeueryMetadataAsync() failed");
 }
 
-} // namespace nvcomp
+} // namespace hipcomp
 #endif

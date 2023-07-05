@@ -28,8 +28,8 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "nvcomp.hpp"
-#include "nvcomp/bitcomp.hpp"
+#include "hipcomp.hpp"
+#include "hipcomp/bitcomp.hpp"
 
 #include "catch.hpp"
 
@@ -42,7 +42,7 @@
 #ifdef ENABLE_BITCOMP
 
 using namespace std;
-using namespace nvcomp;
+using namespace hipcomp;
 
 #define CUDA_CHECK(cond)                                                       \
   do {                                                                         \
@@ -87,7 +87,7 @@ void test_bitcomp(const std::vector<T>& input)
   void* const d_comp_temp = nullptr;
 
   // Get compressor temp size. Bitcomp should not use any.
-  BitcompCompressor compressor(nvcomp::TypeOf<T>());
+  BitcompCompressor compressor(hipcomp::TypeOf<T>());
 
   size_t comp_temp_bytes;
   size_t comp_out_bytes;
@@ -173,7 +173,7 @@ void test_bitcomp(const std::vector<T>& input)
  * UNIT TESTS *****************************************************************
  *****************************************************************************/
 
-TEST_CASE("comp/decomp bitcomp-small", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-small", "[hipcomp]")
 {
   using T = int;
 
@@ -182,7 +182,7 @@ TEST_CASE("comp/decomp bitcomp-small", "[nvcomp]")
   test_bitcomp(input);
 }
 
-TEST_CASE("comp/decomp bitcomp-1", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-1", "[hipcomp]")
 {
   using T = int;
 
@@ -195,7 +195,7 @@ TEST_CASE("comp/decomp bitcomp-1", "[nvcomp]")
   test_bitcomp(input);
 }
 
-TEST_CASE("comp/decomp bitcomp-all-small-sizes", "[nvcomp][small]")
+TEST_CASE("comp/decomp bitcomp-all-small-sizes", "[hipcomp][small]")
 {
   using T = uint8_t;
 
@@ -205,7 +205,7 @@ TEST_CASE("comp/decomp bitcomp-all-small-sizes", "[nvcomp][small]")
   }
 }
 
-TEST_CASE("comp/decomp bitcomp-multichunk", "[nvcomp][large]")
+TEST_CASE("comp/decomp bitcomp-multichunk", "[hipcomp][large]")
 {
   using T = int;
 
@@ -215,7 +215,7 @@ TEST_CASE("comp/decomp bitcomp-multichunk", "[nvcomp][large]")
   }
 }
 
-TEST_CASE("comp/decomp bitcomp-small-uint8", "[nvcomp][small]")
+TEST_CASE("comp/decomp bitcomp-small-uint8", "[hipcomp][small]")
 {
   using T = uint8_t;
 
@@ -225,7 +225,7 @@ TEST_CASE("comp/decomp bitcomp-small-uint8", "[nvcomp][small]")
   }
 }
 
-TEST_CASE("comp/decomp bitcomp-small-uint16", "[nvcomp][small]")
+TEST_CASE("comp/decomp bitcomp-small-uint16", "[hipcomp][small]")
 {
   using T = uint16_t;
 
@@ -235,7 +235,7 @@ TEST_CASE("comp/decomp bitcomp-small-uint16", "[nvcomp][small]")
   }
 }
 
-TEST_CASE("comp/decomp bitcomp-small-uint32", "[nvcomp][small]")
+TEST_CASE("comp/decomp bitcomp-small-uint32", "[hipcomp][small]")
 {
   using T = uint32_t;
 
@@ -245,7 +245,7 @@ TEST_CASE("comp/decomp bitcomp-small-uint32", "[nvcomp][small]")
   }
 }
 
-TEST_CASE("comp/decomp bitcomp-small-uint64", "[nvcomp][small]")
+TEST_CASE("comp/decomp bitcomp-small-uint64", "[hipcomp][small]")
 {
   using T = uint64_t;
 

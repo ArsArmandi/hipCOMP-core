@@ -30,8 +30,8 @@
 
 #include "../src/common.h"
 #include "catch.hpp"
-#include "nvcomp.hpp"
-#include "nvcomp/cascaded.hpp"
+#include "hipcomp.hpp"
+#include "hipcomp/cascaded.hpp"
 #include <cuda_runtime.h>
 
 #include <cstdint>
@@ -39,7 +39,7 @@
 #include <vector>
 
 using run_type = uint16_t;
-using nvcomp::roundUpToAlignment;
+using hipcomp::roundUpToAlignment;
 
 #define CUDA_CHECK(cond)                                                       \
   do {                                                                         \
@@ -89,7 +89,7 @@ void verify_compression_output(
   REQUIRE(
       compressed_data_host[0]
       == 2 + (1 << 8) + (0 << 16)
-             + (static_cast<uint32_t>(nvcomp::TypeOf<data_type>()) << 24));
+             + (static_cast<uint32_t>(hipcomp::TypeOf<data_type>()) << 24));
 
   // Calculate the location of the first chunk and test array offsets
   uint32_t* chunk_start_ptr = reinterpret_cast<uint32_t*>(
@@ -270,10 +270,10 @@ void test_predefined_cases(int use_bp)
 
   // Launch batched compression
 
-  nvcompBatchedCascadedOpts_t comp_opts
-      = {batch_size, nvcomp::TypeOf<data_type>(), 2, 1, use_bp};
+  hipcompBatchedCascadedOpts_t comp_opts
+      = {batch_size, hipcomp::TypeOf<data_type>(), 2, 1, use_bp};
 
-  auto status = nvcompBatchedCascadedCompressAsync(
+  auto status = hipcompBatchedCascadedCompressAsync(
       uncompressed_ptrs_device,
       uncompressed_bytes_device,
       0, // not used
@@ -285,7 +285,7 @@ void test_predefined_cases(int use_bp)
       comp_opts,
       0);
 
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(0));
 
   // Verify compressed bytes alignment
@@ -363,14 +363,14 @@ void test_predefined_cases(int use_bp)
   CUDA_CHECK(
       cudaMalloc(&decompressed_bytes_device, sizeof(size_t) * batch_size));
 
-  status = nvcompBatchedCascadedGetDecompressSizeAsync(
+  status = hipcompBatchedCascadedGetDecompressSizeAsync(
       compressed_ptrs_device,
       compressed_bytes_device,
       decompressed_bytes_device,
       batch_size,
       0);
 
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(0));
 
   verify_decompressed_sizes(
@@ -399,11 +399,11 @@ void test_predefined_cases(int use_bp)
 
   // Launch decompression
 
-  nvcompStatus_t* compression_statuses_device;
+  hipcompStatus_t* compression_statuses_device;
   CUDA_CHECK(cudaMalloc(
-      &compression_statuses_device, sizeof(nvcompStatus_t) * batch_size));
+      &compression_statuses_device, sizeof(hipcompStatus_t) * batch_size));
 
-  status = nvcompBatchedCascadedDecompressAsync(
+  status = hipcompBatchedCascadedDecompressAsync(
       compressed_ptrs_device,
       compressed_bytes_device,
       uncompressed_bytes_device,
@@ -415,18 +415,18 @@ void test_predefined_cases(int use_bp)
       compression_statuses_device,
       0);
 
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(0));
 
-  std::vector<nvcompStatus_t> compression_statuses_host(batch_size);
+  std::vector<hipcompStatus_t> compression_statuses_host(batch_size);
   CUDA_CHECK(cudaMemcpy(
       compression_statuses_host.data(),
       compression_statuses_device,
-      sizeof(nvcompStatus_t) * batch_size,
+      sizeof(hipcompStatus_t) * batch_size,
       cudaMemcpyDeviceToHost));
 
   for (auto const& compression_status : compression_statuses_host)
-    REQUIRE(compression_status == nvcompSuccess);
+    REQUIRE(compression_status == hipcompSuccess);
 
   // Verify decompression outputs match the original uncompressed data
 
@@ -551,10 +551,10 @@ void test_fallback_path()
 
   // Launch batched cascaded compression
 
-  nvcompBatchedCascadedOpts_t comp_opts
-      = {batch_size, nvcomp::TypeOf<data_type>(), 2, 1, true};
+  hipcompBatchedCascadedOpts_t comp_opts
+      = {batch_size, hipcomp::TypeOf<data_type>(), 2, 1, true};
 
-  auto status = nvcompBatchedCascadedCompressAsync(
+  auto status = hipcompBatchedCascadedCompressAsync(
       uncompressed_ptrs_device,
       uncompressed_bytes_device,
       0, // not used
@@ -566,7 +566,7 @@ void test_fallback_path()
       comp_opts,
       0);
 
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(0));
 
   // Check the metadata in the compressed buffers. It should indicate no
@@ -579,7 +579,7 @@ void test_fallback_path()
         sizeof(uint32_t),
         cudaMemcpyDeviceToHost));
     REQUIRE(
-        metadata == (static_cast<uint32_t>(nvcomp::TypeOf<data_type>()) << 24));
+        metadata == (static_cast<uint32_t>(hipcomp::TypeOf<data_type>()) << 24));
   }
 
   // Check uncompressed bytes stored in the compressed buffer
@@ -588,14 +588,14 @@ void test_fallback_path()
   CUDA_CHECK(
       cudaMalloc(&decompressed_bytes_device, sizeof(size_t) * batch_size));
 
-  status = nvcompBatchedCascadedGetDecompressSizeAsync(
+  status = hipcompBatchedCascadedGetDecompressSizeAsync(
       compressed_ptrs_device,
       compressed_bytes_device,
       decompressed_bytes_device,
       batch_size,
       0);
 
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(0));
 
   verify_decompressed_sizes(
@@ -624,11 +624,11 @@ void test_fallback_path()
 
   // Launch decompression
 
-  nvcompStatus_t* compression_statuses_device;
+  hipcompStatus_t* compression_statuses_device;
   CUDA_CHECK(cudaMalloc(
-      &compression_statuses_device, sizeof(nvcompStatus_t) * batch_size));
+      &compression_statuses_device, sizeof(hipcompStatus_t) * batch_size));
 
-  status = nvcompBatchedCascadedDecompressAsync(
+  status = hipcompBatchedCascadedDecompressAsync(
       compressed_ptrs_device,
       compressed_bytes_device,
       uncompressed_bytes_device,
@@ -640,18 +640,18 @@ void test_fallback_path()
       compression_statuses_device,
       0);
 
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(0));
 
-  std::vector<nvcompStatus_t> compression_statuses_host(batch_size);
+  std::vector<hipcompStatus_t> compression_statuses_host(batch_size);
   CUDA_CHECK(cudaMemcpy(
       compression_statuses_host.data(),
       compression_statuses_device,
-      sizeof(nvcompStatus_t) * batch_size,
+      sizeof(hipcompStatus_t) * batch_size,
       cudaMemcpyDeviceToHost));
 
   for (auto const& compression_status : compression_statuses_host)
-    REQUIRE(compression_status == nvcompSuccess);
+    REQUIRE(compression_status == hipcompSuccess);
 
   // Verify decompression outputs match the original uncompressed data
 
@@ -734,10 +734,10 @@ void test_out_of_bound(int use_bp)
   size_t* compressed_bytes_device;
   CUDA_CHECK(cudaMalloc(&compressed_bytes_device, sizeof(size_t)));
 
-  nvcompBatchedCascadedOpts_t comp_opts
-      = {batch_size, nvcomp::TypeOf<data_type>(), 2, 1, use_bp};
+  hipcompBatchedCascadedOpts_t comp_opts
+      = {batch_size, hipcomp::TypeOf<data_type>(), 2, 1, use_bp};
 
-  auto status = nvcompBatchedCascadedCompressAsync(
+  auto status = hipcompBatchedCascadedCompressAsync(
       uncompressed_ptrs_device,
       uncompressed_bytes_device,
       0, // not used
@@ -749,7 +749,7 @@ void test_out_of_bound(int use_bp)
       comp_opts,
       0);
 
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(0));
 
   size_t compressed_byte;
@@ -761,29 +761,29 @@ void test_out_of_bound(int use_bp)
 
   std::vector<size_t> test_compressed_bytes_host;
   std::vector<size_t> test_decompressed_bytes_host;
-  std::vector<nvcompStatus_t> expected_statuses;
+  std::vector<hipcompStatus_t> expected_statuses;
 
   // Case 1: the compressed buffer is truncated
 
   test_compressed_bytes_host.push_back(compressed_byte / 2);
   test_decompressed_bytes_host.push_back(uncompressed_byte);
-  expected_statuses.push_back(nvcompErrorCannotDecompress);
+  expected_statuses.push_back(hipcompErrorCannotDecompress);
 
   // Case 2: the decompressed buffer is too small
 
   test_compressed_bytes_host.push_back(compressed_byte);
   test_decompressed_bytes_host.push_back(uncompressed_byte / 2);
-  expected_statuses.push_back(nvcompErrorCannotDecompress);
+  expected_statuses.push_back(hipcompErrorCannotDecompress);
 
   test_compressed_bytes_host.push_back(compressed_byte);
   test_decompressed_bytes_host.push_back(uncompressed_byte - 1);
-  expected_statuses.push_back(nvcompErrorCannotDecompress);
+  expected_statuses.push_back(hipcompErrorCannotDecompress);
 
   // Case 3: correct decompression
 
   test_compressed_bytes_host.push_back(compressed_byte);
   test_decompressed_bytes_host.push_back(uncompressed_byte);
-  expected_statuses.push_back(nvcompSuccess);
+  expected_statuses.push_back(hipcompSuccess);
 
   const size_t num_cases = expected_statuses.size();
   std::vector<void*> test_compressed_ptrs_host;
@@ -838,11 +838,11 @@ void test_out_of_bound(int use_bp)
   CUDA_CHECK(
       cudaMalloc(&actual_decompressed_bytes, sizeof(size_t) * num_cases));
 
-  nvcompStatus_t* decompression_statuses;
+  hipcompStatus_t* decompression_statuses;
   CUDA_CHECK(
-      cudaMalloc(&decompression_statuses, sizeof(nvcompStatus_t) * num_cases));
+      cudaMalloc(&decompression_statuses, sizeof(hipcompStatus_t) * num_cases));
 
-  status = nvcompBatchedCascadedDecompressAsync(
+  status = hipcompBatchedCascadedDecompressAsync(
       test_compressed_ptrs_device,
       test_compressed_bytes_device,
       test_decompressed_bytes_device,
@@ -854,14 +854,14 @@ void test_out_of_bound(int use_bp)
       decompression_statuses,
       0);
 
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(0));
 
-  std::vector<nvcompStatus_t> decompression_statuses_host(num_cases);
+  std::vector<hipcompStatus_t> decompression_statuses_host(num_cases);
   CUDA_CHECK(cudaMemcpy(
       decompression_statuses_host.data(),
       decompression_statuses,
-      sizeof(nvcompStatus_t) * num_cases,
+      sizeof(hipcompStatus_t) * num_cases,
       cudaMemcpyDeviceToHost));
 
   for (size_t partition_idx = 0; partition_idx < num_cases; partition_idx++) {
@@ -888,7 +888,7 @@ void test_out_of_bound(int use_bp)
   CUDA_CHECK(cudaFree(decompression_statuses));
 }
 
-TEST_CASE("BatchedCascadedCompressor predefined-cases", "[nvcomp]")
+TEST_CASE("BatchedCascadedCompressor predefined-cases", "[hipcomp]")
 {
   test_predefined_cases<int8_t>(0);
   test_predefined_cases<int8_t>(1);
@@ -907,7 +907,7 @@ TEST_CASE("BatchedCascadedCompressor predefined-cases", "[nvcomp]")
   test_predefined_cases<uint64_t>(0);
   test_predefined_cases<uint64_t>(1);
 }
-TEST_CASE("BatchedCascadedCompressor fallback-path", "[nvcomp]")
+TEST_CASE("BatchedCascadedCompressor fallback-path", "[hipcomp]")
 {
   test_fallback_path<int8_t>();
   test_fallback_path<uint8_t>();
@@ -919,7 +919,7 @@ TEST_CASE("BatchedCascadedCompressor fallback-path", "[nvcomp]")
   test_fallback_path<uint64_t>();
 }
 
-TEST_CASE("BatchedCascadedCompressor invalid-decompressed-size", "[nvcomp]")
+TEST_CASE("BatchedCascadedCompressor invalid-decompressed-size", "[hipcomp]")
 {
   void* compressed_buffer;
   size_t* compressed_bytes;
@@ -943,10 +943,10 @@ TEST_CASE("BatchedCascadedCompressor invalid-decompressed-size", "[nvcomp]")
       sizeof(size_t),
       cudaMemcpyHostToDevice));
 
-  auto status = nvcompBatchedCascadedGetDecompressSizeAsync(
+  auto status = hipcompBatchedCascadedGetDecompressSizeAsync(
       &compressed_buffer, compressed_bytes, uncompressed_bytes, 1, 0);
 
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(0));
 
   CUDA_CHECK(cudaMemcpy(
@@ -961,7 +961,7 @@ TEST_CASE("BatchedCascadedCompressor invalid-decompressed-size", "[nvcomp]")
   CUDA_CHECK(cudaFree(uncompressed_bytes));
 }
 
-TEST_CASE("BatchedCascadedCompressor out-of-bound", "[nvcomp]")
+TEST_CASE("BatchedCascadedCompressor out-of-bound", "[hipcomp]")
 {
   test_out_of_bound<int8_t>(0);
   test_out_of_bound<int8_t>(1);

@@ -26,17 +26,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_BITCOMP_HPP
-#define NVCOMP_BITCOMP_HPP
+#ifndef HIPCOMP_BITCOMP_HPP
+#define HIPCOMP_BITCOMP_HPP
 
 #include <type_traits>
 
-#include "nvcomp.hpp"
-#include "nvcomp/bitcomp.h"
+#include "hipcomp.hpp"
+#include "hipcomp/bitcomp.h"
 
 #ifdef ENABLE_BITCOMP
 
-namespace nvcomp
+namespace hipcomp
 {
 
 /**
@@ -54,14 +54,14 @@ public:
    *    1 : "Sparse" algorithm, works well on sparse data (with lots of zeroes).
    *        and is usually a faster than the default algorithm.
    */
-  BitcompCompressor(nvcompType_t type, int algorithm_type);
+  BitcompCompressor(hipcompType_t type, int algorithm_type);
 
   /**
    * @brief Create a new Bitcomp compressor with the default algorithm.
    *
    * @param type The data type being compressed.
    */
-  explicit BitcompCompressor(nvcompType_t type);
+  explicit BitcompCompressor(hipcompType_t type);
 
   // disable copying
   BitcompCompressor(const BitcompCompressor&) = delete;
@@ -90,7 +90,7 @@ public:
    * the compressed data on output (GPU accessible).
    * @param stream The stream to operate on.
    *
-   * @throw NVCompException If compression fails to launch on the stream.
+   * @throw HipCompException If compression fails to launch on the stream.
    */
   void compress_async(
       const void* in_ptr,
@@ -102,7 +102,7 @@ public:
       cudaStream_t stream) override;
 
 private:
-  nvcompType_t m_type;
+  hipcompType_t m_type;
   int m_algorithm_type;
 };
 
@@ -145,7 +145,7 @@ public:
    * elements.
    * @param stream The stream to operate on.
    *
-   * @throw NVCompException If decompression fails to launch on the stream.
+   * @throw HipCompException If decompression fails to launch on the stream.
    */
   void decompress_async(
       const void* in_ptr,
@@ -166,14 +166,14 @@ private:
  *****************************************************************************/
 
 inline BitcompCompressor::BitcompCompressor(
-    const nvcompType_t type, const int algorithm_type) :
+    const hipcompType_t type, const int algorithm_type) :
     m_type(type),
     m_algorithm_type(algorithm_type)
 {
   // do nothing
 }
 
-inline BitcompCompressor::BitcompCompressor(const nvcompType_t type) :
+inline BitcompCompressor::BitcompCompressor(const hipcompType_t type) :
     BitcompCompressor(type, -1)
 {
   // do nothing
@@ -182,17 +182,17 @@ inline BitcompCompressor::BitcompCompressor(const nvcompType_t type) :
 inline void BitcompCompressor::configure(
     const size_t in_bytes, size_t* const temp_bytes, size_t* const out_bytes)
 {
-  nvcompBitcompFormatOpts opts{m_algorithm_type};
+  hipcompBitcompFormatOpts opts{m_algorithm_type};
 
   size_t metadata_bytes;
-  nvcompStatus_t status = nvcompBitcompCompressConfigure(
+  hipcompStatus_t status = hipcompBitcompCompressConfigure(
       opts.algorithm_type == -1 ? nullptr : &opts,
       m_type,
       in_bytes,
       &metadata_bytes,
       temp_bytes,
       out_bytes);
-  throwExceptionIfError(status, "nvcompBitcompCompressConfigure() failed");
+  throwExceptionIfError(status, "hipcompBitcompCompressConfigure() failed");
 }
 
 inline void BitcompCompressor::compress_async(
@@ -204,8 +204,8 @@ inline void BitcompCompressor::compress_async(
     size_t* const out_bytes,
     cudaStream_t stream)
 {
-  nvcompBitcompFormatOpts opts{m_algorithm_type};
-  nvcompStatus_t status = nvcompBitcompCompressAsync(
+  hipcompBitcompFormatOpts opts{m_algorithm_type};
+  hipcompStatus_t status = hipcompBitcompCompressAsync(
       opts.algorithm_type == -1 ? nullptr : &opts,
       m_type,
       in_ptr,
@@ -215,7 +215,7 @@ inline void BitcompCompressor::compress_async(
       out_ptr,
       out_bytes,
       stream);
-  throwExceptionIfError(status, "nvcompBitcompCompressAsync() failed");
+  throwExceptionIfError(status, "hipcompBitcompCompressAsync() failed");
 }
 
 inline BitcompDecompressor::BitcompDecompressor() :
@@ -228,7 +228,7 @@ inline BitcompDecompressor::BitcompDecompressor() :
 inline BitcompDecompressor::~BitcompDecompressor()
 {
   if (m_metadata_ptr) {
-    nvcompBitcompDestroyMetadata(m_metadata_ptr);
+    hipcompBitcompDestroyMetadata(m_metadata_ptr);
   }
 }
 
@@ -239,7 +239,7 @@ inline void BitcompDecompressor::configure(
     size_t* const out_bytes,
     cudaStream_t stream)
 {
-  nvcompStatus_t status = nvcompBitcompDecompressConfigure(
+  hipcompStatus_t status = hipcompBitcompDecompressConfigure(
       in_ptr,
       in_bytes,
       &m_metadata_ptr,
@@ -247,7 +247,7 @@ inline void BitcompDecompressor::configure(
       temp_bytes,
       out_bytes,
       stream);
-  throwExceptionIfError(status, "nvcompBitcompConfigure() failed");
+  throwExceptionIfError(status, "hipcompBitcompConfigure() failed");
 }
 
 inline void BitcompDecompressor::decompress_async(
@@ -259,7 +259,7 @@ inline void BitcompDecompressor::decompress_async(
     const size_t out_bytes,
     cudaStream_t stream)
 {
-  nvcompStatus_t status = nvcompBitcompDecompressAsync(
+  hipcompStatus_t status = hipcompBitcompDecompressAsync(
       in_ptr,
       in_bytes,
       m_metadata_ptr,
@@ -269,10 +269,10 @@ inline void BitcompDecompressor::decompress_async(
       out_ptr,
       out_bytes,
       stream);
-  throwExceptionIfError(status, "nvcompBitcompQeueryMetadataAsync() failed");
+  throwExceptionIfError(status, "hipcompBitcompQeueryMetadataAsync() failed");
 }
 
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif // ENABLE_BITCOMP
 

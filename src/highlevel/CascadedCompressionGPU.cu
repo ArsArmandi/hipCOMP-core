@@ -36,8 +36,8 @@
 #include "DeltaGPU.h"
 #include "RunLengthEncodeGPU.h"
 #include "TempSpaceBroker.h"
-#include "nvcomp.h"
-#include "nvcomp.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
 #include "type_macros.h"
 
 #include <algorithm>
@@ -50,7 +50,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -347,7 +347,7 @@ void packToOutput(
 template <typename valT, typename runT>
 void generateTypedOutputUpperBound(
     const size_t in_bytes,
-    const nvcompCascadedFormatOpts* const opts,
+    const hipcompCascadedFormatOpts* const opts,
     size_t* const out_bytes)
 {
   CascadedMetadata metadata(*opts, TypeOf<valT>(), in_bytes, 0);
@@ -363,8 +363,8 @@ void generateTypedOutputUpperBound(
   int vals_id = 0;
 
   // initialize config
-  nvcompType_t type = TypeOf<valT>();
-  nvcompIntConfig_t* config = createConfig(&metadata);
+  hipcompType_t type = TypeOf<valT>();
+  hipcompIntConfig_t* config = createConfig(&metadata);
 
   // First past - set layers assume nothing actual compresses.
   // TODO: This will be a
@@ -383,7 +383,7 @@ void generateTypedOutputUpperBound(
       const int runId = ++vals_id;
       const int valId = ++vals_id;
 
-      nvcompConfigAddRLE_BP(
+      hipcompConfigAddRLE_BP(
           config,
           inputId,
           outputSize,
@@ -398,10 +398,10 @@ void generateTypedOutputUpperBound(
       if (numRLEs - 1 - r < numDeltas) {
         const int deltaId = ++vals_id;
         if (r == 0) {
-          nvcompConfigAddDelta_BP(
+          hipcompConfigAddDelta_BP(
               config, valId, outputSize, deltaId, type, bitPacking);
         } else {
-          nvcompConfigAddDelta_BP(
+          hipcompConfigAddDelta_BP(
               config,
               deltaId,
               outputSize,
@@ -415,10 +415,10 @@ void generateTypedOutputUpperBound(
       const int deltaId = ++vals_id;
 
       if (r == 0) {
-        nvcompConfigAddDelta_BP(
+        hipcompConfigAddDelta_BP(
             config, inputId, outputSize, deltaId, type, bitPacking);
       } else {
-        nvcompConfigAddDelta_BP(
+        hipcompConfigAddDelta_BP(
             config,
             deltaId,
             outputSize,
@@ -451,14 +451,14 @@ template <typename valT, typename runT>
 void compressTypedAsync(
     const void* const in_ptr,
     const size_t in_bytes,
-    const nvcompCascadedFormatOpts* const format_opts,
+    const hipcompCascadedFormatOpts* const format_opts,
     void* const temp_ptr,
     const size_t temp_bytes,
     void* const out_ptr,
     size_t* const out_bytes,
     cudaStream_t stream)
 {
-  const nvcompType_t type = TypeOf<valT>();
+  const hipcompType_t type = TypeOf<valT>();
 
   CascadedMetadata metadata(*format_opts, type, in_bytes, 0);
 
@@ -742,10 +742,10 @@ void compressTypedAsync(
  * PUBLIC STATIC METHODS ******************************************************
  *****************************************************************************/
 
-void nvcompCascadedCompressionGPU::computeWorkspaceSize(
+void hipcompCascadedCompressionGPU::computeWorkspaceSize(
     const size_t in_bytes,
-    const nvcompType_t in_type,
-    const nvcompCascadedFormatOpts* const opts,
+    const hipcompType_t in_type,
+    const hipcompCascadedFormatOpts* const opts,
     size_t* const temp_bytes)
 {
   size_t kernelBytes = 0;
@@ -753,8 +753,8 @@ void nvcompCascadedCompressionGPU::computeWorkspaceSize(
   // get at least enough for intermediate gpu values
   size_t ioBytes = 1024;
 
-  const size_t numIn = in_bytes / sizeOfnvcompType(in_type);
-  const nvcompType_t runType = selectRunsType(numIn);
+  const size_t numIn = in_bytes / sizeOfhipcompType(in_type);
+  const hipcompType_t runType = selectRunsType(numIn);
 
   if (opts->use_bp) {
     // max of runs and values
@@ -774,7 +774,7 @@ void nvcompCascadedCompressionGPU::computeWorkspaceSize(
         kernelBytes,
         RunLengthEncodeGPU::requiredWorkspaceSize(numIn, in_type, runType));
 
-    ioBytes += (2 * in_bytes) + numIn * sizeOfnvcompType(runType);
+    ioBytes += (2 * in_bytes) + numIn * sizeOfhipcompType(runType);
   } else if (opts->num_deltas > 0) {
     ioBytes += 2 * in_bytes;
   }
@@ -782,19 +782,19 @@ void nvcompCascadedCompressionGPU::computeWorkspaceSize(
   *temp_bytes = kernelBytes + ioBytes;
 }
 
-void nvcompCascadedCompressionGPU::generateOutputUpperBound(
+void hipcompCascadedCompressionGPU::generateOutputUpperBound(
     const size_t in_bytes,
-    const nvcompType_t in_type,
-    const nvcompCascadedFormatOpts* const opts,
+    const hipcompType_t in_type,
+    const hipcompCascadedFormatOpts* const opts,
     size_t* const out_bytes)
 {
   CHECK_NOT_NULL(opts);
   CHECK_NOT_NULL(out_bytes);
 
-  const nvcompType_t countType
-      = selectRunsType(in_bytes / sizeOfnvcompType(in_type));
+  const hipcompType_t countType
+      = selectRunsType(in_bytes / sizeOfhipcompType(in_type));
 
-  NVCOMP_TYPE_TWO_SWITCH(
+  HIPCOMP_TYPE_TWO_SWITCH(
       in_type,
       countType,
       generateTypedOutputUpperBound,
@@ -803,11 +803,11 @@ void nvcompCascadedCompressionGPU::generateOutputUpperBound(
       out_bytes);
 }
 
-void nvcompCascadedCompressionGPU::compressAsync(
+void hipcompCascadedCompressionGPU::compressAsync(
     const void* const in_ptr,
     const size_t in_bytes,
-    const nvcompType_t in_type,
-    const nvcompCascadedFormatOpts* const cascadedOpts,
+    const hipcompType_t in_type,
+    const hipcompCascadedFormatOpts* const cascadedOpts,
     void* const temp_ptr,
     const size_t temp_bytes,
     void* const out_ptr,
@@ -823,10 +823,10 @@ void nvcompCascadedCompressionGPU::compressAsync(
   checkAlignmentOf(out_ptr, sizeof(size_t));
   checkAlignmentOf(temp_ptr, sizeof(size_t));
 
-  const nvcompType_t countType
-      = selectRunsType(in_bytes / sizeOfnvcompType(in_type));
+  const hipcompType_t countType
+      = selectRunsType(in_bytes / sizeOfhipcompType(in_type));
 
-  NVCOMP_TYPE_TWO_SWITCH(
+  HIPCOMP_TYPE_TWO_SWITCH(
       in_type,
       countType,
       compressTypedAsync,
@@ -841,4 +841,4 @@ void nvcompCascadedCompressionGPU::compressAsync(
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

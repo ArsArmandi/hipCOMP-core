@@ -32,7 +32,7 @@
 #include "common.h"
 
 #include "cuda_runtime.h"
-#include "nvcomp_cub.cuh"
+#include "hipcomp_cub.cuh"
 
 #include <cassert>
 #include <fstream>
@@ -52,7 +52,7 @@ using item_type = uint32_t;
 
 #define OOB_CHECKING 1 // Prevent's crashing of corrupt lz4 sequences
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace lowlevel
 {
@@ -903,7 +903,7 @@ inline __device__ void decompressStream(
     const position_type comp_end,
     const position_type buf_end,
     size_t* decompSize,
-    nvcompStatus_t* decompStatus,
+    hipcompStatus_t* decompStatus,
     bool output_decompressed)
 {
   BufferControl ctrl(buffer, compData, comp_end);
@@ -1021,7 +1021,7 @@ inline __device__ void decompressStream(
     }
     if (output_decompressed && decompStatus != nullptr) {
       decompStatus[0]
-          = corrupted_sequence ? nvcompErrorCannotDecompress : nvcompSuccess;
+          = corrupted_sequence ? hipcompErrorCannotDecompress : hipcompSuccess;
     }
   }
 }
@@ -1058,7 +1058,7 @@ __global__ void lz4DecompressBatchKernel(
     const int batch_size,
     uint8_t* const* const device_out_ptrs,
     size_t* device_uncompressed_bytes,
-    nvcompStatus_t* device_status_ptrs,
+    hipcompStatus_t* device_status_ptrs,
     bool output_decompressed)
 {
   const int bid = blockIdx.x * DECOMP_CHUNKS_PER_BLOCK + threadIdx.y;
@@ -1122,7 +1122,7 @@ void lz4BatchCompress(
     const size_t temp_bytes,
     uint8_t* const* const comp_data_device,
     size_t* const comp_sizes_device,
-    nvcompType_t data_type,
+    hipcompType_t data_type,
     cudaStream_t stream)
 {
 
@@ -1141,9 +1141,9 @@ void lz4BatchCompress(
   const dim3 block(COMP_THREADS_PER_CHUNK);
 
   switch (data_type) {
-    case NVCOMP_TYPE_BITS:
-    case NVCOMP_TYPE_CHAR:
-    case NVCOMP_TYPE_UCHAR:
+    case HIPCOMP_TYPE_BITS:
+    case HIPCOMP_TYPE_CHAR:
+    case HIPCOMP_TYPE_UCHAR:
       lz4CompressBatchKernel<uint8_t><<<grid, block, 0, stream>>>(
           decomp_data_device,
           decomp_sizes_device,
@@ -1152,8 +1152,8 @@ void lz4BatchCompress(
           static_cast<offset_type*>(temp_data),
           HT_size);
       break;
-    case NVCOMP_TYPE_SHORT:
-    case NVCOMP_TYPE_USHORT:
+    case HIPCOMP_TYPE_SHORT:
+    case HIPCOMP_TYPE_USHORT:
       lz4CompressBatchKernel<uint16_t><<<grid, block, 0, stream>>>(
           decomp_data_device,
           decomp_sizes_device,
@@ -1162,8 +1162,8 @@ void lz4BatchCompress(
           static_cast<offset_type*>(temp_data),
           HT_size);
       break;
-    case NVCOMP_TYPE_INT:
-    case NVCOMP_TYPE_UINT:
+    case HIPCOMP_TYPE_INT:
+    case HIPCOMP_TYPE_UINT:
       lz4CompressBatchKernel<uint32_t><<<grid, block, 0, stream>>>(
           decomp_data_device,
           decomp_sizes_device,
@@ -1188,7 +1188,7 @@ void lz4BatchDecompress(
     const size_t /* temp_bytes */,
     uint8_t* const* const device_out_ptrs,
     size_t* device_actual_uncompressed_bytes,
-    nvcompStatus_t* device_status_ptrs,
+    hipcompStatus_t* device_status_ptrs,
     cudaStream_t stream)
 {
   const dim3 grid(roundUpDiv(batch_size, DECOMP_CHUNKS_PER_BLOCK));
@@ -1276,4 +1276,4 @@ size_t lz4MaxChunkSize()
 }
 
 } // namespace lowlevel
-} // namespace nvcomp
+} // namespace hipcomp

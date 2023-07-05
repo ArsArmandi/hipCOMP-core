@@ -26,16 +26,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_DELTAGPU_H
-#define NVCOMP_DELTAGPU_H
+#ifndef HIPCOMP_DELTAGPU_H
+#define HIPCOMP_DELTAGPU_H
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
 #include "cuda_runtime.h"
 
 #include <cstddef>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 class DeltaGPU
@@ -57,7 +57,7 @@ public:
   static void compress(
       void* workspace,
       size_t workspaceSize,
-      nvcompType_t valueType,
+      hipcompType_t valueType,
       void** const outValuesPtr,
       const void* inValues,
       const size_t* numDevice,
@@ -72,9 +72,9 @@ public:
    *
    * @return The size in bytes of the required workspace.
    */
-  static size_t requiredWorkspaceSize(size_t num, nvcompType_t type);
+  static size_t requiredWorkspaceSize(size_t num, hipcompType_t type);
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

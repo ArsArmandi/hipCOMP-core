@@ -34,10 +34,10 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #endif
 
-// Define cub inside of the nvcomp namespace, so as to avoid any conflicts with
+// Define cub inside of the hipcomp namespace, so as to avoid any conflicts with
 // different versions of cub at link time with other libraries.
-#define CUB_NS_QUALIFIER ::nvcomp::cub
-#define CUB_NS_PREFIX namespace nvcomp {
+#define CUB_NS_QUALIFIER ::hipcomp::cub
+#define CUB_NS_PREFIX namespace hipcomp {
 #define CUB_NS_POSTFIX }
 #include <cub/cub.cuh>
 #undef CUB_NS_PREFIX
@@ -47,4 +47,3 @@
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
-

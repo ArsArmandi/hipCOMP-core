@@ -26,25 +26,24 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_GDEFLATE_KERNELS_H
-#define NVCOMP_GDEFLATE_KERNELS_H
+#ifndef HIPCOMP_GDEFLATE_KERNELS_H
+#define HIPCOMP_GDEFLATE_KERNELS_H
 
-#include "nvcomp.h"
-#include "nvcomp.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
 
 #include <cuda.h>
 
 #ifdef ENABLE_GDEFLATE
 #include "gdeflate.h"
 
-namespace nvcomp
+namespace hipcomp
 {
   void convertGdeflateOutputStatuses(
-      nvcompStatus_t *statuses,
+      hipcompStatus_t *statuses,
       size_t batch_size,
       cudaStream_t stream);
 }
 
 #endif // ENABLE_GDEFLATE
-#endif // NVCOMP_GDEFLATE_KERNELS_H
-
+#endif // HIPCOMP_GDEFLATE_KERNELS_H

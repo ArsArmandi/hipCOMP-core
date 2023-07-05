@@ -28,10 +28,10 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "nvcomp.h"
-#include "nvcomp.hpp"
-#include "nvcomp/cascaded.h"
-#include "nvcomp/cascaded.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
+#include "hipcomp/cascaded.h"
+#include "hipcomp/cascaded.hpp"
 
 #include "../../tests/catch.hpp"
 #include "../CascadedCompressionGPU.h"
@@ -66,7 +66,7 @@
   }
 #endif
 
-using namespace nvcomp;
+using namespace hipcomp;
 using namespace std;
 
 /******************************************************************************
@@ -85,7 +85,7 @@ TEST_CASE("Selector_CPP_constructor_getSize", "[small]")
   CUDA_RT_CALL(cudaMalloc(&d_input, numBytes));
 
   bool threw_exception = false;
-  nvcompCascadedSelectorOpts selector_opts;
+  hipcompCascadedSelectorOpts selector_opts;
   selector_opts.sample_size = 1024;
   selector_opts.num_samples = 10;
   selector_opts.seed = 1;
@@ -112,29 +112,29 @@ TEST_CASE("SelectorGetTempSize_C", "[small]")
 
   size_t temp_bytes = 0;
 
-  nvcompCascadedSelectorOpts selector_opts;
+  hipcompCascadedSelectorOpts selector_opts;
   selector_opts.sample_size = 1024;
   selector_opts.num_samples = 10;
   selector_opts.seed = 1;
 
-  nvcompStatus_t err = nvcompCascadedSelectorConfigure(
+  hipcompStatus_t err = hipcompCascadedSelectorConfigure(
       &selector_opts, TypeOf<T>(), numBytes, &temp_bytes);
-  REQUIRE(err == nvcompSuccess);
+  REQUIRE(err == hipcompSuccess);
   REQUIRE(temp_bytes == 120);
 
   selector_opts.num_samples = 100;
 
-  err = nvcompCascadedSelectorConfigure(
+  err = hipcompCascadedSelectorConfigure(
       &selector_opts, TypeOf<T>(), numBytes, &temp_bytes);
-  REQUIRE(err == nvcompSuccess);
+  REQUIRE(err == hipcompSuccess);
   REQUIRE(temp_bytes == 840);
 
   selector_opts.sample_size = 1;
   selector_opts.num_samples = 1000;
 
-  err = nvcompCascadedSelectorConfigure(
+  err = hipcompCascadedSelectorConfigure(
       &selector_opts, TypeOf<T>(), numBytes, &temp_bytes);
-  REQUIRE(err == nvcompSuccess);
+  REQUIRE(err == hipcompSuccess);
   REQUIRE(temp_bytes == 8040);
 
   cudaFree(d_input);
@@ -164,11 +164,11 @@ TEST_CASE("SelectorSelectConfig_C", "[small]")
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
   double est_ratio;
   bool threw_exception = false;
 
-  nvcompCascadedSelectorOpts selector_opts;
+  hipcompCascadedSelectorOpts selector_opts;
   selector_opts.sample_size = 1024;
   selector_opts.num_samples = 1000;
   selector_opts.seed = 1;
@@ -176,7 +176,7 @@ TEST_CASE("SelectorSelectConfig_C", "[small]")
   // Should throw exception if not enough temp workspace
 
   try {
-    nvcompStatus_t err = nvcompCascadedSelectorRun(
+    hipcompStatus_t err = hipcompCascadedSelectorRun(
         &selector_opts,
         TypeOf<T>(),
         d_input,
@@ -195,7 +195,7 @@ TEST_CASE("SelectorSelectConfig_C", "[small]")
 
   selector_opts.num_samples = 100;
   // Should run and get a good compression ratio estimate.
-  nvcompStatus_t err = nvcompCascadedSelectorRun(
+  hipcompStatus_t err = hipcompCascadedSelectorRun(
       &selector_opts,
       TypeOf<T>(),
       d_input,

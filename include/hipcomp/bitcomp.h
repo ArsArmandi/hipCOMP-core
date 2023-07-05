@@ -26,10 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_BITCOMP_H
-#define NVCOMP_BITCOMP_H
+#ifndef HIPCOMP_BITCOMP_H
+#define HIPCOMP_BITCOMP_H
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
 #include <cuda_runtime.h>
 #include <stdint.h>
@@ -53,9 +53,9 @@ typedef struct
    *        and is usually a faster than the default algorithm.
    */
   int algorithm_type;
-} nvcompBitcompFormatOpts;
+} hipcompBitcompFormatOpts;
 
-static const nvcompBitcompFormatOpts nvcompBitcompDefaultOpts = {0};
+static const hipcompBitcompFormatOpts hipcompBitcompDefaultOpts = {0};
 
 /**
  * @brief Get the temporary workspace size required to perform compression.
@@ -69,11 +69,11 @@ static const nvcompBitcompFormatOpts nvcompBitcompDefaultOpts = {0};
  * @param max_compressed_bytes The maximum size of the compressed data
  * (output).
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBitcompCompressConfigure(
-    const nvcompBitcompFormatOpts* opts,
-    nvcompType_t in_type,
+hipcompStatus_t hipcompBitcompCompressConfigure(
+    const hipcompBitcompFormatOpts* opts,
+    hipcompType_t in_type,
     size_t in_bytes,
     size_t* metadata_bytes,
     size_t* temp_bytes,
@@ -95,11 +95,11 @@ nvcompStatus_t nvcompBitcompCompressConfigure(
  * be GPU accessible.
  * @param stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBitcompCompressAsync(
-    const nvcompBitcompFormatOpts* format_opts,
-    nvcompType_t in_type,
+hipcompStatus_t hipcompBitcompCompressAsync(
+    const hipcompBitcompFormatOpts* format_opts,
+    hipcompType_t in_type,
     const void* uncompressed_ptr,
     size_t uncompressed_bytes,
     void* temp_ptr,
@@ -122,9 +122,9 @@ nvcompStatus_t nvcompBitcompCompressAsync(
  * @param uncompressed_bytes The size the data will decompress to (output).
  * @param stream The stream to use for copying from the device to the host.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBitcompDecompressConfigure(
+hipcompStatus_t hipcompBitcompDecompressConfigure(
     const void* compressed_ptr,
     size_t compressed_bytes,
     void** metadata_ptr,
@@ -138,7 +138,7 @@ nvcompStatus_t nvcompBitcompDecompressConfigure(
  *
  * @param metadata_ptr The pointer to destroy.
  */
-void nvcompBitcompDestroyMetadata(void* metadata_ptr);
+void hipcompBitcompDestroyMetadata(void* metadata_ptr);
 
 /**
  * @brief Perform the asynchronous decompression.
@@ -154,9 +154,9 @@ void nvcompBitcompDestroyMetadata(void* metadata_ptr);
  * @param uncompressed_bytes The size of the output location.
  * @param stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBitcompDecompressAsync(
+hipcompStatus_t hipcompBitcompDecompressAsync(
     const void* compressed_ptr,
     size_t compressed_bytes,
     void* metadata_ptr,
@@ -175,7 +175,7 @@ nvcompStatus_t nvcompBitcompDecompressAsync(
  *
  * @return 1 if the data was compressed with bitcomp, 0 otherwise
  */
-int nvcompIsBitcompData(const void* const in_ptr, size_t in_bytes);
+int hipcompIsBitcompData(const void* const in_ptr, size_t in_bytes);
 
 /******************************************************************************
  * Batched compression/decompression interface
@@ -192,37 +192,37 @@ typedef struct
    *    0 : Default algorithm, usually gives the best compression ratios
    *    1 : "Sparse" algorithm, works well on sparse data (with lots of zeroes).
    *        and is usually a faster than the default algorithm.
-   *  data_type is one of nvcomp's possible data types
+   *  data_type is one of hipcomp's possible data types
    */
   int algorithm_type;
-  nvcompType_t data_type;
-} nvcompBatchedBitcompFormatOpts;
+  hipcompType_t data_type;
+} hipcompBatchedBitcompFormatOpts;
 
-static const nvcompBatchedBitcompFormatOpts nvcompBatchedBitcompDefaultOpts
-    = {0, NVCOMP_TYPE_UCHAR};
+static const hipcompBatchedBitcompFormatOpts hipcompBatchedBitcompDefaultOpts
+    = {0, HIPCOMP_TYPE_UCHAR};
 
 /**
  * @brief Get the maximum size any chunk could compress to in the batch. That
  * is, the minimum amount of output memory required to be given
- * nvcompBatchedSnappyCompressAsync() for each batch item.
+ * hipcompBatchedSnappyCompressAsync() for each batch item.
  *
  * @param max_chunk_size The maximum size of a chunk in the batch.
  * @param format_ops Snappy compression options.
  * @param max_compressed_size The maximum compressed size of the largest chunk
  * (output).
  *
- * @return The nvcompSuccess unless there is an error.
+ * @return The hipcompSuccess unless there is an error.
  */
-nvcompStatus_t nvcompBatchedBitcompCompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedBitcompCompressGetMaxOutputChunkSize(
     size_t max_chunk_size,
-    nvcompBatchedBitcompFormatOpts format_opts,
+    hipcompBatchedBitcompFormatOpts format_opts,
     size_t* max_compressed_size);
 /**
  * @brief Perform batched asynchronous compression.
  *
  * NOTE: The maximum number of batch partitions is 2^31.
  * 
- * NOTE: Unlike `nvcompBitcompCompressAsync`, a valid compression format must
+ * NOTE: Unlike `hipcompBitcompCompressAsync`, a valid compression format must
  * be supplied to `format_opts`.
  *
  * @param[in] device_uncompressed_ptrs Array with size \p batch_size of pointers
@@ -246,9 +246,9 @@ nvcompStatus_t nvcompBatchedBitcompCompressGetMaxOutputChunkSize(
  * @param[in] type The data type of the uncompressed data.
  * @param[in] stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedBitcompCompressAsync(
+hipcompStatus_t hipcompBatchedBitcompCompressAsync(
     const void* const* device_uncompressed_ptrs,
     const size_t* device_uncompressed_bytes,
     size_t max_uncompressed_chunk_bytes, // not used
@@ -257,15 +257,15 @@ nvcompStatus_t nvcompBatchedBitcompCompressAsync(
     size_t temp_bytes,     // not used
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
-    const nvcompBatchedBitcompFormatOpts format_opts,
+    const hipcompBatchedBitcompFormatOpts format_opts,
     cudaStream_t stream);
 
 /**
  * @brief Perform batched asynchronous decompression.
  *
  * NOTE: This function is used to decompress compressed buffers produced by
- * `nvcompBatchedBitcompCompressAsync`. It can also decompress buffers
- * compressed with `nvcompBitcompCompressAsync` or the standalone Bitcomp library.
+ * `hipcompBatchedBitcompCompressAsync`. It can also decompress buffers
+ * compressed with `hipcompBitcompCompressAsync` or the standalone Bitcomp library.
  * 
  * NOTE: The function is not completely asynchronous, as it needs to look
  * at the compressed data in order to create the proper bitcomp handle.
@@ -281,7 +281,7 @@ nvcompStatus_t nvcompBatchedBitcompCompressAsync(
  * buffers in bytes. The sizes should reside in device-accessible memory. If the
  * size is not large enough to hold all decompressed elements, the decompressor
  * will set the status specified in \p device_statuses corresponding to the
- * overflow partition to `nvcompErrorCannotDecompress`.
+ * overflow partition to `hipcompErrorCannotDecompress`.
  * @param[out] device_actual_uncompressed_bytes Array with size \p batch_size of
  * the actual number of bytes decompressed for every partitions. This argument
  * needs to be preallocated.
@@ -292,12 +292,12 @@ nvcompStatus_t nvcompBatchedBitcompCompressAsync(
  * @param[out] device_statuses Array with size \p batch_size of statuses in
  * device-accessible memory. This argument needs to be preallocated. For each
  * partition, if the decompression is successful, the status will be set to
- * `nvcompSuccess`. If the decompression is not successful, for example due to
+ * `hipcompSuccess`. If the decompression is not successful, for example due to
  * the corrupted input or out-of-bound errors, the status will be set to
- * `nvcompErrorCannotDecompress`.
+ * `hipcompErrorCannotDecompress`.
  * @param[in] stream The cuda stream to operate on.
  */
-nvcompStatus_t nvcompBatchedBitcompDecompressAsync(
+hipcompStatus_t hipcompBatchedBitcompDecompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes, // not used
     const size_t* device_uncompressed_bytes,
@@ -306,7 +306,7 @@ nvcompStatus_t nvcompBatchedBitcompDecompressAsync(
     void* const device_temp_ptr, // not used
     size_t temp_bytes,           // not used
     void* const* device_uncompressed_ptrs,
-    nvcompStatus_t* device_statuses,
+    hipcompStatus_t* device_statuses,
     cudaStream_t stream);
 
 /**
@@ -323,7 +323,7 @@ nvcompStatus_t nvcompBatchedBitcompDecompressAsync(
  * @param[in] batch_size Number of partitions to check sizes.
  * @param[in] stream The cuda stream to operate on.
  */
-nvcompStatus_t nvcompBatchedBitcompGetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedBitcompGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
@@ -339,10 +339,10 @@ nvcompStatus_t nvcompBatchedBitcompGetDecompressSizeAsync(
  * @param[in] format_opts Bitcomp options
  * @param[out] temp_bytes The temp size
  */
-nvcompStatus_t nvcompBatchedBitcompCompressGetTempSize(
+hipcompStatus_t hipcompBatchedBitcompCompressGetTempSize(
     size_t batch_size,
     size_t max_chunk_bytes,
-    nvcompBatchedBitcompFormatOpts format_opts,
+    hipcompBatchedBitcompFormatOpts format_opts,
     size_t * temp_bytes);
 
 /**
@@ -354,7 +354,7 @@ nvcompStatus_t nvcompBatchedBitcompCompressGetTempSize(
  * @param[in] format_opts Bitcomp options
  * @param[out] temp_bytes The temp size
  */
-nvcompStatus_t nvcompBatchedBitcompDecompressGetTempSize(
+hipcompStatus_t hipcompBatchedBitcompDecompressGetTempSize(
     size_t batch_size,
     size_t max_chunk_bytes,
     size_t * temp_bytes);

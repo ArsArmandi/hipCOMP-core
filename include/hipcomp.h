@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_H
-#define NVCOMP_H
+#ifndef HIPCOMP_H
+#define HIPCOMP_H
 
 #include <cuda_runtime.h>
 
@@ -39,33 +39,33 @@ extern "C" {
  * CONSTANTS ******************************************************************
  *****************************************************************************/
 
-#define NVCOMP_MAJOR_VERSION 2
-#define NVCOMP_MINOR_VERSION 1
-#define NVCOMP_PATCH_VERSION 0
+#define HIPCOMP_MAJOR_VERSION 2
+#define HIPCOMP_MINOR_VERSION 1
+#define HIPCOMP_PATCH_VERSION 0
 
-typedef enum nvcompStatus_t
+typedef enum hipcompStatus_t
 {
-  nvcompSuccess = 0,
-  nvcompErrorInvalidValue = 10,
-  nvcompErrorNotSupported = 11,
-  nvcompErrorCannotDecompress = 12,
-  nvcompErrorCudaError = 1000,
-  nvcompErrorInternal = 10000,
-} nvcompStatus_t;
+  hipcompSuccess = 0,
+  hipcompErrorInvalidValue = 10,
+  hipcompErrorNotSupported = 11,
+  hipcompErrorCannotDecompress = 12,
+  hipcompErrorCudaError = 1000,
+  hipcompErrorInternal = 10000,
+} hipcompStatus_t;
 
 /* Supported datatypes */
-typedef enum nvcompType_t
+typedef enum hipcompType_t
 {
-  NVCOMP_TYPE_CHAR = 0,      // 1B
-  NVCOMP_TYPE_UCHAR = 1,     // 1B
-  NVCOMP_TYPE_SHORT = 2,     // 2B
-  NVCOMP_TYPE_USHORT = 3,    // 2B
-  NVCOMP_TYPE_INT = 4,       // 4B
-  NVCOMP_TYPE_UINT = 5,      // 4B
-  NVCOMP_TYPE_LONGLONG = 6,  // 8B
-  NVCOMP_TYPE_ULONGLONG = 7, // 8B
-  NVCOMP_TYPE_BITS = 0xff    // 1b
-} nvcompType_t;
+  HIPCOMP_TYPE_CHAR = 0,      // 1B
+  HIPCOMP_TYPE_UCHAR = 1,     // 1B
+  HIPCOMP_TYPE_SHORT = 2,     // 2B
+  HIPCOMP_TYPE_USHORT = 3,    // 2B
+  HIPCOMP_TYPE_INT = 4,       // 4B
+  HIPCOMP_TYPE_UINT = 5,      // 4B
+  HIPCOMP_TYPE_LONGLONG = 6,  // 8B
+  HIPCOMP_TYPE_ULONGLONG = 7, // 8B
+  HIPCOMP_TYPE_BITS = 0xff    // 1b
+} hipcompType_t;
 
 /******************************************************************************
  * FUNCTION PROTOTYPES ********************************************************
@@ -73,8 +73,8 @@ typedef enum nvcompType_t
 
 /**
  * NOTE: These interfaces will be removed in future releases, please switch to
- * the compression schemes specific interfaces in nvcomp/cascaded.h,
- * nvcomp/lz4.h, nvcomp/snappy, nvcomp/bitcomp.h, and nvcomp/gdeflate.h.
+ * the compression schemes specific interfaces in hipcomp/cascaded.h,
+ * hipcomp/lz4.h, hipcomp/snappy, hipcomp/bitcomp.h, and hipcomp/gdeflate.h.
  */
 
 /**
@@ -89,9 +89,9 @@ typedef enum nvcompType_t
  * data.
  * @param stream The stream to use for reading memory from the device.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompDecompressGetMetadata(
+hipcompStatus_t hipcompDecompressGetMetadata(
     const void* in_ptr,
     size_t in_bytes,
     void** metadata_ptr,
@@ -104,7 +104,7 @@ nvcompStatus_t nvcompDecompressGetMetadata(
  *
  * @param metadata_ptr The pointer to destroy.
  */
-void nvcompDecompressDestroyMetadata(void* metadata_ptr);
+void hipcompDecompressDestroyMetadata(void* metadata_ptr);
 
 /**
  * DEPRECATED: Will be removed in future releases.
@@ -116,10 +116,10 @@ void nvcompDecompressDestroyMetadata(void* metadata_ptr);
  * @param temp_bytes The size of the required temporary workspace in bytes
  * (output).
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t
-nvcompDecompressGetTempSize(const void* metadata_ptr, size_t* temp_bytes);
+hipcompStatus_t
+hipcompDecompressGetTempSize(const void* metadata_ptr, size_t* temp_bytes);
 
 /**
  * DEPRECATED: Will be removed in future releases.
@@ -129,10 +129,10 @@ nvcompDecompressGetTempSize(const void* metadata_ptr, size_t* temp_bytes);
  * @para metadata_ptr The metadata.
  * @param output_bytes The size of the uncompressed data (output).
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t
-nvcompDecompressGetOutputSize(const void* metadata_ptr, size_t* output_bytes);
+hipcompStatus_t
+hipcompDecompressGetOutputSize(const void* metadata_ptr, size_t* output_bytes);
 
 /**
  * DEPRECATED: Will be removed in future releases.
@@ -142,10 +142,10 @@ nvcompDecompressGetOutputSize(const void* metadata_ptr, size_t* output_bytes);
  * @param metadata_ptr The metadata.
  * @param type The data type (output).
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t
-nvcompDecompressGetType(const void* metadata_ptr, nvcompType_t* type);
+hipcompStatus_t
+hipcompDecompressGetType(const void* metadata_ptr, hipcompType_t* type);
 
 /**
  * DEPRECATED: Will be removed in future releases.
@@ -161,9 +161,9 @@ nvcompDecompressGetType(const void* metadata_ptr, nvcompType_t* type);
  * @param out_bytes The size of the output location.
  * @param stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompDecompressAsync(
+hipcompStatus_t hipcompDecompressAsync(
     const void* in_ptr,
     size_t in_bytes,
     void* temp_ptr,

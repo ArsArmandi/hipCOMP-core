@@ -39,7 +39,7 @@
 #include <memory>
 #include <algorithm>
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -61,8 +61,8 @@ constexpr const size_t NULL_OFFSET = static_cast<size_t>(-1);
  *****************************************************************************/
 
 CascadedMetadata::CascadedMetadata(
-    const nvcompCascadedFormatOpts opts,
-    const nvcompType_t type,
+    const hipcompCascadedFormatOpts opts,
+    const hipcompType_t type,
     const size_t uncompressedBytes,
     const size_t compressedBytes) :
     Metadata(type, uncompressedBytes, compressedBytes, COMPRESSION_ID),
@@ -86,8 +86,8 @@ CascadedMetadata::CascadedMetadata(
  *****************************************************************************/
 
 void CascadedMetadata::set_all(
-    const nvcompCascadedFormatOpts opts,
-    const nvcompType_t type,
+    const hipcompCascadedFormatOpts opts,
+    const hipcompType_t type,
     const size_t uncompressedBytes,
     const size_t compressedBytes)
 {
@@ -219,7 +219,7 @@ bool CascadedMetadata::isSaved(const size_t index) const
   return m_isSaved[index];
 }
 
-nvcompType_t CascadedMetadata::getDataType(size_t index) const
+hipcompType_t CascadedMetadata::getDataType(size_t index) const
 {
   if (index >= getNumInputs()) {
     throw std::runtime_error(
@@ -269,7 +269,7 @@ void CascadedMetadata::initialize()
       // save runs output `runId`
       m_isSaved[runId] = true;
       if (bitPacking) {
-        m_dataType[runId] = NVCOMP_TYPE_BITS;
+        m_dataType[runId] = HIPCOMP_TYPE_BITS;
       } else {
         m_dataType[runId] = selectRunsType(getNumUncompressedElements());
       }
@@ -282,7 +282,7 @@ void CascadedMetadata::initialize()
       // save last layer `nextValId`
       m_isSaved[nextValId] = true;
       if (bitPacking) {
-        m_dataType[nextValId] = NVCOMP_TYPE_BITS;
+        m_dataType[nextValId] = HIPCOMP_TYPE_BITS;
       } else {
         m_dataType[nextValId] = getValueType();
       }
@@ -295,9 +295,9 @@ void CascadedMetadata::initialize()
 
     // bit pack `nextValId`
     m_isSaved[nextValId] = true;
-    m_dataType[nextValId] = NVCOMP_TYPE_BITS;
+    m_dataType[nextValId] = HIPCOMP_TYPE_BITS;
   }
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

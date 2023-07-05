@@ -28,8 +28,8 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "nvcomp.hpp"
-#include "nvcomp/bitcomp.hpp"
+#include "hipcomp.hpp"
+#include "hipcomp/bitcomp.hpp"
 
 #include "catch.hpp"
 
@@ -42,7 +42,7 @@
 #ifdef ENABLE_BITCOMP
 
 using namespace std;
-using namespace nvcomp;
+using namespace hipcomp;
 
 #define CUDA_CHECK(cond)                                                       \
   do {                                                                         \
@@ -198,7 +198,7 @@ void test_bitcomp_batch(
   CUDA_CHECK(cudaMalloc(&d_input_data, input_bytes));
   CUDA_CHECK(cudaMemcpy(d_input_data, input.data(), input_bytes, cudaMemcpyDefault));
 
-  nvcompBatchedBitcompFormatOpts bitcomp_opts;
+  hipcompBatchedBitcompFormatOpts bitcomp_opts;
   bitcomp_opts.algorithm_type = 0; // Using default algorithm
   bitcomp_opts.data_type = TypeOf<T>();
 
@@ -207,7 +207,7 @@ void test_bitcomp_batch(
   std::vector<size_t> batch_max_sizes(batches);
   for (size_t i = 0; i < batches; i++) {
     size_t maxi;
-    nvcompBatchedBitcompCompressGetMaxOutputChunkSize(
+    hipcompBatchedBitcompCompressGetMaxOutputChunkSize(
         offsets[i].size, bitcomp_opts, &maxi);
     batch_max_sizes[i] = maxi;
     total_output_size += maxi;
@@ -237,8 +237,8 @@ void test_bitcomp_batch(
   CUDA_CHECK(cudaMalloc((void**)&d_input_sizes, batchsize_bytes));
   CUDA_CHECK(cudaMalloc((void**)&d_comp_sizes, batchsize_bytes));
   CUDA_CHECK(cudaMalloc((void**)&d_decomp_sizes, batchsize_bytes));
-  nvcompStatus_t* d_decomp_statuses;
-  CUDA_CHECK(cudaMalloc((void**)&d_decomp_statuses, batches * sizeof(nvcompStatus_t)));
+  hipcompStatus_t* d_decomp_statuses;
+  CUDA_CHECK(cudaMalloc((void**)&d_decomp_statuses, batches * sizeof(hipcompStatus_t)));
   CUDA_CHECK(cudaMemcpy(d_input_ptrs, input_ptrs.data(), pointer_bytes, cudaMemcpyDefault));
   CUDA_CHECK(cudaMemcpy(d_comp_ptrs, comp_ptrs.data(), pointer_bytes, cudaMemcpyDefault));
   CUDA_CHECK(cudaMemcpy(d_input_sizes, input_sizes.data(), batchsize_bytes, cudaMemcpyDefault));
@@ -248,7 +248,7 @@ void test_bitcomp_batch(
   cudaStreamCreate(&stream);
 
   // Compress async
-  nvcompBatchedBitcompCompressAsync(
+  hipcompBatchedBitcompCompressAsync(
       d_input_ptrs,
       d_input_sizes,
       0,       // max_uncompressed_chunk_bytes: not used
@@ -261,7 +261,7 @@ void test_bitcomp_batch(
       stream);
 
   // Query the uncompressed sizes, make sure it matches the input sizes
-  nvcompBatchedBitcompGetDecompressSizeAsync (d_comp_ptrs, d_comp_sizes, d_decomp_sizes, batches, stream);
+  hipcompBatchedBitcompGetDecompressSizeAsync (d_comp_ptrs, d_comp_sizes, d_decomp_sizes, batches, stream);
   CUDA_CHECK (cudaStreamSynchronize (stream));
   CUDA_CHECK(cudaMemcpy(decomp_sizes.data(), d_decomp_sizes, batchsize_bytes, cudaMemcpyDefault));
   REQUIRE (decomp_sizes == input_sizes);
@@ -271,7 +271,7 @@ void test_bitcomp_batch(
   cudaMemsetAsync(d_decomp_sizes, 0xee, batchsize_bytes, stream);
 
   // Decompress async, back into input
-  nvcompBatchedBitcompDecompressAsync(
+  hipcompBatchedBitcompDecompressAsync(
       d_comp_ptrs,
       nullptr, // device_compressed_bytes: not used
       d_input_sizes,
@@ -291,11 +291,11 @@ void test_bitcomp_batch(
   REQUIRE (res == input);
   CUDA_CHECK(cudaMemcpy(decomp_sizes.data(), d_decomp_sizes, batchsize_bytes, cudaMemcpyDefault));
   REQUIRE (decomp_sizes == input_sizes);
-  std::vector<nvcompStatus_t> decomp_statuses(batches);
+  std::vector<hipcompStatus_t> decomp_statuses(batches);
   CUDA_CHECK(cudaMemcpy(decomp_statuses.data(), d_decomp_statuses,
-                        batches * sizeof(nvcompStatus_t), cudaMemcpyDefault));
+                        batches * sizeof(hipcompStatus_t), cudaMemcpyDefault));
 
-  REQUIRE (decomp_statuses == std::vector<nvcompStatus_t>(batches, nvcompSuccess));
+  REQUIRE (decomp_statuses == std::vector<hipcompStatus_t>(batches, hipcompSuccess));
 
   CUDA_CHECK(cudaFree(d_input_data));
   CUDA_CHECK(cudaFree(d_comp_data));
@@ -345,52 +345,52 @@ void test_bitcomp_batch (size_t n)
 #define SMALL 1000
 #define LARGE 20000000
 
-TEST_CASE("comp/decomp bitcomp-batch-runs small", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-batch-runs small", "[hipcomp]")
 {
     test_bitcomp_batch<RUNS> (SMALL);
 }
 
-TEST_CASE("comp/decomp bitcomp-batch-runs large", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-batch-runs large", "[hipcomp]")
 {
     test_bitcomp_batch<RUNS> (LARGE);
 }
 
-TEST_CASE("comp/decomp bitcomp-batch-zeroes small", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-batch-zeroes small", "[hipcomp]")
 {
     test_bitcomp_batch<CST_Z> (SMALL);
 }
 
-TEST_CASE("comp/decomp bitcomp-batch-zeroes large", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-batch-zeroes large", "[hipcomp]")
 {
     test_bitcomp_batch<CST_Z> (LARGE);
 }
 
-TEST_CASE("comp/decomp bitcomp-batch-ff small", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-batch-ff small", "[hipcomp]")
 {
     test_bitcomp_batch<CST_FF> (SMALL);
 }
 
-TEST_CASE("comp/decomp bitcomp-batch-ff large", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-batch-ff large", "[hipcomp]")
 {
     test_bitcomp_batch<CST_FF> (LARGE);
 }
 
-TEST_CASE("comp/decomp bitcomp-batch-inc small", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-batch-inc small", "[hipcomp]")
 {
     test_bitcomp_batch<INC> (SMALL);
 }
 
-TEST_CASE("comp/decomp bitcomp-batch-inc large", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-batch-inc large", "[hipcomp]")
 {
     test_bitcomp_batch<INC> (LARGE);
 }
 
-TEST_CASE("comp/decomp bitcomp-batch-random small", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-batch-random small", "[hipcomp]")
 {
     test_bitcomp_batch<RANDOM> (SMALL);
 }
 
-TEST_CASE("comp/decomp bitcomp-batch-random large", "[nvcomp]")
+TEST_CASE("comp/decomp bitcomp-batch-random large", "[hipcomp]")
 {
     test_bitcomp_batch<RANDOM> (LARGE);
 }

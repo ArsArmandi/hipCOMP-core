@@ -29,10 +29,10 @@
 #ifndef CASCADEDSELECTORKERNEL_HPP
 #define CASCADEDSELECTORKERNEL_HPP
 
-#include "nvcomp.hpp"
-#include "nvcomp/cascaded.hpp"
+#include "hipcomp.hpp"
+#include "hipcomp/cascaded.hpp"
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -58,7 +58,7 @@ void SamplingFastOption(
     size_t* const sample_offsets,
     const size_t sample_bytes,
     const size_t num_samples,
-    const nvcompType_t in_type,
+    const hipcompType_t in_type,
     void* const workspace,
     const size_t workspaceSize,
     size_t* outsize,
@@ -66,6 +66,6 @@ void SamplingFastOption(
     cudaStream_t stream);
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

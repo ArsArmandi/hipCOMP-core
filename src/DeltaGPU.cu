@@ -35,7 +35,7 @@
 #include <cassert>
 #include <limits>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 /******************************************************************************
@@ -133,21 +133,21 @@ void deltaLaunch(
 void DeltaGPU::compress(
     void* const /* workspace */,
     const size_t /* workspaceSize*/,
-    const nvcompType_t inType,
+    const hipcompType_t inType,
     void** const outPtr,
     const void* const in,
     const size_t* const numDevice,
     const size_t maxNum,
     cudaStream_t stream)
 {
-  NVCOMP_TYPE_ONE_SWITCH(
+  HIPCOMP_TYPE_ONE_SWITCH(
       inType, deltaLaunch, outPtr, in, numDevice, maxNum, stream);
 }
 
 size_t DeltaGPU::requiredWorkspaceSize(
-    const size_t /*num*/, const nvcompType_t /* type */)
+    const size_t /*num*/, const hipcompType_t /* type */)
 {
   return 0;
 }
 
-} // namespace nvcomp
+} // namespace hipcomp

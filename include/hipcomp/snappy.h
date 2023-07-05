@@ -26,10 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_SNAPPY_H
-#define NVCOMP_SNAPPY_H
+#ifndef HIPCOMP_SNAPPY_H
+#define HIPCOMP_SNAPPY_H
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
 #include <cuda_runtime.h>
 #include <stdint.h>
@@ -41,9 +41,9 @@ extern "C" {
 typedef struct
 {
   int reserved;
-} nvcompBatchedSnappyOpts_t;
+} hipcompBatchedSnappyOpts_t;
 
-static const nvcompBatchedSnappyOpts_t nvcompBatchedSnappyDefaultOpts = {0};
+static const hipcompBatchedSnappyOpts_t hipcompBatchedSnappyDefaultOpts = {0};
 
 /**
  * @brief Get the amount of temp space required on the GPU for decompression.
@@ -53,9 +53,9 @@ static const nvcompBatchedSnappyOpts_t nvcompBatchedSnappyDefaultOpts = {0};
  * @param temp_bytes The amount of temporary GPU space that will be required to
  * decompress.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedSnappyDecompressGetTempSize(
+hipcompStatus_t hipcompBatchedSnappyDecompressGetTempSize(
     size_t num_chunks, size_t max_uncompressed_chunk_size, size_t* temp_bytes);
 
 /**
@@ -67,9 +67,9 @@ nvcompStatus_t nvcompBatchedSnappyDecompressGetTempSize(
  * @param batch_size The number of chunks in the batch.
  * @param stream The CUDA stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedSnappyGetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedSnappyGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
@@ -92,9 +92,9 @@ nvcompStatus_t nvcompBatchedSnappyGetDecompressSizeAsync(
  * Can be nullptr if desired, in which case error status is not reported.
  * @param stream The CUDA stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedSnappyDecompressAsync(
+hipcompStatus_t hipcompBatchedSnappyDecompressAsync(
     const void* const* device_compresed_ptrs,
     const size_t* device_compressed_bytes,
     const size_t* device_uncompressed_bytes,
@@ -103,7 +103,7 @@ nvcompStatus_t nvcompBatchedSnappyDecompressAsync(
     void* const device_temp_ptr,
     const size_t temp_bytes,
     void* const* device_uncompressed_ptr,
-    nvcompStatus_t* device_statuses,
+    hipcompStatus_t* device_statuses,
     cudaStream_t stream);
 
 /**
@@ -115,29 +115,29 @@ nvcompStatus_t nvcompBatchedSnappyDecompressAsync(
  * @param temp_bytes The size of the required GPU workspace for compression
  * (output).
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedSnappyCompressGetTempSize(
+hipcompStatus_t hipcompBatchedSnappyCompressGetTempSize(
     size_t batch_size,
     size_t max_chunk_size,
-    nvcompBatchedSnappyOpts_t format_ops,
+    hipcompBatchedSnappyOpts_t format_ops,
     size_t* temp_bytes);
 
 /**
  * @brief Get the maximum size any chunk could compress to in the batch. That
  * is, the minimum amount of output memory required to be given
- * nvcompBatchedSnappyCompressAsync() for each batch item.
+ * hipcompBatchedSnappyCompressAsync() for each batch item.
  *
  * @param max_chunk_size The maximum size of a chunk in the batch.
  * @param format_ops Snappy compression options.
  * @param max_compressed_size The maximum compressed size of the largest chunk
  * (output).
  *
- * @return The nvcompSuccess unless there is an error.
+ * @return The hipcompSuccess unless there is an error.
  */
-nvcompStatus_t nvcompBatchedSnappyCompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedSnappyCompressGetMaxOutputChunkSize(
     size_t max_chunk_size,
-    nvcompBatchedSnappyOpts_t format_opts,
+    hipcompBatchedSnappyOpts_t format_opts,
     size_t* max_compressed_size);
 
 /**
@@ -157,9 +157,9 @@ nvcompStatus_t nvcompBatchedSnappyCompressGetMaxOutputChunkSize(
  * @param format_ops Snappy compression options.
  * @param stream The CUDA stream to operate on.
  *
- * @return nvcompSuccess if successfully launched, and an error code otherwise.
+ * @return hipcompSuccess if successfully launched, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedSnappyCompressAsync(
+hipcompStatus_t hipcompBatchedSnappyCompressAsync(
     const void* const* device_uncompressed_ptr,
     const size_t* device_uncompressed_bytes,
     size_t max_uncompressed_chunk_bytes,
@@ -168,7 +168,7 @@ nvcompStatus_t nvcompBatchedSnappyCompressAsync(
     size_t temp_bytes,
     void* const* device_compressed_ptr,
     size_t* device_compressed_bytes,
-    nvcompBatchedSnappyOpts_t format_ops,
+    hipcompBatchedSnappyOpts_t format_ops,
     cudaStream_t stream);
 
 #ifdef __cplusplus

@@ -28,8 +28,8 @@
 
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
-#include "nvcomp.hpp"
-#include "nvcomp/cascaded.hpp"
+#include "hipcomp.hpp"
+#include "hipcomp/cascaded.hpp"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -38,7 +38,7 @@
 // Test GPU decompression with cascaded compression API //
 
 using namespace std;
-using namespace nvcomp;
+using namespace hipcomp;
 
 #define CUDA_CHECK(cond)                                                       \
   do {                                                                         \
@@ -68,7 +68,7 @@ std::vector<T> buildRuns(const size_t numRuns, const size_t runSize, const size_
 
 // Run C API selector and return the estimated compression ratio
 template <typename T>
-double test_selector_c(const std::vector<T>& input, size_t sample_size, size_t num_samples, nvcompCascadedFormatOpts* opts)
+double test_selector_c(const std::vector<T>& input, size_t sample_size, size_t num_samples, hipcompCascadedFormatOpts* opts)
 {
   // create GPU only input buffer
   T* d_in_data;
@@ -79,14 +79,14 @@ double test_selector_c(const std::vector<T>& input, size_t sample_size, size_t n
 
   size_t temp_bytes = 0;
   void* d_temp;
-  nvcompCascadedSelectorOpts selector_opts;
+  hipcompCascadedSelectorOpts selector_opts;
   selector_opts.sample_size = sample_size;
   selector_opts.num_samples = num_samples;
   selector_opts.seed = 1;
 
-  nvcompStatus_t err = nvcompCascadedSelectorConfigure(
+  hipcompStatus_t err = hipcompCascadedSelectorConfigure(
       &selector_opts, TypeOf<T>(), in_bytes, &temp_bytes);
-  REQUIRE(err == nvcompSuccess);
+  REQUIRE(err == hipcompSuccess);
 
   CUDA_CHECK( cudaMalloc(&d_temp, temp_bytes) );
 
@@ -94,7 +94,7 @@ double test_selector_c(const std::vector<T>& input, size_t sample_size, size_t n
   cudaStreamCreate(&stream);
   double est_ratio;
 
-  err = nvcompCascadedSelectorRun(
+  err = hipcompCascadedSelectorRun(
       &selector_opts,
       TypeOf<T>(),
       d_in_data,
@@ -106,7 +106,7 @@ double test_selector_c(const std::vector<T>& input, size_t sample_size, size_t n
       stream);
 
   cudaStreamSynchronize(stream);
-  REQUIRE(err == nvcompSuccess);
+  REQUIRE(err == hipcompSuccess);
 
   cudaFree(d_temp);
   cudaFree(d_in_data);
@@ -116,7 +116,7 @@ double test_selector_c(const std::vector<T>& input, size_t sample_size, size_t n
 
 // Run C API selector with NULL options (default) and return the estimated compression ratio
 template <typename T>
-double test_selector_default_c(const std::vector<T>& input, nvcompCascadedFormatOpts* opts)
+double test_selector_default_c(const std::vector<T>& input, hipcompCascadedFormatOpts* opts)
 {
   // create GPU only input buffer
   T* d_in_data;
@@ -128,9 +128,9 @@ double test_selector_default_c(const std::vector<T>& input, nvcompCascadedFormat
   size_t temp_bytes = 0;
   void* d_temp;
 
-  nvcompStatus_t err = nvcompCascadedSelectorConfigure(
+  hipcompStatus_t err = hipcompCascadedSelectorConfigure(
       NULL, TypeOf<T>(), in_bytes, &temp_bytes);
-  REQUIRE(err == nvcompSuccess);
+  REQUIRE(err == hipcompSuccess);
 
   CUDA_CHECK( cudaMalloc(&d_temp, temp_bytes) );
 
@@ -138,7 +138,7 @@ double test_selector_default_c(const std::vector<T>& input, nvcompCascadedFormat
   cudaStreamCreate(&stream);
   double est_ratio;
 
-  err = nvcompCascadedSelectorRun(
+  err = hipcompCascadedSelectorRun(
       NULL,
       TypeOf<T>(),
       d_in_data,
@@ -150,7 +150,7 @@ double test_selector_default_c(const std::vector<T>& input, nvcompCascadedFormat
       stream);
 
   cudaStreamSynchronize(stream);
-  REQUIRE(err == nvcompSuccess);
+  REQUIRE(err == hipcompSuccess);
 
   cudaFree(d_temp);
   cudaFree(d_in_data);
@@ -164,7 +164,7 @@ double test_selector_cpp(
 const std::vector<T>& input, 
 size_t sample_size, 
 size_t num_samples, 
-nvcompCascadedFormatOpts* opts)
+hipcompCascadedFormatOpts* opts)
 {
 
   // create GPU only input buffer
@@ -174,7 +174,7 @@ nvcompCascadedFormatOpts* opts)
   CUDA_CHECK(
       cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
 
-  nvcompCascadedSelectorOpts selector_opts;
+  hipcompCascadedSelectorOpts selector_opts;
   selector_opts.sample_size = sample_size;
   selector_opts.num_samples = num_samples;
   selector_opts.seed = 1;
@@ -203,7 +203,7 @@ nvcompCascadedFormatOpts* opts)
 
 } // namespace
 
-void verify_selector_result(nvcompCascadedFormatOpts opts, double est_ratio, int exp_RLEs, int exp_deltas, int exp_bp, double exp_ratio) {
+void verify_selector_result(hipcompCascadedFormatOpts opts, double est_ratio, int exp_RLEs, int exp_deltas, int exp_bp, double exp_ratio) {
   REQUIRE(est_ratio >= exp_ratio);
   REQUIRE(opts.num_RLEs == exp_RLEs);
   REQUIRE(opts.num_deltas == exp_deltas);
@@ -215,12 +215,12 @@ void verify_selector_result(nvcompCascadedFormatOpts opts, double est_ratio, int
  *****************************************************************************/
 
 
-TEST_CASE("CascadedSelector tiny-example", "[nvcomp]")
+TEST_CASE("CascadedSelector tiny-example", "[hipcomp]")
 {
   using T = int;
 
   std::vector<T> input = {0, 2, 2, 3, 0, 0, 0, 0, 0, 3, 1, 1, 1, 1, 1, 2, 3, 3};
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
 
   double est_ratio = test_selector_c<T>(input, 4, 4, &opts);
   verify_selector_result(opts, est_ratio, 0, 0, 1, 2.0);
@@ -230,11 +230,11 @@ TEST_CASE("CascadedSelector tiny-example", "[nvcomp]")
 }
 
 
-TEST_CASE("CascadedSelector all-small-byte", "[nvcomp][small]")
+TEST_CASE("CascadedSelector all-small-byte", "[hipcomp][small]")
 {
   using T = int8_t;
 
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
   double est_ratio;
 
   // Tiny example with poor compression
@@ -271,11 +271,11 @@ TEST_CASE("CascadedSelector all-small-byte", "[nvcomp][small]")
   }
 }
 
-TEST_CASE("CascadedSelector all-small-int", "[nvcomp][small]")
+TEST_CASE("CascadedSelector all-small-int", "[hipcomp][small]")
 {
   using T = int32_t;
 
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
   double est_ratio;
 
   // Tiny example with moderate int compression
@@ -316,11 +316,11 @@ TEST_CASE("CascadedSelector all-small-int", "[nvcomp][small]")
 }
 
 
-TEST_CASE("CascadedSelector all-big-int", "[nvcomp][big]")
+TEST_CASE("CascadedSelector all-big-int", "[hipcomp][big]")
 {
   using T = int32_t;
 
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
   double est_ratio;
 
   // Large examples with Delta compression
@@ -359,5 +359,4 @@ TEST_CASE("CascadedSelector all-big-int", "[nvcomp][big]")
     verify_selector_result(opts, est_ratio, 2, 1, 1, 20);
   }
 }
-
 

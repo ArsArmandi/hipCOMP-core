@@ -40,7 +40,7 @@
 template <typename T>
 void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
 {
-  const nvcompType_t type = nvcomp::TypeOf<T>();
+  const hipcompType_t type = hipcomp::TypeOf<T>();
 
   size_t chunk_size = 1 << 16;
 
@@ -73,9 +73,9 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    nvcompStatus_t status;
+    hipcompStatus_t status;
 
-    LZ4Compressor compressor(chunk_size, NVCOMP_TYPE_CHAR);
+    LZ4Compressor compressor(chunk_size, HIPCOMP_TYPE_CHAR);
     size_t comp_temp_bytes;
     compressor.configure(in_bytes, &comp_temp_bytes, &comp_out_bytes);
 

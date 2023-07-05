@@ -33,7 +33,7 @@
 
 #include <cstdlib>
 
-using namespace nvcomp::highlevel;
+using namespace hipcomp::highlevel;
 
 /******************************************************************************
  * HELPER FUNCTIONS ***********************************************************
@@ -48,9 +48,9 @@ TEST_CASE("IsSavedRLETest", "[small]")
   using T = int;
 
   const int numElemens = 150;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
   opts.num_RLEs = 1;
   opts.num_deltas = 0;
   opts.use_bp = 0;
@@ -72,9 +72,9 @@ TEST_CASE("IsSaved2RLEDeltaBPTest", "[small]")
   using T = int;
 
   const int numElemens = 150;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
   opts.num_RLEs = 2;
   opts.num_deltas = 1;
   opts.use_bp = 1;
@@ -96,9 +96,9 @@ TEST_CASE("IsSavedDeltaTest", "[small]")
   using T = int;
 
   const int numElemens = 150;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
   opts.num_RLEs = 0;
   opts.num_deltas = 1;
   opts.use_bp = 0;
@@ -120,9 +120,9 @@ TEST_CASE("IsSavedBPTest", "[small]")
   using T = int;
 
   const int numElemens = 150;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
   opts.num_RLEs = 0;
   opts.num_deltas = 0;
   opts.use_bp = 1;
@@ -144,9 +144,9 @@ TEST_CASE("GetType2RLEDeltaTest", "[small]")
   using T = int;
 
   const int numElemens = 150;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
   opts.num_RLEs = 2;
   opts.num_deltas = 1;
   opts.use_bp = 0;
@@ -161,7 +161,7 @@ TEST_CASE("GetType2RLEDeltaTest", "[small]")
       if (metadata.getDataType(i) == type) {
         ++numInt;
       } else {
-        REQUIRE(metadata.getDataType(i) == NVCOMP_TYPE_UCHAR);
+        REQUIRE(metadata.getDataType(i) == HIPCOMP_TYPE_UCHAR);
         ++numByte;
       }
     }
@@ -177,9 +177,9 @@ TEST_CASE("GetType2RLEDeltaBPTest", "[small]")
   using T = int;
 
   const int numElemens = 150;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
-  nvcompCascadedFormatOpts opts;
+  hipcompCascadedFormatOpts opts;
   opts.num_RLEs = 2;
   opts.num_deltas = 1;
   opts.use_bp = 1;
@@ -190,7 +190,7 @@ TEST_CASE("GetType2RLEDeltaBPTest", "[small]")
   for (size_t i = 0; i < metadata.getNumInputs(); ++i) {
     if (metadata.isSaved(i)) {
       // all values should be bits
-      REQUIRE(metadata.getDataType(i) == NVCOMP_TYPE_BITS);
+      REQUIRE(metadata.getDataType(i) == HIPCOMP_TYPE_BITS);
     }
   }
 }

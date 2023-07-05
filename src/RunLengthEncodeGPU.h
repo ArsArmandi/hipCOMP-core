@@ -26,16 +26,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_RUNLENGTHENCODEGPU_H
-#define NVCOMP_RUNLENGTHENCODEGPU_H
+#ifndef HIPCOMP_RUNLENGTHENCODEGPU_H
+#define HIPCOMP_RUNLENGTHENCODEGPU_H
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
 #include "cuda_runtime.h"
 
 #include <cstddef>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 class RunLengthEncodeGPU
@@ -59,9 +59,9 @@ public:
   static void compress(
       void* workspace,
       size_t workspaceSize,
-      nvcompType_t valueType,
+      hipcompType_t valueType,
       void* const outValues,
-      nvcompType_t countType,
+      hipcompType_t countType,
       void* const outCounts,
       size_t* numOutDevice,
       const void* in,
@@ -87,9 +87,9 @@ public:
   static void compressDownstream(
       void* workspace,
       size_t workspaceSize,
-      nvcompType_t valueType,
+      hipcompType_t valueType,
       void** const outValuesPtr,
-      nvcompType_t countType,
+      hipcompType_t countType,
       void** const outCountsPtr,
       size_t* numOutDevice,
       const void* in,
@@ -107,11 +107,11 @@ public:
    * @return The size in bytes of the required workspace.
    */
   static size_t requiredWorkspaceSize(
-      size_t num, nvcompType_t valueType, nvcompType_t countType);
+      size_t num, hipcompType_t valueType, hipcompType_t countType);
 
 private:
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

@@ -18,7 +18,7 @@
 #include "SnappyKernels.h"
 #include "CudaUtils.h"
 
-namespace nvcomp {
+namespace hipcomp {
 
 #define HASH_BITS 12
 
@@ -1022,7 +1022,7 @@ __global__ void __launch_bounds__(96) unsnap_kernel(
     const uint64_t* __restrict__ device_in_bytes,
     void* const* __restrict__ device_out_ptr,
     const uint64_t* __restrict__ device_out_available_bytes,
-    nvcompStatus_t* const __restrict__ outputs,
+    hipcompStatus_t* const __restrict__ outputs,
     uint64_t* __restrict__ device_out_bytes)
 {
   __shared__ __align__(16) unsnap_state_s state_g;
@@ -1105,7 +1105,7 @@ __global__ void __launch_bounds__(96) unsnap_kernel(
     if (device_out_bytes)
       device_out_bytes[strm_id] = s->uncompressed_size - s->bytes_left;
     if (outputs)
-      outputs[strm_id] = s->error ? nvcompErrorCannotDecompress : nvcompSuccess;
+      outputs[strm_id] = s->error ? hipcompErrorCannotDecompress : hipcompSuccess;
   }
 }
 
@@ -1132,7 +1132,7 @@ void gpu_unsnap(
     const size_t* device_in_bytes,
     void* const* device_out_ptr,
     const size_t* device_out_available_bytes,
-    nvcompStatus_t* outputs,
+    hipcompStatus_t* outputs,
     size_t* device_out_bytes,
     int count,
     cudaStream_t stream)
@@ -1162,4 +1162,4 @@ void gpu_get_uncompressed_sizes(
   CudaUtils::check_last_error("Failed to run Snappy kernel gpu_get_uncompressed_sizes");
 }
 
-} // nvcomp namespace
+} // hipcomp namespace

@@ -36,18 +36,18 @@
 #include <stdexcept>
 #include <string>
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
 
 // Opaque structures
-typedef int nvcompHandle_t;
-typedef int nvcompConfig_t;
-struct nvcompIntConfig_t;
+typedef int hipcompHandle_t;
+typedef int hipcompConfig_t;
+struct hipcompIntConfig_t;
 
 /* Simple compress handle */
-struct nvcompCompressHandle_t
+struct hipcompCompressHandle_t
 {
   int numRLEs = 0;
   int numDeltas = 0;
@@ -55,25 +55,25 @@ struct nvcompCompressHandle_t
   int sysmem = 0; // where the compressed data resides
   int duplicate = 1;
 
-  nvcompType_t dataInType;
-  nvcompType_t dataRunType;
+  hipcompType_t dataInType;
+  hipcompType_t dataRunType;
   size_t comp_size = 0;
   size_t all_comp_size = 0;
 };
 
-typedef int nvcompConfig_t;
+typedef int hipcompConfig_t;
 
-nvcompIntConfig_t* createConfig(const CascadedMetadata* metadata);
+hipcompIntConfig_t* createConfig(const CascadedMetadata* metadata);
 
-void destroyConfig(nvcompIntConfig_t* config);
+void destroyConfig(hipcompIntConfig_t* config);
 
 /* Adds an RLE stage (A,B,C):(1,2,3) -> (A,B,B,C,C,C). Takes two inputs and
  * produces one output.
  *
  * Input.  valsId is the buffer id of the input values, runsId is the buffer id
- * of the input runs. If the id < numInputs specified in nvcompDecompressLaunch
+ * of the input runs. If the id < numInputs specified in hipcompDecompressLaunch
  * then the data is taken from user-provided inputHdrs/inputData in
- * nvcompDecompressLaunch. In this case the type and packing options must be
+ * hipcompDecompressLaunch. In this case the type and packing options must be
  * specified. If valPacking=0 then the input data is treated as of valType
  * type. If valPacking=1 then each value is stored as an unsigned integer of
  * numBits bits and represents an offset to minValue of inputType type. If
@@ -84,24 +84,24 @@ void destroyConfig(nvcompIntConfig_t* config);
  * is the same as outputId in 'config' then this is the
  * final decompression stage. maxOutputSize specifies the maximum decompressed
  * chunk size (number of elements) for this stage. */
-nvcompStatus_t nvcompConfigAddRLE_BP(
-    nvcompIntConfig_t* const config,
+hipcompStatus_t hipcompConfigAddRLE_BP(
+    hipcompIntConfig_t* const config,
     int outputId,
     size_t maxOutputSize,
     int valId,
-    nvcompType_t valType,
+    hipcompType_t valType,
     int valPacking,
     int runId,
-    nvcompType_t runType,
+    hipcompType_t runType,
     int runPacking);
 
 /* Adds a Delta stage (A,B,C) -> (A,A+B,A+B+C). Takes one input and produces
  * one output.
  *
  * Input.  valsId is the buffer id of the input values, runsId is the buffer id
- * of the input runs. If the id < numInputs specified in nvcompDecompressLaunch
+ * of the input runs. If the id < numInputs specified in hipcompDecompressLaunch
  * then the data is taken from user-provided inputHdrs/inputData in
- * nvcompDecompressLaunch. In this case the type and packing options must be
+ * hipcompDecompressLaunch. In this case the type and packing options must be
  * specified. If valPacking=0 then the input data is treated as of valType
  * type. If valPacking=1 then each value is stored as an unsigned integer of
  * numBits bits and represents an offset to minValue of inputType type. If
@@ -112,21 +112,21 @@ nvcompStatus_t nvcompConfigAddRLE_BP(
  * is the same as outputId specified in 'config' then this is the
  * final decompression stage. maxOutputSize specifies the maximum decompressed
  * chunk size (number of elements) for this stage. */
-nvcompStatus_t nvcompConfigAddDelta_BP(
-    nvcompIntConfig_t* const config,
+hipcompStatus_t hipcompConfigAddDelta_BP(
+    hipcompIntConfig_t* const config,
     int outputId,
     size_t maxOutputSize,
     int valId,
-    nvcompType_t valType,
+    hipcompType_t valType,
     int valPacking);
 
 /* Adds an RLE stage (A,B,C):(1,2,3) -> (A,B,B,C,C,C). Takes two inputs and
  * produces one output.
  *
  * Input.  valsId is the buffer id of the input values, runsId is the buffer id
- * of the input runs. If the id < numInputs specified in nvcompDecompressLaunch
+ * of the input runs. If the id < numInputs specified in hipcompDecompressLaunch
  * then the data is taken from user-provided inputHdrs/inputData in
- * nvcompDecompressLaunch. In this case the type option must be specified. If
+ * hipcompDecompressLaunch. In this case the type option must be specified. If
  * the id >= numInputs then the data is taken from the output of one of the
  * previous decompression layers.
  *
@@ -134,22 +134,22 @@ nvcompStatus_t nvcompConfigAddDelta_BP(
  * is the same as outputId specified in 'config' then this is the
  * final decompression stage. maxOutputSize specifies the maximum decompressed
  * chunk size (number of elements) for this stage. */
-nvcompStatus_t nvcompConfigAddRLE(
-    nvcompIntConfig_t* const config,
+hipcompStatus_t hipcompConfigAddRLE(
+    hipcompIntConfig_t* const config,
     int outputId,
     size_t maxOutputSize,
     int valId,
-    nvcompType_t valType,
+    hipcompType_t valType,
     int runId,
-    nvcompType_t runType);
+    hipcompType_t runType);
 
 /* Adds a Delta stage (A,B,C) -> (A,A+B,A+B+C). Takes one input and produces
  * one output.
  *
  * Input.  valsId is the buffer id of the input values, runsId is the buffer id
- * of the input runs. If the id < numInputs specified in nvcompDecompressLaunch
+ * of the input runs. If the id < numInputs specified in hipcompDecompressLaunch
  * then the data is taken from user-provided inputHdrs/inputData in
- * nvcompDecompressLaunch. In this case the type option must be specified. If
+ * hipcompDecompressLaunch. In this case the type option must be specified. If
  * the id >= numInputs then the data is taken from the output of one of the
  * previous decompression layers.
  *
@@ -157,17 +157,17 @@ nvcompStatus_t nvcompConfigAddRLE(
  * is the same as outputId specified in 'config' then this is the
  * final decompression stage. maxOutputSize specifies the maximum decompressed
  * chunk size (number of elements) for this stage. */
-nvcompStatus_t nvcompConfigAddDelta(
-    nvcompIntConfig_t* const config,
+hipcompStatus_t hipcompConfigAddDelta(
+    hipcompIntConfig_t* const config,
     int outputId,
     size_t maxOutputSize,
     int valId,
-    nvcompType_t valType);
+    hipcompType_t valType);
 /* Adds a Byte-packing stage. Takes one input and produces one output.
  *
  * Input.  valsId is the buffer id of the input values. If the id < numInputs
- * specified in nvcompDecompressLaunch then the data is taken from user-provided
- * inputHdrs/inputData in nvcompDecompressLaunch. In this case the type option
+ * specified in hipcompDecompressLaunch then the data is taken from user-provided
+ * inputHdrs/inputData in hipcompDecompressLaunch. In this case the type option
  * must be specified. Each value is stored as an unsigned integer of
  * numBits bits and represents an offset to minValue of inputType type. If
  * the id >= numInputs then the data is taken from the output of one of the
@@ -177,21 +177,21 @@ nvcompStatus_t nvcompConfigAddDelta(
  * is the same as outputId specified in 'config' then this is the
  * final decompression stage. maxOutputSize specifies the maximum decompressed
  * chunk size (number of elements) for this stage. */
-nvcompStatus_t nvcompConfigAddBP(
-    nvcompIntConfig_t* const config,
+hipcompStatus_t hipcompConfigAddBP(
+    hipcompIntConfig_t* const config,
     int outputId,
     size_t maxOutputSize,
     int valId,
-    nvcompType_t valType);
+    hipcompType_t valType);
 
 /* Creates a decompression handle assigned to the specified cascaded scheme
  * described by the config.  Assumes that the workspaceStorage is pre-allocated
  * and accessible by the GPU, otherwise flags an error.
  * Multiple handles can be created but each handle takes resources.
  * */
-nvcompStatus_t nvcompCreateHandleAsync(
-    nvcompHandle_t* handle,
-    nvcompIntConfig_t* const config,
+hipcompStatus_t hipcompCreateHandleAsync(
+    hipcompHandle_t* handle,
+    hipcompIntConfig_t* const config,
     void* workspaceStorage,
     size_t workspaceBytes,
     cudaStream_t stream);
@@ -201,25 +201,25 @@ nvcompStatus_t nvcompCreateHandleAsync(
  * will release the previous temporary storage and use the new memory space,
  * otherwise cudaErrorNotSupported will be returned and no changes to the
  * workspace will be made. */
-nvcompStatus_t nvcompSetWorkspace(
-    nvcompHandle_t handle, void* workspaceStorage, size_t workspaceBytes);
+hipcompStatus_t hipcompSetWorkspace(
+    hipcompHandle_t handle, void* workspaceStorage, size_t workspaceBytes);
 
 /* Gets the current workspace size in bytes. */
-nvcompStatus_t
-nvcompGetWorkspaceSize(nvcompHandle_t handle, size_t* workspaceBytes);
+hipcompStatus_t
+hipcompGetWorkspaceSize(hipcompHandle_t handle, size_t* workspaceBytes);
 
 /* Changes the stream used by the handle. */
-nvcompStatus_t nvcompSetStream(nvcompHandle_t handle, cudaStream_t streamId);
+hipcompStatus_t hipcompSetStream(hipcompHandle_t handle, cudaStream_t streamId);
 
 /* Gets the current stream assigned to the handle. */
-nvcompStatus_t nvcompGetStream(nvcompHandle_t handle, cudaStream_t* streamId);
+hipcompStatus_t hipcompGetStream(hipcompHandle_t handle, cudaStream_t* streamId);
 
 /* Sets the output length of a particular node. This is helpful when the node is
  * the output node of a RLE layer in a multi-GPU system. With this method, the
- * cudaStreamSynchronize() in nvcompDecompressLaunch() can be eliminated which
+ * cudaStreamSynchronize() in hipcompDecompressLaunch() can be eliminated which
  * preserves the concurrency. */
-nvcompStatus_t
-nvcompSetNodeLength(nvcompHandle_t handle, int nodeId, size_t output_length);
+hipcompStatus_t
+hipcompSetNodeLength(hipcompHandle_t handle, int nodeId, size_t output_length);
 
 /* Usage.  Submits a decompression task to the GPU asynchronously and returns
  * the task ID. In practice this would pipeline memory copies and kernels into
@@ -239,7 +239,7 @@ nvcompSetNodeLength(nvcompHandle_t handle, int nodeId, size_t output_length);
  * values, or any other input depending on the configuration plan.
  * The corresponding inputData buffer should contain length
  * number of elements of type valType. If valPacking=1 then
- * nvcompPackedHeader_t<valType> should be used. The corresponding inputData
+ * hipcompPackedHeader_t<valType> should be used. The corresponding inputData
  * buffer should contain length number of elements of numBits bits each, the
  * values will be treated as unsigned offsets to the shared minValue of type
  * valType.  Both inputHdrs and inputData must be accessible by the GPU, and
@@ -249,8 +249,8 @@ nvcompSetNodeLength(nvcompHandle_t handle, int nodeId, size_t output_length);
  * Output.  Decompressed data will be stored in outputData and the final number
  * of uncompressed elements will be written to outputSize. Note that the type
  * of output values is specified in 'config'. */
-nvcompStatus_t nvcompDecompressLaunch(
-    nvcompHandle_t handle,
+hipcompStatus_t hipcompDecompressLaunch(
+    hipcompHandle_t handle,
     size_t numUncompressedElements,
     void* outputData,
     size_t outputSize,
@@ -258,20 +258,20 @@ nvcompStatus_t nvcompDecompressLaunch(
     const void** hostHdrs);
 
 /* Releases all memory associated with the decompression handle. */
-nvcompStatus_t nvcompDestroyHandle(nvcompHandle_t handle);
+hipcompStatus_t hipcompDestroyHandle(hipcompHandle_t handle);
 
-inline nvcompType_t selectRunsType(const size_t length)
+inline hipcompType_t selectRunsType(const size_t length)
 {
   if (length <= std::numeric_limits<uint8_t>::max()) {
-    return NVCOMP_TYPE_UCHAR;
+    return HIPCOMP_TYPE_UCHAR;
   } else if (length <= std::numeric_limits<uint16_t>::max()) {
-    return NVCOMP_TYPE_USHORT;
+    return HIPCOMP_TYPE_USHORT;
   } else if (length <= std::numeric_limits<uint32_t>::max()) {
-    return NVCOMP_TYPE_UINT;
+    return HIPCOMP_TYPE_UINT;
   } else {
-    return NVCOMP_TYPE_ULONGLONG;
+    return HIPCOMP_TYPE_ULONGLONG;
   }
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

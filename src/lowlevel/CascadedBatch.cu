@@ -27,40 +27,40 @@
  */
 
 #include "common.h"
-#include "nvcomp.h"
-#include "nvcomp/cascaded.h"
+#include "hipcomp.h"
+#include "hipcomp/cascaded.h"
 #include "type_macros.h"
 
 #include <cub/cub.cuh>
 
 #include <cstdint>
 
-using nvcomp::larger_t;
-using nvcomp::roundUpDiv;
-using nvcomp::roundUpTo;
-using nvcomp::roundUpToAlignment;
+using hipcomp::larger_t;
+using hipcomp::roundUpDiv;
+using hipcomp::roundUpTo;
+using hipcomp::roundUpToAlignment;
 
 template <typename T>
-__device__ inline nvcompType_t d_TypeOf()
+__device__ inline hipcompType_t d_TypeOf()
 {
   if (std::is_same<T, int8_t>::value) {
-    return NVCOMP_TYPE_CHAR;
+    return HIPCOMP_TYPE_CHAR;
   } else if (std::is_same<T, uint8_t>::value) {
-    return NVCOMP_TYPE_UCHAR;
+    return HIPCOMP_TYPE_UCHAR;
   } else if (std::is_same<T, int16_t>::value) {
-    return NVCOMP_TYPE_SHORT;
+    return HIPCOMP_TYPE_SHORT;
   } else if (std::is_same<T, uint16_t>::value) {
-    return NVCOMP_TYPE_USHORT;
+    return HIPCOMP_TYPE_USHORT;
   } else if (std::is_same<T, int32_t>::value) {
-    return NVCOMP_TYPE_INT;
+    return HIPCOMP_TYPE_INT;
   } else if (std::is_same<T, uint32_t>::value) {
-    return NVCOMP_TYPE_UINT;
+    return HIPCOMP_TYPE_UINT;
   } else if (std::is_same<T, int64_t>::value) {
-    return NVCOMP_TYPE_LONGLONG;
+    return HIPCOMP_TYPE_LONGLONG;
   } else if (std::is_same<T, uint64_t>::value) {
-    return NVCOMP_TYPE_ULONGLONG;
+    return HIPCOMP_TYPE_ULONGLONG;
   } else {
-    return NVCOMP_TYPE_CHAR;
+    return HIPCOMP_TYPE_CHAR;
   }
 
   // TODO - perform error checking and notify user if incorrect type is given
@@ -748,7 +748,7 @@ __global__ void cascaded_compression_kernel(
     const size_type* uncompressed_bytes,
     void* const* compressed_data,
     size_type* compressed_bytes,
-    nvcompBatchedCascadedOpts_t comp_opts)
+    hipcompBatchedCascadedOpts_t comp_opts)
 {
   using run_type = uint16_t;
   constexpr int chunk_num_elements = chunk_size / sizeof(data_type);
@@ -1093,7 +1093,7 @@ __device__ void cascaded_decompression_fcn(
     const size_type* decompressed_buffer_bytes,
     size_type* actual_decompressed_bytes,
     void* shmem,
-    nvcompStatus_t* statuses)
+    hipcompStatus_t* statuses)
 {
 
   using run_type = uint16_t;
@@ -1160,7 +1160,7 @@ __device__ void cascaded_decompression_fcn(
       // Compressed buffer should at least have enough space for partition
       // metadata.
       if (threadIdx.x == 0) {
-        statuses[partition_idx] = nvcompErrorCannotDecompress;
+        statuses[partition_idx] = hipcompErrorCannotDecompress;
         actual_decompressed_bytes[partition_idx] = 0;
       }
       continue;
@@ -1192,7 +1192,7 @@ __device__ void cascaded_decompression_fcn(
       // elements, so we report failure.
       if (threadIdx.x == 0) {
         actual_decompressed_bytes[partition_idx] = 0;
-        statuses[partition_idx] = nvcompErrorCannotDecompress;
+        statuses[partition_idx] = hipcompErrorCannotDecompress;
       }
       continue;
     }
@@ -1209,7 +1209,7 @@ __device__ void cascaded_decompression_fcn(
         // data, so we report failure.
         if (threadIdx.x == 0) {
           actual_decompressed_bytes[partition_idx] = 0;
-          statuses[partition_idx] = nvcompErrorCannotDecompress;
+          statuses[partition_idx] = hipcompErrorCannotDecompress;
         }
       } else {
         const data_type* direct_compressed_buffer
@@ -1222,7 +1222,7 @@ __device__ void cascaded_decompression_fcn(
         if (threadIdx.x == 0) {
           actual_decompressed_bytes[partition_idx]
               = sizeof(data_type) * num_uncompressed_elements;
-          statuses[partition_idx] = nvcompSuccess;
+          statuses[partition_idx] = hipcompSuccess;
         }
       }
       continue;
@@ -1400,10 +1400,10 @@ __device__ void cascaded_decompression_fcn(
       if (is_decompression_successful) {
         actual_decompressed_bytes[partition_idx]
             = decompressed_num_elements * sizeof(data_type);
-        statuses[partition_idx] = nvcompSuccess;
+        statuses[partition_idx] = hipcompSuccess;
       } else {
         actual_decompressed_bytes[partition_idx] = 0;
-        statuses[partition_idx] = nvcompErrorCannotDecompress;
+        statuses[partition_idx] = hipcompErrorCannotDecompress;
       }
     }
   }
@@ -1447,16 +1447,16 @@ __global__ void cascaded_decompression_kernel_type_check(
     void* const* decompressed_data,
     const size_type* decompressed_buffer_bytes,
     size_type* actual_decompressed_bytes,
-    nvcompStatus_t* statuses)
+    hipcompStatus_t* statuses)
 {
   // Extract datatype from compressed data
   const auto partition_metadata_ptr
       = reinterpret_cast<const uint8_t*>(compressed_data[0]);
-  const auto type = static_cast<nvcompType_t>(partition_metadata_ptr[3]);
+  const auto type = static_cast<hipcompType_t>(partition_metadata_ptr[3]);
 
   switch (bitwidth_test) {
   case 1:
-    if (type == NVCOMP_TYPE_CHAR || type == NVCOMP_TYPE_UCHAR) {
+    if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
       // allocate shmem and run fcn for 1-byte type
       const int shmem_size = compute_smem_size<chunk_size, 1, 4>();
       __shared__ uint8_t shmem[shmem_size];
@@ -1473,7 +1473,7 @@ __global__ void cascaded_decompression_kernel_type_check(
     }
     break;
   case 2:
-    if (type == NVCOMP_TYPE_SHORT || type == NVCOMP_TYPE_USHORT) {
+    if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
       // allocate shmem and run fcn for 2-byte type
       const int shmem_size = compute_smem_size<chunk_size, 2, 4>();
       __shared__ uint8_t shmem[shmem_size];
@@ -1490,7 +1490,7 @@ __global__ void cascaded_decompression_kernel_type_check(
     }
     break;
   case 4:
-    if (type == NVCOMP_TYPE_INT || type == NVCOMP_TYPE_UINT) {
+    if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
       // allocate shmem and run fcn for 4-byte type
       const int shmem_size = compute_smem_size<chunk_size, 4, 4>();
       __shared__ uint8_t shmem[shmem_size];
@@ -1507,7 +1507,7 @@ __global__ void cascaded_decompression_kernel_type_check(
     }
     break;
   case 8:
-    if (type == NVCOMP_TYPE_LONGLONG || type == NVCOMP_TYPE_ULONGLONG) {
+    if (type == HIPCOMP_TYPE_LONGLONG || type == HIPCOMP_TYPE_ULONGLONG) {
       // allocate shmem and run fcn for 8-byte type
       const int shmem_size = compute_smem_size<chunk_size, 8, 8>();
       __shared__ uint8_t shmem[shmem_size];
@@ -1549,7 +1549,7 @@ __global__ void get_decompress_size_kernel(
 
 template <typename data_type>
 void cascaded_batched_compression_typed(
-    const nvcompBatchedCascadedOpts_t format_opts,
+    const hipcompBatchedCascadedOpts_t format_opts,
     const void* const* device_uncompressed_ptrs,
     const size_t* device_uncompressed_bytes,
     size_t batch_size,
@@ -1570,30 +1570,30 @@ void cascaded_batched_compression_typed(
 
 } // namespace
 
-nvcompStatus_t nvcompBatchedCascadedCompressGetTempSize(
+hipcompStatus_t hipcompBatchedCascadedCompressGetTempSize(
     size_t batch_size,
     size_t max_uncompressed_chunk_bytes,
-    nvcompBatchedCascadedOpts_t format_opts,
+    hipcompBatchedCascadedOpts_t format_opts,
     size_t* temp_bytes)
 {
 
   *temp_bytes = 0;
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedCascadedCompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedCascadedCompressGetMaxOutputChunkSize(
     size_t max_uncompressed_chunk_bytes,
-    nvcompBatchedCascadedOpts_t format_opts,
+    hipcompBatchedCascadedOpts_t format_opts,
     size_t* max_compressed_bytes)
 {
 
   *max_compressed_bytes = roundUpTo(max_uncompressed_chunk_bytes, 4) + 8;
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedCascadedCompressAsync(
+hipcompStatus_t hipcompBatchedCascadedCompressAsync(
     const void* const* device_uncompressed_ptrs,
     const size_t* device_uncompressed_bytes,
     size_t max_uncompressed_chunk_bytes, // not used
@@ -1602,10 +1602,10 @@ nvcompStatus_t nvcompBatchedCascadedCompressAsync(
     size_t temp_bytes,     // not used
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
-    const nvcompBatchedCascadedOpts_t format_opts,
+    const hipcompBatchedCascadedOpts_t format_opts,
     cudaStream_t stream)
 {
-  NVCOMP_TYPE_ONE_SWITCH(
+  HIPCOMP_TYPE_ONE_SWITCH(
       format_opts.type,
       cascaded_batched_compression_typed,
       format_opts,
@@ -1616,17 +1616,17 @@ nvcompStatus_t nvcompBatchedCascadedCompressAsync(
       device_compressed_bytes,
       stream);
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedCascadedDecompressGetTempSize(
+hipcompStatus_t hipcompBatchedCascadedDecompressGetTempSize(
     size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t* temp_bytes)
 {
   *temp_bytes = 0;
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedCascadedDecompressAsync(
+hipcompStatus_t hipcompBatchedCascadedDecompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     const size_t* device_uncompressed_bytes,
@@ -1635,7 +1635,7 @@ nvcompStatus_t nvcompBatchedCascadedDecompressAsync(
     void* const device_temp_ptr, // can be nullptr
     size_t temp_bytes,
     void* const* device_uncompressed_ptrs,
-    nvcompStatus_t* device_statuses,
+    hipcompStatus_t* device_statuses,
     cudaStream_t stream)
 {
 
@@ -1687,10 +1687,10 @@ nvcompStatus_t nvcompBatchedCascadedDecompressAsync(
           device_actual_uncompressed_bytes,
           device_statuses);
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedCascadedGetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedCascadedGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
@@ -1702,5 +1702,5 @@ nvcompStatus_t nvcompBatchedCascadedGetDecompressSizeAsync(
       device_compressed_bytes,
       device_uncompressed_bytes,
       batch_size);
-  return nvcompSuccess;
+  return hipcompSuccess;
 }

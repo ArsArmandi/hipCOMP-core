@@ -30,7 +30,7 @@
 #include "CascadedSelectorKernels.h"
 #include "TempSpaceBroker.h"
 #include "common.h"
-#include "nvcomp.hpp"
+#include "hipcomp.hpp"
 #include "type_macros.h"
 
 #include <algorithm>
@@ -44,8 +44,8 @@
 #include <vector>
 
 using namespace std;
-using namespace nvcomp;
-using namespace nvcomp::highlevel;
+using namespace hipcomp;
+using namespace hipcomp::highlevel;
 
 namespace
 {
@@ -55,7 +55,7 @@ constexpr int const NUM_SCHEMES = 5;
 constexpr int const MAX_SAMPLE_SIZE = 1024;
 
 // Default values of the Selector
-static constexpr nvcompCascadedSelectorOpts DEFAULT_SELECTOR = {1024, 100, 1};
+static constexpr hipcompCascadedSelectorOpts DEFAULT_SELECTOR = {1024, 100, 1};
 
 template <typename T>
 void get_workspace_size_internal(const size_t num_samples, size_t* temp_size)
@@ -67,7 +67,7 @@ void get_workspace_size_internal(const size_t num_samples, size_t* temp_size)
 }
 
 template <typename T>
-nvcompCascadedFormatOpts internal_select(
+hipcompCascadedFormatOpts internal_select(
     const void* input_data,
     const size_t in_bytes,
     const size_t sample_ele,
@@ -160,13 +160,13 @@ nvcompCascadedFormatOpts internal_select(
 
   *comp_ratio
       = ((double)(sample_bytes * num_samples) / (double)(outsizeVector[idx]));
-  nvcompCascadedFormatOpts opts = {RLEs, Deltas, 1};
+  hipcompCascadedFormatOpts opts = {RLEs, Deltas, 1};
 
   return opts;
 }
 } // namespace
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -185,7 +185,7 @@ template <typename T>
 inline CascadedSelector<T>::CascadedSelector(
     const void* input,
     const size_t byte_len,
-    nvcompCascadedSelectorOpts selector_opts) :
+    hipcompCascadedSelectorOpts selector_opts) :
     input_data(input),
     input_byte_len(byte_len),
     max_temp_size(0),
@@ -193,7 +193,7 @@ inline CascadedSelector<T>::CascadedSelector(
 {
   size_t temp;
 
-  NVCOMP_TYPE_ONE_SWITCH(
+  HIPCOMP_TYPE_ONE_SWITCH(
       TypeOf<T>(), get_workspace_size_internal, opts.num_samples, &temp);
 
   temp = roundUpTo(temp, 8);
@@ -209,14 +209,14 @@ inline size_t CascadedSelector<T>::get_temp_size() const
 }
 
 template <typename T>
-inline nvcompCascadedFormatOpts CascadedSelector<T>::select_config(
+inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
     void* d_workspace,
     size_t workspace_size,
     double* comp_ratio,
     cudaStream_t stream)
 {
 
-  NVCOMP_TYPE_ONE_SWITCH_RETURN(
+  HIPCOMP_TYPE_ONE_SWITCH_RETURN(
       TypeOf<T>(),
       internal_select,
       input_data,
@@ -232,13 +232,13 @@ inline nvcompCascadedFormatOpts CascadedSelector<T>::select_config(
 }
 
 template <typename T>
-inline nvcompCascadedFormatOpts CascadedSelector<T>::select_config(
+inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
     void* d_workspace, size_t workspace_size, cudaStream_t stream)
 {
 
   double comp_ratio;
 
-  NVCOMP_TYPE_ONE_SWITCH_RETURN(
+  HIPCOMP_TYPE_ONE_SWITCH_RETURN(
       TypeOf<T>(),
       internal_select,
       input_data,
@@ -254,17 +254,17 @@ inline nvcompCascadedFormatOpts CascadedSelector<T>::select_config(
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp
 
-nvcompStatus_t nvcompCascadedSelectorConfigure(
-    nvcompCascadedSelectorOpts* opts,
-    nvcompType_t type,
+hipcompStatus_t hipcompCascadedSelectorConfigure(
+    hipcompCascadedSelectorOpts* opts,
+    hipcompType_t type,
     size_t uncompressed_bytes,
     size_t* temp_bytes)
 {
 
   // temp selector opts in case opts are NULL and default needs to be used
-  nvcompCascadedSelectorOpts selector_opts;
+  hipcompCascadedSelectorOpts selector_opts;
   if(opts == NULL) {
     selector_opts = DEFAULT_SELECTOR;
   }
@@ -276,24 +276,24 @@ nvcompStatus_t nvcompCascadedSelectorConfigure(
 
   // check that input is big enough to get all the samples
   if (uncompressed_bytes < (selector_opts.sample_size * selector_opts.num_samples)) {
-    return nvcompErrorInvalidValue;
+    return hipcompErrorInvalidValue;
   }
 
-  NVCOMP_TYPE_ONE_SWITCH(
+  HIPCOMP_TYPE_ONE_SWITCH(
       type,
       get_workspace_size_internal,
       selector_opts.num_samples,
       temp_bytes);
 
   *temp_bytes = roundUpTo(*temp_bytes, 8);
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompCascadedFormatOpts callSelectorSelectConfig(
+hipcompCascadedFormatOpts callSelectorSelectConfig(
     const void* in_ptr,
     size_t in_bytes,
-    nvcompType_t in_type,
-    nvcompCascadedSelectorOpts opts,
+    hipcompType_t in_type,
+    hipcompCascadedSelectorOpts opts,
     void* temp_ptr,
     size_t temp_bytes,
     double* est_ratio,
@@ -301,9 +301,9 @@ nvcompCascadedFormatOpts callSelectorSelectConfig(
 {
 
   size_t required_bytes;
-  nvcompCascadedSelectorConfigure(&opts, in_type, in_bytes, &required_bytes);
+  hipcompCascadedSelectorConfigure(&opts, in_type, in_bytes, &required_bytes);
 
-  NVCOMP_TYPE_ONE_SWITCH_RETURN(
+  HIPCOMP_TYPE_ONE_SWITCH_RETURN(
       in_type,
       internal_select,
       in_ptr,
@@ -318,20 +318,20 @@ nvcompCascadedFormatOpts callSelectorSelectConfig(
       stream);
 }
 
-nvcompStatus_t nvcompCascadedSelectorRun(
-    nvcompCascadedSelectorOpts* opts,
-    nvcompType_t type,
+hipcompStatus_t hipcompCascadedSelectorRun(
+    hipcompCascadedSelectorOpts* opts,
+    hipcompType_t type,
     const void* uncompressed_ptr,
     size_t uncompressed_bytes,
     void* temp_ptr,
     size_t temp_bytes,
-    nvcompCascadedFormatOpts* format_opts,
+    hipcompCascadedFormatOpts* format_opts,
     double* est_ratio,
     cudaStream_t stream)
 {
 
   // temp selector opts in case opts are NULL and default needs to be used
-  nvcompCascadedSelectorOpts selector_opts;
+  hipcompCascadedSelectorOpts selector_opts;
   if(opts == NULL) {
     selector_opts = DEFAULT_SELECTOR;
   }
@@ -352,5 +352,5 @@ nvcompStatus_t nvcompCascadedSelectorRun(
       est_ratio,
       stream);
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }

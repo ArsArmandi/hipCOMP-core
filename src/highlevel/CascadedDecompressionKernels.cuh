@@ -26,13 +26,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_GPUKERNELS_H
-#define NVCOMP_GPUKERNELS_H
+#ifndef HIPCOMP_GPUKERNELS_H
+#define HIPCOMP_GPUKERNELS_H
 
-#include "nvcomp_cub.cuh"
+#include "hipcomp_cub.cuh"
 #include "unpack.h"
 
-namespace nvcomp
+namespace hipcomp
 {
 
 template <typename V, typename R>
@@ -246,6 +246,6 @@ __global__ void expandRLEDelta(
   }
 }
 
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

@@ -27,8 +27,8 @@
  */
 
 #include "common.h"
-#include "nvcomp.h"
-#include "nvcomp/bitcomp.h"
+#include "hipcomp.h"
+#include "hipcomp/bitcomp.h"
 #include "type_macros.h"
 
 #ifdef ENABLE_BITCOMP
@@ -39,25 +39,25 @@
     bitcompResult_t err = call;                                                \
     if (BITCOMP_SUCCESS != err) {                                              \
       if (err == BITCOMP_INVALID_PARAMETER)                                    \
-        return nvcompErrorInvalidValue;                                        \
+        return hipcompErrorInvalidValue;                                        \
       else if (err == BITCOMP_INVALID_COMPRESSED_DATA)                         \
-        return nvcompErrorCannotDecompress;                                    \
+        return hipcompErrorCannotDecompress;                                    \
       else if (err == BITCOMP_INVALID_ALIGNMENT)                               \
-        return nvcompErrorCannotDecompress;                                    \
-      return nvcompErrorInternal;                                              \
+        return hipcompErrorCannotDecompress;                                    \
+      return hipcompErrorInternal;                                              \
     }                                                                          \
   }
 
-nvcompStatus_t nvcompBatchedBitcompCompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedBitcompCompressGetMaxOutputChunkSize(
     size_t max_chunk_size,
-    nvcompBatchedBitcompFormatOpts format_opts,
+    hipcompBatchedBitcompFormatOpts format_opts,
     size_t* max_compressed_size)
 {
   *max_compressed_size = bitcompMaxBuflen(max_chunk_size);
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedBitcompCompressAsync(
+hipcompStatus_t hipcompBatchedBitcompCompressAsync(
     const void* const* device_uncompressed_ptrs,
     const size_t* device_uncompressed_bytes,
     size_t, // max_uncompressed_chunk_bytes, not used
@@ -66,31 +66,31 @@ nvcompStatus_t nvcompBatchedBitcompCompressAsync(
     size_t, // temp_bytes, not used
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
-    const nvcompBatchedBitcompFormatOpts format_opts,
+    const hipcompBatchedBitcompFormatOpts format_opts,
     cudaStream_t stream)
 {
-  // Convert the NVCOMP type to a BITCOMP type
+  // Convert the HIPCOMP type to a BITCOMP type
   bitcompDataType_t dataType;
   switch (format_opts.data_type) {
-  case NVCOMP_TYPE_CHAR:
+  case HIPCOMP_TYPE_CHAR:
     dataType = BITCOMP_SIGNED_8BIT;
     break;
-  case NVCOMP_TYPE_USHORT:
+  case HIPCOMP_TYPE_USHORT:
     dataType = BITCOMP_UNSIGNED_16BIT;
     break;
-  case NVCOMP_TYPE_SHORT:
+  case HIPCOMP_TYPE_SHORT:
     dataType = BITCOMP_SIGNED_16BIT;
     break;
-  case NVCOMP_TYPE_UINT:
+  case HIPCOMP_TYPE_UINT:
     dataType = BITCOMP_UNSIGNED_32BIT;
     break;
-  case NVCOMP_TYPE_INT:
+  case HIPCOMP_TYPE_INT:
     dataType = BITCOMP_SIGNED_32BIT;
     break;
-  case NVCOMP_TYPE_ULONGLONG:
+  case HIPCOMP_TYPE_ULONGLONG:
     dataType = BITCOMP_UNSIGNED_64BIT;
     break;
-  case NVCOMP_TYPE_LONGLONG:
+  case HIPCOMP_TYPE_LONGLONG:
     dataType = BITCOMP_SIGNED_64BIT;
     break;
   default:
@@ -114,30 +114,30 @@ nvcompStatus_t nvcompBatchedBitcompCompressAsync(
   // Once launched, the handle can be destroyed
   BTCHK(bitcompDestroyPlan (plan));
   
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
 // The Bitcomp batch decompression outputs bitcompResult_t statuses.
-// Need to convert them to nvcompStatus_t.
-__global__ void convertOutputStatuses (nvcompStatus_t *statuses, size_t batch_size)
+// Need to convert them to hipcompStatus_t.
+__global__ void convertOutputStatuses (hipcompStatus_t *statuses, size_t batch_size)
 {
-  static_assert (sizeof (nvcompStatus_t) == sizeof (bitcompResult_t));
+  static_assert (sizeof (hipcompStatus_t) == sizeof (bitcompResult_t));
   size_t index = (size_t)blockIdx.x * (size_t)blockDim.x + (size_t)threadIdx.x;
   if (index >= batch_size)
       return;
   bitcompResult_t ier = reinterpret_cast<bitcompResult_t *>(statuses)[index];
-  nvcompStatus_t nvcomp_err = nvcompSuccess;
+  hipcompStatus_t hipcomp_err = hipcompSuccess;
   if (ier != BITCOMP_SUCCESS)
   {
       if (ier == BITCOMP_INVALID_PARAMETER)
-          nvcomp_err = nvcompErrorInvalidValue;
+          hipcomp_err = hipcompErrorInvalidValue;
       else
-          nvcomp_err = nvcompErrorCannotDecompress;
+          hipcomp_err = hipcompErrorCannotDecompress;
   }
-  statuses[index] = nvcomp_err;
+  statuses[index] = hipcomp_err;
 }
 
-nvcompStatus_t nvcompBatchedBitcompDecompressAsync(
+hipcompStatus_t hipcompBatchedBitcompDecompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t*, // device_compressed_bytes, not used
     const size_t* device_uncompressed_bytes,
@@ -146,12 +146,12 @@ nvcompStatus_t nvcompBatchedBitcompDecompressAsync(
     void* const, // device_temp_ptr, not used
     size_t,      // temp_bytes, not used
     void* const* device_uncompressed_ptrs,
-    nvcompStatus_t* device_statuses,
+    hipcompStatus_t* device_statuses,
     cudaStream_t stream)
 {
   // Synchronize the stream to make sure the compressed data is visible
   if (cudaStreamSynchronize(stream) != cudaSuccess)
-    return nvcompErrorCudaError;
+    return hipcompErrorCudaError;
 
   // Create a Bitcomp batch handle from the compressed data.
   bitcompHandle_t plan;
@@ -184,10 +184,10 @@ nvcompStatus_t nvcompBatchedBitcompDecompressAsync(
 
   // Once launched, the handle can be destroyed
   BTCHK(bitcompDestroyPlan(plan));
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedBitcompGetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedBitcompGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
@@ -198,26 +198,26 @@ nvcompStatus_t nvcompBatchedBitcompGetDecompressSizeAsync(
       device_compressed_ptrs,
       device_uncompressed_bytes,
       batch_size, stream));
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedBitcompCompressGetTempSize(
+hipcompStatus_t hipcompBatchedBitcompCompressGetTempSize(
     size_t,
     size_t,
-    nvcompBatchedBitcompFormatOpts,
+    hipcompBatchedBitcompFormatOpts,
     size_t* temp_bytes)
 {
   *temp_bytes = 0;
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedBitcompDecompressGetTempSize(
+hipcompStatus_t hipcompBatchedBitcompDecompressGetTempSize(
     size_t,
     size_t,
     size_t* temp_bytes)
 {
   *temp_bytes = 0;
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
 #endif

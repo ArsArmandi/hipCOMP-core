@@ -28,8 +28,8 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "nvcomp.hpp"
-#include "nvcomp/cascaded.hpp"
+#include "hipcomp.hpp"
+#include "hipcomp/cascaded.hpp"
 
 #include "catch.hpp"
 #include <assert.h>
@@ -39,7 +39,7 @@
 // Test GPU decompression with cascaded compression API //
 
 using namespace std;
-using namespace nvcomp;
+using namespace hipcomp;
 
 #define CUDA_CHECK(cond)                                                       \
   do {                                                                         \
@@ -47,7 +47,7 @@ using namespace nvcomp;
     REQUIRE(err == cudaSuccess);                                               \
   } while (false)
 
-TEST_CASE("comp/decomp RLE-Delta", "[nvcomp]")
+TEST_CASE("comp/decomp RLE-Delta", "[hipcomp]")
 {
   using T = int;
 
@@ -150,7 +150,7 @@ TEST_CASE("comp/decomp RLE-Delta", "[nvcomp]")
   REQUIRE(res == input);
 }
 
-TEST_CASE("comp/decomp RLE-Delta-BP", "[nvcomp]")
+TEST_CASE("comp/decomp RLE-Delta-BP", "[hipcomp]")
 {
   using T = int;
 
@@ -244,7 +244,7 @@ TEST_CASE("comp/decomp RLE-Delta-BP", "[nvcomp]")
   cudaFree(d_comp_out);
 }
 
-TEST_CASE("max_size_test", "[nvcomp]")
+TEST_CASE("max_size_test", "[hipcomp]")
 {
   using T = uint8_t;
 
@@ -294,7 +294,7 @@ TEST_CASE("max_size_test", "[nvcomp]")
 
     // should have thrown an exception by now
     REQUIRE(false);
-  } catch (const NVCompException&) {
+  } catch (const HipCompException&) {
     // we through the right exception, pass
   }
 

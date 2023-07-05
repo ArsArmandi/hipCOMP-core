@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nvcomp/cascaded.h"
+#include "hipcomp/cascaded.h"
 #include "test_batch_c_api.h"
 
 GENERATE_TESTS(Cascaded);

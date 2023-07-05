@@ -27,13 +27,13 @@
  */
 
 #include "BitcompMetadata.h"
-#include "nvcomp/bitcomp.h"
+#include "hipcomp/bitcomp.h"
 
 #include "Check.h"
 #include "CudaUtils.h"
 #include "common.h"
-#include "nvcomp.h"
-#include "nvcomp.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
 #include "type_macros.h"
 
 #include <cassert>
@@ -46,15 +46,15 @@
 
 #ifdef ENABLE_BITCOMP
 
-using namespace nvcomp;
-using namespace nvcomp::highlevel;
+using namespace hipcomp;
+using namespace hipcomp::highlevel;
 
-void nvcompBitcompDestroyMetadata(void* const metadata_ptr)
+void hipcompBitcompDestroyMetadata(void* const metadata_ptr)
 {
   delete static_cast<BitcompMetadata*>(metadata_ptr);
 }
 
-nvcompStatus_t nvcompBitcompDecompressConfigure(
+hipcompStatus_t hipcompBitcompDecompressConfigure(
     const void* compressed_ptr,
     size_t compressed_bytes,
     void** metadata_ptr,
@@ -76,12 +76,12 @@ nvcompStatus_t nvcompBitcompDecompressConfigure(
     *uncompressed_bytes = reinterpret_cast<BitcompMetadata*>(*metadata_ptr)
                               ->getUncompressedSize();
   } catch (std::exception& e) {
-    return Check::exception_to_error(e, "nvcompBitcompDecompressConfigure()");
+    return Check::exception_to_error(e, "hipcompBitcompDecompressConfigure()");
   }
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBitcompDecompressAsync(
+hipcompStatus_t hipcompBitcompDecompressAsync(
     const void* const in_ptr,
     size_t in_bytes,
     void* const metadata_ptr,
@@ -100,24 +100,24 @@ nvcompStatus_t nvcompBitcompDecompressAsync(
     BitcompMetadata* metadata = static_cast<BitcompMetadata*>(metadata_ptr);
     if (metadata->getCompressedSize() > in_bytes
         || metadata->getUncompressedSize() > out_bytes) {
-      throw NVCompException(
-          nvcompErrorInvalidValue, "Bitcomp decompression: invalid size(s)");
+      throw HipCompException(
+          hipcompErrorInvalidValue, "Bitcomp decompression: invalid size(s)");
     }
     bitcompHandle_t handle = metadata->getBitcompHandle();
     if (bitcompSetStream(handle, stream) != BITCOMP_SUCCESS)
-      return nvcompErrorInvalidValue;
+      return hipcompErrorInvalidValue;
     if (bitcompUncompress(handle, static_cast<const char*>(in_ptr), out_ptr)
         != BITCOMP_SUCCESS)
-      return nvcompErrorInternal;
+      return hipcompErrorInternal;
   } catch (std::exception& e) {
-    return Check::exception_to_error(e, "nvcompBitcompDecompressAsync()");
+    return Check::exception_to_error(e, "hipcompBitcompDecompressAsync()");
   }
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBitcompCompressConfigure(
-    const nvcompBitcompFormatOpts* const /* opts */,
-    const nvcompType_t /* in_type */,
+hipcompStatus_t hipcompBitcompCompressConfigure(
+    const hipcompBitcompFormatOpts* const /* opts */,
+    const hipcompType_t /* in_type */,
     const size_t in_bytes,
     size_t* const metadata_bytes,
     size_t* const temp_bytes,
@@ -132,15 +132,15 @@ nvcompStatus_t nvcompBitcompCompressConfigure(
     *temp_bytes = 0;
     *max_compressed_bytes = bitcompMaxBuflen(in_bytes);
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompBitcompCompressConfigure()");
+    return Check::exception_to_error(e, "hipcompBitcompCompressConfigure()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBitcompCompressAsync(
-    const nvcompBitcompFormatOpts* format_opts,
-    nvcompType_t in_type,
+hipcompStatus_t hipcompBitcompCompressAsync(
+    const hipcompBitcompFormatOpts* format_opts,
+    hipcompType_t in_type,
     const void* in_ptr,
     size_t in_bytes,
     void* /* temp_ptr */,
@@ -151,25 +151,25 @@ nvcompStatus_t nvcompBitcompCompressAsync(
 {
   bitcompDataType_t dataType;
   switch (in_type) {
-  case NVCOMP_TYPE_CHAR:
+  case HIPCOMP_TYPE_CHAR:
     dataType = BITCOMP_SIGNED_8BIT;
     break;
-  case NVCOMP_TYPE_USHORT:
+  case HIPCOMP_TYPE_USHORT:
     dataType = BITCOMP_UNSIGNED_16BIT;
     break;
-  case NVCOMP_TYPE_SHORT:
+  case HIPCOMP_TYPE_SHORT:
     dataType = BITCOMP_SIGNED_16BIT;
     break;
-  case NVCOMP_TYPE_UINT:
+  case HIPCOMP_TYPE_UINT:
     dataType = BITCOMP_UNSIGNED_32BIT;
     break;
-  case NVCOMP_TYPE_INT:
+  case HIPCOMP_TYPE_INT:
     dataType = BITCOMP_SIGNED_32BIT;
     break;
-  case NVCOMP_TYPE_ULONGLONG:
+  case HIPCOMP_TYPE_ULONGLONG:
     dataType = BITCOMP_UNSIGNED_64BIT;
     break;
-  case NVCOMP_TYPE_LONGLONG:
+  case HIPCOMP_TYPE_LONGLONG:
     dataType = BITCOMP_SIGNED_64BIT;
     break;
   default:
@@ -184,19 +184,19 @@ nvcompStatus_t nvcompBitcompCompressAsync(
   bitcompResult_t ier;
   ier = bitcompCreatePlan(&handle, in_bytes, dataType, BITCOMP_LOSSLESS, algo);
   if (ier != BITCOMP_SUCCESS)
-    return nvcompErrorInternal;
+    return hipcompErrorInternal;
   if (bitcompSetStream(handle, stream) != BITCOMP_SUCCESS)
-    return nvcompErrorInvalidValue;
+    return hipcompErrorInvalidValue;
   if (bitcompCompressLossless(handle, in_ptr, out_ptr) != BITCOMP_SUCCESS)
-    return nvcompErrorInternal;
+    return hipcompErrorInternal;
   if (bitcompDestroyPlan(handle) != BITCOMP_SUCCESS)
-    return nvcompErrorInternal;
+    return hipcompErrorInternal;
   if (bitcompGetCompressedSizeAsync(out_ptr, out_bytes, stream) != BITCOMP_SUCCESS)
-    return nvcompErrorInternal;
-  return nvcompSuccess;
+    return hipcompErrorInternal;
+  return hipcompSuccess;
 }
 
-int nvcompIsBitcompData(const void* const in_ptr, size_t in_bytes)
+int hipcompIsBitcompData(const void* const in_ptr, size_t in_bytes)
 {
   bitcompResult_t ier;
   size_t compressedSize, uncompressedSize;

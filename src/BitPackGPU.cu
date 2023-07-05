@@ -42,31 +42,31 @@
  * DEFINES ********************************************************************
  *****************************************************************************/
 
-#define NVCOMP_TYPE_SWITCH(type_var, func, ...)                                \
+#define HIPCOMP_TYPE_SWITCH(type_var, func, ...)                                \
   do {                                                                         \
     switch (type_var) {                                                        \
-    case NVCOMP_TYPE_CHAR:                                                     \
+    case HIPCOMP_TYPE_CHAR:                                                     \
       func<char, uint32_t, char>(__VA_ARGS__);                                 \
       break;                                                                   \
-    case NVCOMP_TYPE_UCHAR:                                                    \
+    case HIPCOMP_TYPE_UCHAR:                                                    \
       func<unsigned char, uint32_t, unsigned char>(__VA_ARGS__);               \
       break;                                                                   \
-    case NVCOMP_TYPE_SHORT:                                                    \
+    case HIPCOMP_TYPE_SHORT:                                                    \
       func<short, uint32_t, short>(__VA_ARGS__);                               \
       break;                                                                   \
-    case NVCOMP_TYPE_USHORT:                                                   \
+    case HIPCOMP_TYPE_USHORT:                                                   \
       func<unsigned short, uint32_t, unsigned short>(__VA_ARGS__);             \
       break;                                                                   \
-    case NVCOMP_TYPE_INT:                                                      \
+    case HIPCOMP_TYPE_INT:                                                      \
       func<int, uint32_t, int>(__VA_ARGS__);                                   \
       break;                                                                   \
-    case NVCOMP_TYPE_UINT:                                                     \
+    case HIPCOMP_TYPE_UINT:                                                     \
       func<unsigned int, uint32_t, unsigned int>(__VA_ARGS__);                 \
       break;                                                                   \
-    case NVCOMP_TYPE_LONGLONG:                                                 \
+    case HIPCOMP_TYPE_LONGLONG:                                                 \
       func<long long, uint64_t, long long>(__VA_ARGS__);                       \
       break;                                                                   \
-    case NVCOMP_TYPE_ULONGLONG:                                                \
+    case HIPCOMP_TYPE_ULONGLONG:                                                \
       func<unsigned long long, uint64_t, unsigned long long>(__VA_ARGS__);     \
       break;                                                                   \
     default:                                                                   \
@@ -74,7 +74,7 @@
     }                                                                          \
   } while (0)
 
-namespace nvcomp
+namespace hipcomp
 {
 
 /******************************************************************************
@@ -550,7 +550,7 @@ void bitPackInternal(
 void BitPackGPU::compress(
     void* const workspace,
     const size_t workspaceSize,
-    const nvcompType_t inType,
+    const hipcompType_t inType,
     void* const* const outPtr,
     const void* const in,
     const size_t* const numPtr,
@@ -566,7 +566,7 @@ void BitPackGPU::compress(
         + ", need " + std::to_string(reqWorkSize));
   }
 
-  NVCOMP_TYPE_SWITCH(
+  HIPCOMP_TYPE_SWITCH(
       inType,
       bitPackInternal,
       workspace,
@@ -580,13 +580,13 @@ void BitPackGPU::compress(
 }
 
 size_t
-BitPackGPU::requiredWorkspaceSize(size_t const num, const nvcompType_t type)
+BitPackGPU::requiredWorkspaceSize(size_t const num, const hipcompType_t type)
 {
   // we need a space for min values, and a space for maximum values
   size_t const bytes
-      = sizeOfnvcompType(type) * getReduceScratchSpaceSize(num) * 2;
+      = sizeOfhipcompType(type) * getReduceScratchSpaceSize(num) * 2;
 
   return bytes;
 }
 
-} // namespace nvcomp
+} // namespace hipcomp

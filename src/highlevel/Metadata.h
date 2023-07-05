@@ -26,12 +26,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_METADATA_H
-#define NVCOMP_METADATA_H
+#ifndef HIPCOMP_METADATA_H
+#define HIPCOMP_METADATA_H
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -48,7 +48,7 @@ public:
    * @param compressionType The type of compressed metadata this is.
    */
   Metadata(
-      nvcompType_t type,
+      hipcompType_t type,
       size_t uncompressedBytes,
       size_t compressedBytes,
       int compressionType);
@@ -60,7 +60,7 @@ public:
    *
    * @return The value type.
    */
-  nvcompType_t getValueType() const;
+  hipcompType_t getValueType() const;
 
   /**
    * @brief Get the size of the uncompressed data in bytes.
@@ -95,13 +95,13 @@ protected:
 
   void setCompressedSize(size_t bytes);
 
-  void setValueType(nvcompType_t valueType);
+  void setValueType(hipcompType_t valueType);
 
 private:
   /**
    * @brief The datatype of decompressed elements.
    */
-  nvcompType_t m_type;
+  hipcompType_t m_type;
 
   /**
    * @brief The size in bytes of the uncompressed data.
@@ -118,6 +118,6 @@ private:
 };
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

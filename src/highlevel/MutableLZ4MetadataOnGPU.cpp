@@ -32,7 +32,7 @@
 #include <cassert>
 #include <stdexcept>
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -112,4 +112,4 @@ size_t* MutableLZ4MetadataOnGPU::compressed_prefix_ptr()
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

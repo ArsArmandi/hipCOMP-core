@@ -36,7 +36,7 @@
 #include <string>
 #include <vector>
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -157,7 +157,7 @@ __global__ void serializeV1(
     const bool useBitPacking,
     const size_t comp_bytes,
     const size_t decomp_bytes,
-    const nvcompType_t in_type,
+    const hipcompType_t in_type,
     const int numInputs,
     size_t* const serializedSizeDevice)
 {
@@ -287,7 +287,7 @@ CascadedMetadata deserializeMetadataFromGPUVersion1(
   // here we convert to types of fixed width by the C++ standard rather than
   // just doing a memcpy of the struct, to ensure portability.
 
-  nvcompCascadedFormatOpts format_opts;
+  hipcompCascadedFormatOpts format_opts;
   format_opts.num_RLEs
       = getField<NUM_RLES_TYPE, OFFSET_NUM_RLES>(localBuffer.data());
   format_opts.num_deltas
@@ -303,7 +303,7 @@ CascadedMetadata deserializeMetadataFromGPUVersion1(
 
   CascadedMetadata metadata(
       format_opts,
-      static_cast<nvcompType_t>(in_type),
+      static_cast<hipcompType_t>(in_type),
       decomp_bytes,
       comp_bytes);
 
@@ -554,4 +554,4 @@ void CascadedMetadataOnGPU::verifyIndex(const size_t index) const
 
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

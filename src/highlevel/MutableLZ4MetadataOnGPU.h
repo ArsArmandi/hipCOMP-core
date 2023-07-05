@@ -32,7 +32,7 @@
 #include "LZ4Metadata.h"
 #include "LZ4MetadataOnGPU.h"
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -70,6 +70,6 @@ private:
 };
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

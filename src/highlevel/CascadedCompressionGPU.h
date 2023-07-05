@@ -28,17 +28,17 @@
 
 #pragma once
 
-#include "nvcomp/cascaded.h"
+#include "hipcomp/cascaded.h"
 
 #include "CascadedCommon.h"
 #include "common.h"
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
 
-class nvcompCascadedCompressionGPU
+class hipcompCascadedCompressionGPU
 {
 public:
   /**
@@ -53,8 +53,8 @@ public:
    */
   static void computeWorkspaceSize(
       size_t in_bytes,
-      nvcompType_t in_type,
-      const nvcompCascadedFormatOpts* opts,
+      hipcompType_t in_type,
+      const hipcompCascadedFormatOpts* opts,
       size_t* temp_bytes);
 
   /**
@@ -71,8 +71,8 @@ public:
    */
   static void generateOutputUpperBound(
       size_t uncompressed_bytes,
-      nvcompType_t type,
-      const nvcompCascadedFormatOpts* opts,
+      hipcompType_t type,
+      const hipcompCascadedFormatOpts* opts,
       size_t* out_bytes);
 
   /**
@@ -95,8 +95,8 @@ public:
   static void compressAsync(
       const void* in_ptr,
       size_t in_bytes,
-      nvcompType_t in_type,
-      const nvcompCascadedFormatOpts* opts,
+      hipcompType_t in_type,
+      const hipcompCascadedFormatOpts* opts,
       void* temp_ptr,
       const size_t temp_bytes,
       void* out_ptr,
@@ -105,4 +105,4 @@ public:
 };
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

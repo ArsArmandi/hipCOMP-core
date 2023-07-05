@@ -31,7 +31,7 @@
 #include "tests/catch.hpp"
 #include "DeltaGPU.h"
 #include "common.h"
-#include "nvcomp.hpp"
+#include "hipcomp.hpp"
 
 #include "cuda_runtime.h"
 
@@ -56,7 +56,7 @@
   }
 #endif
 
-using namespace nvcomp;
+using namespace hipcomp;
 
 /******************************************************************************
  * HELPER FUNCTIONS ***********************************************************

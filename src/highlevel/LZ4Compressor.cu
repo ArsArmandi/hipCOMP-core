@@ -31,11 +31,11 @@
 #include "LZ4Compressor.h"
 #include "TempSpaceBroker.h"
 #include "common.h"
-#include "nvcomp_cub.cuh"
+#include "hipcomp_cub.cuh"
 
-#include "nvcomp/lz4.h"
+#include "hipcomp/lz4.h"
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -105,8 +105,8 @@ size_t LZ4Compressor::calculate_workspace_size(
 
   // needed workspace
   size_t staging_bytes;
-  CHECK_API_CALL(nvcompBatchedLZ4CompressGetTempSize(
-      num_chunks, chunk_size, nvcompBatchedLZ4DefaultOpts, &staging_bytes));
+  CHECK_API_CALL(hipcompBatchedLZ4CompressGetTempSize(
+      num_chunks, chunk_size, hipcompBatchedLZ4DefaultOpts, &staging_bytes));
 
   // input and output pointers
   const size_t pointer_bytes = 2 * num_chunks * sizeof(uint8_t*);
@@ -117,8 +117,8 @@ size_t LZ4Compressor::calculate_workspace_size(
 
   // buffer to collect output in
   size_t max_out;
-  CHECK_API_CALL(nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
-      chunk_size, nvcompBatchedLZ4DefaultOpts, &max_out));
+  CHECK_API_CALL(hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
+      chunk_size, hipcompBatchedLZ4DefaultOpts, &max_out));
   size_t buffer_bytes = max_out * num_chunks;
 
   size_t prefix_bytes;
@@ -141,8 +141,8 @@ size_t LZ4Compressor::calculate_max_output_size(
   const size_t num_chunks = roundUpDiv(decomp_data_size, chunk_size);
 
   size_t max_out;
-  CHECK_API_CALL(nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
-      chunk_size, nvcompBatchedLZ4DefaultOpts, &max_out));
+  CHECK_API_CALL(hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
+      chunk_size, hipcompBatchedLZ4DefaultOpts, &max_out));
 
   return max_out * num_chunks;
 }
@@ -155,7 +155,7 @@ LZ4Compressor::LZ4Compressor(
     const uint8_t* decomp_data,
     const size_t decomp_data_size,
     const size_t chunk_size,
-    const nvcompType_t data_type) :
+    const hipcompType_t data_type) :
     m_input_ptr(decomp_data),
     m_input_size(decomp_data_size),
     m_chunk_size(chunk_size),
@@ -216,11 +216,11 @@ void LZ4Compressor::compress_async(cudaStream_t stream)
 
   TempSpaceBroker temp(m_workspace, m_workspace_size);
 
-  nvcompBatchedLZ4Opts_t opts = { .data_type = m_data_type };
+  hipcompBatchedLZ4Opts_t opts = { .data_type = m_data_type };
 
   uint8_t* workspace;
   size_t workspace_size;
-  CHECK_API_CALL(nvcompBatchedLZ4CompressGetTempSize(
+  CHECK_API_CALL(hipcompBatchedLZ4CompressGetTempSize(
       m_num_chunks,
       m_chunk_size,
       opts,
@@ -228,7 +228,7 @@ void LZ4Compressor::compress_async(cudaStream_t stream)
   temp.reserve(&workspace, workspace_size);
 
   size_t max_chunk_output;
-  CHECK_API_CALL(nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
+  CHECK_API_CALL(hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
       m_chunk_size, opts, &max_chunk_output));
 
   // these have all the same size, and generally should on all platforms as
@@ -269,7 +269,7 @@ void LZ4Compressor::compress_async(cudaStream_t stream)
         m_output_offsets);
   }
 
-  CHECK_API_CALL(nvcompBatchedLZ4CompressAsync(
+  CHECK_API_CALL(hipcompBatchedLZ4CompressAsync(
       reinterpret_cast<const void* const*>(in_ptrs_device),
       in_sizes_device,
       m_chunk_size,
@@ -336,4 +336,4 @@ bool LZ4Compressor::is_output_configured() const
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

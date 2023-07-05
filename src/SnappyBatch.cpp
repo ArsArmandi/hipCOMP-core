@@ -26,14 +26,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nvcomp/snappy.h"
+#include "hipcomp/snappy.h"
 
 #include "Check.h"
 #include "CudaUtils.h"
 #include "SnappyKernels.h"
 #include "common.h"
-#include "nvcomp.h"
-#include "nvcomp.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
 #include "type_macros.h"
 
 #include <cassert>
@@ -44,7 +44,7 @@
 #include <sstream>
 #include <vector>
 
-using namespace nvcomp;
+using namespace hipcomp;
 namespace
 {
 
@@ -60,7 +60,7 @@ size_t snappy_get_max_compressed_length(size_t source_bytes)
  *     C-style API calls for BATCHED compression/decompress defined below.
  *****************************************************************************/
 
-nvcompStatus_t nvcompBatchedSnappyDecompressGetTempSize(
+hipcompStatus_t hipcompBatchedSnappyDecompressGetTempSize(
     size_t /* num_chunks */,
     size_t /* max_uncompressed_chunk_size */,
     size_t* temp_bytes)
@@ -74,13 +74,13 @@ nvcompStatus_t nvcompBatchedSnappyDecompressGetTempSize(
 
   } catch (const std::exception& e) {
     return Check::exception_to_error(
-        e, "nvcompBatchedSnappyDecompressGetTempSize()");
+        e, "hipcompBatchedSnappyDecompressGetTempSize()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedSnappyGetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedSnappyGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
@@ -102,13 +102,13 @@ nvcompStatus_t nvcompBatchedSnappyGetDecompressSizeAsync(
 
   } catch (const std::exception& e) {
     return Check::exception_to_error(
-        e, "nvcompBatchedSnappyGetDecompressSizeAsync()");
+        e, "hipcompBatchedSnappyGetDecompressSizeAsync()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedSnappyDecompressAsync(
+hipcompStatus_t hipcompBatchedSnappyDecompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     const size_t* device_uncompressed_bytes,
@@ -117,7 +117,7 @@ nvcompStatus_t nvcompBatchedSnappyDecompressAsync(
     void* const /* temp_ptr */,
     const size_t /* temp_bytes */,
     void* const* device_uncompressed_ptr,
-    nvcompStatus_t* device_statuses,
+    hipcompStatus_t* device_statuses,
     cudaStream_t stream)
 {
   try {
@@ -138,16 +138,16 @@ nvcompStatus_t nvcompBatchedSnappyDecompressAsync(
         stream);
 
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompBatchedSnappyDecompressAsync()");
+    return Check::exception_to_error(e, "hipcompBatchedSnappyDecompressAsync()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedSnappyCompressGetTempSize(
+hipcompStatus_t hipcompBatchedSnappyCompressGetTempSize(
     const size_t /* batch_size */,
     const size_t /* max_chunk_size */,
-    const nvcompBatchedSnappyOpts_t /* format_opts */,
+    const hipcompBatchedSnappyOpts_t /* format_opts */,
     size_t* const temp_bytes)
 {
   try {
@@ -159,15 +159,15 @@ nvcompStatus_t nvcompBatchedSnappyCompressGetTempSize(
 
   } catch (const std::exception& e) {
     return Check::exception_to_error(
-        e, "nvcompBatchedSnappyCompressGetTempSize()");
+        e, "hipcompBatchedSnappyCompressGetTempSize()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedSnappyCompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedSnappyCompressGetMaxOutputChunkSize(
     const size_t max_chunk_size,
-    const nvcompBatchedSnappyOpts_t /* format_opts */,
+    const hipcompBatchedSnappyOpts_t /* format_opts */,
     size_t* const max_compressed_size)
 {
   try {
@@ -178,13 +178,13 @@ nvcompStatus_t nvcompBatchedSnappyCompressGetMaxOutputChunkSize(
 
   } catch (const std::exception& e) {
     return Check::exception_to_error(
-        e, "nvcompBatchedSnappyCompressGetOutputSize()");
+        e, "hipcompBatchedSnappyCompressGetOutputSize()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedSnappyCompressAsync(
+hipcompStatus_t hipcompBatchedSnappyCompressAsync(
     const void* const* device_uncompressed_ptr,
     const size_t* device_uncompressed_bytes,
     size_t /*max_uncompressed_chunk_bytes*/,
@@ -193,7 +193,7 @@ nvcompStatus_t nvcompBatchedSnappyCompressAsync(
     size_t /* temp_bytes */,
     void* const* device_compressed_ptr,
     size_t* device_compressed_bytes,
-    const nvcompBatchedSnappyOpts_t /* format_ops */,
+    const hipcompBatchedSnappyOpts_t /* format_ops */,
     cudaStream_t stream)
 {
   try {
@@ -217,8 +217,8 @@ nvcompStatus_t nvcompBatchedSnappyCompressAsync(
         stream);
 
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompBatchedSnappyCompressAsync()");
+    return Check::exception_to_error(e, "hipcompBatchedSnappyCompressAsync()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }

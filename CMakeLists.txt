@@ -38,9 +38,9 @@ else()
   set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-set(NVCOMP_FIND_QUIET "QUIET")
+set(HIPCOMP_FIND_QUIET "QUIET")
 if(DEFINED DEVEL AND NOT DEVEL EQUAL 0)
-  unset(NVCOMP_FIND_QUIET )
+  unset(HIPCOMP_FIND_QUIET )
   if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
     # g++ warnings
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
@@ -87,23 +87,23 @@ if(NOT CUB_HEADER)
       "to cub via 'CUB_DIR'")
 endif()
 
-if(NOT DEFINED NVCOMP_EXTS_ROOT AND DEFINED ENV{NVCOMP_EXTS_ROOT})
-  set(NVCOMP_EXTS_ROOT "$ENV{NVCOMP_EXTS_ROOT}")
+if(NOT DEFINED HIPCOMP_EXTS_ROOT AND DEFINED ENV{HIPCOMP_EXTS_ROOT})
+  set(HIPCOMP_EXTS_ROOT "$ENV{HIPCOMP_EXTS_ROOT}")
 endif()
 
-if( DEFINED NVCOMP_EXTS_ROOT )
-  unset( NVCOMP_FIND_QUIET )
-  set( ENV{gdeflate_ROOT} ${NVCOMP_EXTS_ROOT} )
-  set( ENV{bitcomp_ROOT} ${NVCOMP_EXTS_ROOT} )
+if( DEFINED HIPCOMP_EXTS_ROOT )
+  unset( HIPCOMP_FIND_QUIET )
+  set( ENV{gdeflate_ROOT} ${HIPCOMP_EXTS_ROOT} )
+  set( ENV{bitcomp_ROOT} ${HIPCOMP_EXTS_ROOT} )
 endif()
 
-find_package(bitcomp ${NVCOMP_FIND_QUIET})
+find_package(bitcomp ${HIPCOMP_FIND_QUIET})
 if (bitcomp_FOUND)
   message (STATUS "Found bitcomp")
   add_definitions(-DENABLE_BITCOMP)
 endif()
 
-find_package(gdeflate ${NVCOMP_FIND_QUIET})
+find_package(gdeflate ${HIPCOMP_FIND_QUIET})
 if (gdeflate_FOUND)
   message (STATUS "Found gdeflate")
   add_definitions(-DENABLE_GDEFLATE)
@@ -118,17 +118,17 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 file(COPY include/ DESTINATION ${CMAKE_BINARY_DIR}/include)
 
 # determine version
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/include/nvcomp.h" MAIN_HEADER)
-string(REGEX MATCH "#define NVCOMP_MAJOR_VERSION ([0-9]+)" _ "${MAIN_HEADER}")
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp.h" MAIN_HEADER)
+string(REGEX MATCH "#define HIPCOMP_MAJOR_VERSION ([0-9]+)" _ "${MAIN_HEADER}")
 set(VER_MAJOR "${CMAKE_MATCH_1}")
-string(REGEX MATCH "#define NVCOMP_MINOR_VERSION ([0-9]+)" _ "${MAIN_HEADER}")
+string(REGEX MATCH "#define HIPCOMP_MINOR_VERSION ([0-9]+)" _ "${MAIN_HEADER}")
 set(VER_MINOR "${CMAKE_MATCH_1}")
-string(REGEX MATCH "#define NVCOMP_PATCH_VERSION ([0-9]+)" _ "${MAIN_HEADER}")
+string(REGEX MATCH "#define HIPCOMP_PATCH_VERSION ([0-9]+)" _ "${MAIN_HEADER}")
 set(VER_PATCH "${CMAKE_MATCH_1}")
 
-set(NVCOMP_VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}")
+set(HIPCOMP_VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}")
 
-message("Build nvCOMP version ${NVCOMP_VERSION}")
+message("Build hipCOMP version ${HIPCOMP_VERSION}")
 
 if (BUILD_TESTS)
   enable_testing()
@@ -151,41 +151,41 @@ if (UNIX)
   include(GNUInstallDirs)
 endif()
 
-set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/nvcomp)
+set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/hipcomp)
 
 
 #------
 # Build directory exporting
 include(CMakePackageConfigHelpers)
-configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/nvcomp-config.cmake.in"
-                              "${CMAKE_CURRENT_BINARY_DIR}/nvcomp-config.cmake"
+configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/hipcomp-config.cmake.in"
+                              "${CMAKE_CURRENT_BINARY_DIR}/hipcomp-config.cmake"
                               INSTALL_DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
-export(TARGETS nvcomp
-       FILE "${CMAKE_CURRENT_BINARY_DIR}/nvcomp-targets.cmake"
+export(TARGETS hipcomp
+       FILE "${CMAKE_CURRENT_BINARY_DIR}/hipcomp-targets.cmake"
        )
 
 
 #------
 # Install directory setup
-configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/nvcomp-config.cmake.in"
-                              "${CMAKE_CURRENT_BINARY_DIR}/cmake/nvcomp-config.cmake"
+configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/hipcomp-config.cmake.in"
+                              "${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcomp-config.cmake"
                               INSTALL_DESTINATION "${INSTALL_CONFIGDIR}")
 write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/cmake/nvcompConfigVersion.cmake
-    VERSION "${NVCOMP_VERSION}"
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcompConfigVersion.cmake
+    VERSION "${HIPCOMP_VERSION}"
     COMPATIBILITY SameMinorVersion)
 
-install(TARGETS nvcomp EXPORT nvcomp-exports DESTINATION lib)
-install(EXPORT nvcomp-exports
-        FILE          nvcomp-targets.cmake
-        NAMESPACE     nvcomp::
+install(TARGETS hipcomp EXPORT hipcomp-exports DESTINATION lib)
+install(EXPORT hipcomp-exports
+        FILE          hipcomp-targets.cmake
+        NAMESPACE     hipcomp::
         DESTINATION   "${INSTALL_CONFIGDIR}")
 
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/nvcomp/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nvcomp)
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/nvcomp.hpp
-              ${CMAKE_CURRENT_SOURCE_DIR}/include/nvcomp.h
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hipcomp)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp.hpp
+              ${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cmake/nvcomp-config.cmake"
-              "${CMAKE_CURRENT_BINARY_DIR}/cmake/nvcompConfigVersion.cmake"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcomp-config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcompConfigVersion.cmake"
         DESTINATION "${INSTALL_CONFIGDIR}")

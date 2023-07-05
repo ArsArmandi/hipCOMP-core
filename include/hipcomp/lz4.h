@@ -26,10 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_LZ4_H
-#define NVCOMP_LZ4_H
+#ifndef HIPCOMP_LZ4_H
+#define HIPCOMP_LZ4_H
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
 #include <cuda_runtime.h>
 #include <stdint.h>
@@ -50,17 +50,17 @@ typedef struct
    * recommended size is 65536.
    */
   size_t chunk_size;
-} nvcompLZ4FormatOpts;
+} hipcompLZ4FormatOpts;
 
 /**
  * LZ4 compression options for the low-level API
  */
 typedef struct
 {
-  nvcompType_t data_type;
-} nvcompBatchedLZ4Opts_t;
+  hipcompType_t data_type;
+} hipcompBatchedLZ4Opts_t;
 
-static const nvcompBatchedLZ4Opts_t nvcompBatchedLZ4DefaultOpts = {NVCOMP_TYPE_CHAR};
+static const hipcompBatchedLZ4Opts_t hipcompBatchedLZ4DefaultOpts = {HIPCOMP_TYPE_CHAR};
 
 /**
  * @brief Check if a given chunk of compressed data on the GPU is LZ4.
@@ -71,7 +71,7 @@ static const nvcompBatchedLZ4Opts_t nvcompBatchedLZ4DefaultOpts = {NVCOMP_TYPE_C
  *
  * @return 1 If the data is compressed via LZ4.
  */
-int nvcompLZ4IsData(const void* const in_ptr, size_t in_bytes, cudaStream_t stream);
+int hipcompLZ4IsData(const void* const in_ptr, size_t in_bytes, cudaStream_t stream);
 
 /**
  * @brief Check if the given CPU-accessible metadata is for LZ4.
@@ -80,7 +80,7 @@ int nvcompLZ4IsData(const void* const in_ptr, size_t in_bytes, cudaStream_t stre
  *
  * @return 1 if the data is for LZ4.
  */
-int nvcompLZ4IsMetadata(const void* const metadata_ptr);
+int hipcompLZ4IsMetadata(const void* const metadata_ptr);
 
 /**
  * @brief Configure an LZ4 compressor and return temp and output sizes needed
@@ -94,11 +94,11 @@ int nvcompLZ4IsMetadata(const void* const metadata_ptr);
  * @param temp_bytes The temporary memory required for compression (output)
  * @param compressed_bytes The estaimted size of the compressed result (output)
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompLZ4CompressConfigure(
-    const nvcompLZ4FormatOpts* format_opts,
-    nvcompType_t in_type,
+hipcompStatus_t hipcompLZ4CompressConfigure(
+    const hipcompLZ4FormatOpts* format_opts,
+    hipcompType_t in_type,
     size_t uncompresed_bytes,
     size_t* metadata_bytes,
     size_t* temp_bytes,
@@ -110,7 +110,7 @@ nvcompStatus_t nvcompLZ4CompressConfigure(
  * GPU. If no format is provided (i.e., NULL), the default options will be used.
  *
  * @param format_opts The LZ4 options to use, must match those passed to
- * nvcompLZ4CompressConfigure(). This can be null to use the default options.
+ * hipcompLZ4CompressConfigure(). This can be null to use the default options.
  * @param in_type The type being compressed.
  * @param uncompressed_ptr The uncompressed data on the device.
  * @param uncompressed_bytes The size of the compressed data in bytes.
@@ -121,11 +121,11 @@ nvcompStatus_t nvcompLZ4CompressConfigure(
  * be GPU accessible.
  * @param stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompLZ4CompressAsync(
-    const nvcompLZ4FormatOpts* format_opts,
-    const nvcompType_t in_type,
+hipcompStatus_t hipcompLZ4CompressAsync(
+    const hipcompLZ4FormatOpts* format_opts,
+    const hipcompType_t in_type,
     const void* const uncompressed_ptr,
     const size_t uncompressed_bytes,
     void* const temp_ptr,
@@ -151,9 +151,9 @@ nvcompStatus_t nvcompLZ4CompressAsync(
  * (output).
  * @param stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompLZ4DecompressConfigure(
+hipcompStatus_t hipcompLZ4DecompressConfigure(
     const void* compressed_ptr,
     size_t compressed_bytes,
     void** metadata_ptr,
@@ -174,12 +174,12 @@ nvcompStatus_t nvcompLZ4DecompressConfigure(
  * @param uncompressed_ptr The location to decompress data to on the GPU
  * (output).
  * @param uncompressed_bytes The size of the uncompressed data as returned by
- * `nvcompLZ4DecompressConfigure()`.
+ * `hipcompLZ4DecompressConfigure()`.
  * @param stream THe CUDA stream to decompress on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompLZ4DecompressAsync(
+hipcompStatus_t hipcompLZ4DecompressAsync(
     const void* compressed_ptr,
     size_t compressed_bytes,
     const void* metadata_ptr,
@@ -192,11 +192,11 @@ nvcompStatus_t nvcompLZ4DecompressAsync(
 
 /**
  * @brief Destroys the metadata object and frees the associated memory.  Must be
- * used to destroy metadata that is generated from nvcompLZ4DecompressConfigure.
+ * used to destroy metadata that is generated from hipcompLZ4DecompressConfigure.
  *
  * @param metadata_ptr The pointer to destroy.
  */
-void nvcompLZ4DestroyMetadata(void* metadata_ptr);
+void hipcompLZ4DestroyMetadata(void* metadata_ptr);
 
 /******************************************************************************
  * Batched compression/decompression interface
@@ -216,18 +216,18 @@ void nvcompLZ4DestroyMetadata(void* metadata_ptr);
  * @param temp_bytes The size of the required GPU workspace for compression
  * (output).
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedLZ4CompressGetTempSize(
+hipcompStatus_t hipcompBatchedLZ4CompressGetTempSize(
     size_t batch_size,
     size_t max_uncompressed_chunk_bytes,
-    nvcompBatchedLZ4Opts_t format_opts,
+    hipcompBatchedLZ4Opts_t format_opts,
     size_t* temp_bytes);
 
 /**
  * @brief Get the maximum size any chunk could compress to in the batch. That
  * is, the minimum amount of output memory required to be given
- * nvcompBatchedLZ4CompressAsync() for each batch item.
+ * hipcompBatchedLZ4CompressAsync() for each batch item.
  *
  * Chunk size must not exceed
  * 16777216 bytes. For best performance, a chunk size of 65536 bytes is
@@ -238,11 +238,11 @@ nvcompStatus_t nvcompBatchedLZ4CompressGetTempSize(
  * @param max_compressed_byes The maximum compressed size of the largest chunk
  * (output).
  *
- * @return The nvcompSuccess unless there is an error.
+ * @return The hipcompSuccess unless there is an error.
  */
-nvcompStatus_t nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
     size_t max_uncompressed_chunk_bytes,
-    nvcompBatchedLZ4Opts_t format_opts,
+    hipcompBatchedLZ4Opts_t format_opts,
     size_t* max_compressed_bytes);
 
 /**
@@ -268,9 +268,9 @@ nvcompStatus_t nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
  * @param format_opts The LZ4 compression options to use.
  * @param stream The CUDA stream to operate on.
  *
- * @return nvcompSuccess if successfully launched, and an error code otherwise.
+ * @return hipcompSuccess if successfully launched, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedLZ4CompressAsync(
+hipcompStatus_t hipcompBatchedLZ4CompressAsync(
     const void* const* device_uncompressed_ptrs,
     const size_t* device_uncompressed_bytes,
     size_t max_uncompressed_chunk_bytes,
@@ -279,7 +279,7 @@ nvcompStatus_t nvcompBatchedLZ4CompressAsync(
     size_t temp_bytes,
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
-    nvcompBatchedLZ4Opts_t format_opts,
+    hipcompBatchedLZ4Opts_t format_opts,
     cudaStream_t stream);
 
 /**
@@ -291,16 +291,16 @@ nvcompStatus_t nvcompBatchedLZ4CompressAsync(
  * @param temp_bytes The amount of temporary GPU space that will be required to
  * decompress.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedLZ4DecompressGetTempSize(
+hipcompStatus_t hipcompBatchedLZ4DecompressGetTempSize(
     size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t* temp_bytes);
 
 /**
  * @brief Perform decompression asynchronously. All pointers must be GPU
  * accessible. In the case where a chunk of compressed data is not a valid LZ4
  * block, 0 will be written for the size of the invalid chunk and
- * nvcompStatusCannotDecompress will be flagged for that chunk.
+ * hipcompStatusCannotDecompress will be flagged for that chunk.
  *
  * @param device_compressed_ptrs The pointers on the GPU, to the compressed
  * chunks.
@@ -320,9 +320,9 @@ nvcompStatus_t nvcompBatchedLZ4DecompressGetTempSize(
  * in which case error status is not reported.
  * @param stream The CUDA stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedLZ4DecompressAsync(
+hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     const size_t* device_uncompressed_bytes,
@@ -331,7 +331,7 @@ nvcompStatus_t nvcompBatchedLZ4DecompressAsync(
     void* const device_temp_ptr,
     size_t temp_bytes,
     void* const* device_uncompressed_ptrs,
-    nvcompStatus_t* device_statuses,
+    hipcompStatus_t* device_statuses,
     cudaStream_t stream);
 
 /**
@@ -348,9 +348,9 @@ nvcompStatus_t nvcompBatchedLZ4DecompressAsync(
  * @param batch_size The number of chunks.
  * @param stream The CUDA stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedLZ4GetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedLZ4GetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,

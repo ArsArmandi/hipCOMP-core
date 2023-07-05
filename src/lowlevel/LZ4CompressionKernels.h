@@ -28,7 +28,7 @@
 
 #include "common.h"
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace lowlevel
 {
@@ -55,7 +55,7 @@ void lz4BatchCompress(
     size_t temp_bytes,
     uint8_t* const* comp_data_device,
     size_t* const comp_sizes_device,
-    nvcompType_t data_type,
+    hipcompType_t data_type,
     cudaStream_t stream);
 
 void lz4BatchDecompress(
@@ -67,7 +67,7 @@ void lz4BatchDecompress(
     const size_t temp_bytes,
     uint8_t* const* device_out_ptrs,
     size_t* device_actual_uncompressed_bytes,
-    nvcompStatus_t* device_status_ptrs,
+    hipcompStatus_t* device_status_ptrs,
     cudaStream_t stream);
 
 /**
@@ -104,4 +104,4 @@ size_t lz4ComputeMaxSize(const size_t chunk_size);
 
 size_t lz4MaxChunkSize();
 } // namespace lowlevel
-} // namespace nvcomp
+} // namespace hipcomp

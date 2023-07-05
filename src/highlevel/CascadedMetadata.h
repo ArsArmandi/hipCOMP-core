@@ -29,7 +29,7 @@
 #ifndef CASCACDEDMETADATA_H
 #define CASCACDEDMETADATA_H
 
-#include "nvcomp/cascaded.h"
+#include "hipcomp/cascaded.h"
 
 #include "highlevel/Metadata.h"
 
@@ -38,12 +38,12 @@
 #include <vector>
 
 #ifdef __CUDACC__
-#define NVCOMP_HOST_DEVICE __device__ __host__
+#define HIPCOMP_HOST_DEVICE __device__ __host__
 #else
-#define NVCOMP_HOST_DEVICE
+#define HIPCOMP_HOST_DEVICE
 #endif
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -111,8 +111,8 @@ public:
    * @param compressedBytes The size of the data and metadata compressed.
    */
   CascadedMetadata(
-      nvcompCascadedFormatOpts opts,
-      nvcompType_t type,
+      hipcompCascadedFormatOpts opts,
+      hipcompType_t type,
       size_t uncompressedBytes,
       size_t compressedBytes);
 
@@ -227,10 +227,10 @@ public:
    *
    * @return The type.
    */
-  nvcompType_t getDataType(size_t index) const;
+  hipcompType_t getDataType(size_t index) const;
 
   template <typename T>
-  static inline NVCOMP_HOST_DEVICE T*
+  static inline HIPCOMP_HOST_DEVICE T*
   getMinValueLocation(CascadedMetadata::Header* const deviceHeader);
 
   /**
@@ -267,8 +267,8 @@ public:
    * @param compressedBytes The compressed bytes size to be set.
    */
   void set_all(
-      const nvcompCascadedFormatOpts opts,
-      const nvcompType_t type,
+      const hipcompCascadedFormatOpts opts,
+      const hipcompType_t type,
       const size_t uncompressedBytes,
       const size_t compressedBytes);
 
@@ -276,7 +276,7 @@ private:
   /**
    * @brief The configuration of cascaded compression to be used/used.
    */
-  nvcompCascadedFormatOpts m_formatOpts;
+  hipcompCascadedFormatOpts m_formatOpts;
 
   /**
    * @brief The header for each layer, output or not (that is, this will be the
@@ -294,7 +294,7 @@ private:
    */
   std::vector<size_t> m_dataOffsets;
 
-  std::vector<nvcompType_t> m_dataType;
+  std::vector<hipcompType_t> m_dataType;
 
   std::vector<bool> m_isSaved;
 
@@ -306,14 +306,14 @@ private:
 };
 
 template <>
-inline NVCOMP_HOST_DEVICE int8_t* CascadedMetadata::getMinValueLocation<int8_t>(
+inline HIPCOMP_HOST_DEVICE int8_t* CascadedMetadata::getMinValueLocation<int8_t>(
     CascadedMetadata::Header* const deviceHeader)
 {
   return &(deviceHeader->minValue.i8);
 }
 
 template <>
-inline NVCOMP_HOST_DEVICE uint8_t*
+inline HIPCOMP_HOST_DEVICE uint8_t*
 CascadedMetadata::getMinValueLocation<uint8_t>(
     CascadedMetadata::Header* const deviceHeader)
 {
@@ -321,7 +321,7 @@ CascadedMetadata::getMinValueLocation<uint8_t>(
 }
 
 template <>
-inline NVCOMP_HOST_DEVICE int16_t*
+inline HIPCOMP_HOST_DEVICE int16_t*
 CascadedMetadata::getMinValueLocation<int16_t>(
     CascadedMetadata::Header* const deviceHeader)
 {
@@ -329,7 +329,7 @@ CascadedMetadata::getMinValueLocation<int16_t>(
 }
 
 template <>
-inline NVCOMP_HOST_DEVICE uint16_t*
+inline HIPCOMP_HOST_DEVICE uint16_t*
 CascadedMetadata::getMinValueLocation<uint16_t>(
     CascadedMetadata::Header* const deviceHeader)
 {
@@ -337,7 +337,7 @@ CascadedMetadata::getMinValueLocation<uint16_t>(
 }
 
 template <>
-inline NVCOMP_HOST_DEVICE int32_t*
+inline HIPCOMP_HOST_DEVICE int32_t*
 CascadedMetadata::getMinValueLocation<int32_t>(
     CascadedMetadata::Header* const deviceHeader)
 {
@@ -345,7 +345,7 @@ CascadedMetadata::getMinValueLocation<int32_t>(
 }
 
 template <>
-inline NVCOMP_HOST_DEVICE uint32_t*
+inline HIPCOMP_HOST_DEVICE uint32_t*
 CascadedMetadata::getMinValueLocation<uint32_t>(
     CascadedMetadata::Header* const deviceHeader)
 {
@@ -353,7 +353,7 @@ CascadedMetadata::getMinValueLocation<uint32_t>(
 }
 
 template <>
-inline NVCOMP_HOST_DEVICE int64_t*
+inline HIPCOMP_HOST_DEVICE int64_t*
 CascadedMetadata::getMinValueLocation<int64_t>(
     CascadedMetadata::Header* const deviceHeader)
 {
@@ -361,7 +361,7 @@ CascadedMetadata::getMinValueLocation<int64_t>(
 }
 
 template <>
-inline NVCOMP_HOST_DEVICE uint64_t*
+inline HIPCOMP_HOST_DEVICE uint64_t*
 CascadedMetadata::getMinValueLocation<uint64_t>(
     CascadedMetadata::Header* const deviceHeader)
 {
@@ -369,8 +369,8 @@ CascadedMetadata::getMinValueLocation<uint64_t>(
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp
 
-#undef NVCOMP_HOST_DEVICE
+#undef HIPCOMP_HOST_DEVICE
 
 #endif

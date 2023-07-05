@@ -60,27 +60,27 @@
 // will show up at compile time, and things should only need to change if our
 // interface changes, which should be very infrequent.
 #define GENERATE_TESTS(NAME)                                                   \
-  nvcompStatus_t compressGetTempSize(                                          \
+  hipcompStatus_t compressGetTempSize(                                          \
       const size_t batch_size,                                                 \
       const size_t max_uncompressed_chunk_bytes,                               \
       size_t* const temp_bytes)                                                \
   {                                                                            \
-    return nvcompBatched##NAME##CompressGetTempSize(                           \
+    return hipcompBatched##NAME##CompressGetTempSize(                           \
         batch_size,                                                            \
         max_uncompressed_chunk_bytes,                                          \
-        nvcompBatched##NAME##DefaultOpts,                                      \
+        hipcompBatched##NAME##DefaultOpts,                                      \
         temp_bytes);                                                           \
   }                                                                            \
-  nvcompStatus_t compressGetMaxOutputChunkSize(                                \
+  hipcompStatus_t compressGetMaxOutputChunkSize(                                \
       const size_t max_uncompressed_chunk_bytes,                               \
       size_t* const max_compressed_bytes)                                      \
   {                                                                            \
-    return nvcompBatched##NAME##CompressGetMaxOutputChunkSize(                 \
+    return hipcompBatched##NAME##CompressGetMaxOutputChunkSize(                 \
         max_uncompressed_chunk_bytes,                                          \
-        nvcompBatched##NAME##DefaultOpts,                                      \
+        hipcompBatched##NAME##DefaultOpts,                                      \
         max_compressed_bytes);                                                 \
   }                                                                            \
-  nvcompStatus_t compressAsync(                                                \
+  hipcompStatus_t compressAsync(                                                \
       const void* const* const device_in_ptr,                                  \
       const size_t* const device_in_bytes,                                     \
       const size_t max_uncompressed_chunk_bytes,                               \
@@ -91,7 +91,7 @@
       size_t* const device_out_bytes,                                          \
       cudaStream_t stream)                                                     \
   {                                                                            \
-    return nvcompBatched##NAME##CompressAsync(                                 \
+    return hipcompBatched##NAME##CompressAsync(                                 \
         device_in_ptr,                                                         \
         device_in_bytes,                                                       \
         max_uncompressed_chunk_bytes,                                          \
@@ -100,32 +100,32 @@
         temp_bytes,                                                            \
         device_out_ptr,                                                        \
         device_out_bytes,                                                      \
-        nvcompBatched##NAME##DefaultOpts,                                      \
+        hipcompBatched##NAME##DefaultOpts,                                      \
         stream);                                                               \
   }                                                                            \
-  nvcompStatus_t decompressGetSizeAsync(                                       \
+  hipcompStatus_t decompressGetSizeAsync(                                       \
       const void* const* const device_compressed_ptrs,                         \
       const size_t* const device_compressed_bytes,                             \
       size_t* const device_uncompressed_bytes,                                 \
       const size_t batch_size,                                                 \
       cudaStream_t stream)                                                     \
   {                                                                            \
-    return nvcompBatched##NAME##GetDecompressSizeAsync(                        \
+    return hipcompBatched##NAME##GetDecompressSizeAsync(                        \
         device_compressed_ptrs,                                                \
         device_compressed_bytes,                                               \
         device_uncompressed_bytes,                                             \
         batch_size,                                                            \
         stream);                                                               \
   }                                                                            \
-  nvcompStatus_t decompressGetTempSize(                                        \
+  hipcompStatus_t decompressGetTempSize(                                        \
       const size_t num_chunks,                                                 \
       const size_t max_uncompressed_chunk_bytes,                               \
       size_t* const temp_bytes)                                                \
   {                                                                            \
-    return nvcompBatched##NAME##DecompressGetTempSize(                         \
+    return hipcompBatched##NAME##DecompressGetTempSize(                         \
         num_chunks, max_uncompressed_chunk_bytes, temp_bytes);                 \
   }                                                                            \
-  nvcompStatus_t decompressAsync(                                              \
+  hipcompStatus_t decompressAsync(                                              \
       const void* const* device_compressed_ptrs,                               \
       const size_t* device_compressed_bytes,                                   \
       const size_t* device_uncompressed_bytes,                                 \
@@ -134,10 +134,10 @@
       void* const device_temp_ptr,                                             \
       size_t temp_bytes,                                                       \
       void* const* device_uncompressed_ptrs,                                   \
-      nvcompStatus_t* device_status_ptr,                                       \
+      hipcompStatus_t* device_status_ptr,                                       \
       cudaStream_t stream)                                                     \
   {                                                                            \
-    return nvcompBatched##NAME##DecompressAsync(                               \
+    return hipcompBatched##NAME##DecompressAsync(                               \
         device_compressed_ptrs,                                                \
         device_compressed_bytes,                                               \
         device_uncompressed_bytes,                                             \
@@ -149,19 +149,19 @@
         device_status_ptr,                                                     \
         stream);                                                               \
   }                                                                            \
-  typedef int __nvcomp_semicolon_catch
+  typedef int __hipcomp_semicolon_catch
 
 // Declear the test function wrappers
-nvcompStatus_t compressGetTempSize(
+hipcompStatus_t compressGetTempSize(
     const size_t batch_size,
     const size_t max_uncompressed_chunk_bytes,
     size_t* const temp_bytes);
 
-nvcompStatus_t compressGetMaxOutputChunkSize(
+hipcompStatus_t compressGetMaxOutputChunkSize(
     const size_t max_uncompressed_chunk_bytes,
     size_t* const max_compressed_bytes);
 
-nvcompStatus_t compressAsync(
+hipcompStatus_t compressAsync(
     const void* const* device_in_ptr,
     const size_t* device_in_bytes,
     size_t max_uncompressed_chunk_bytes,
@@ -172,19 +172,19 @@ nvcompStatus_t compressAsync(
     size_t* device_out_bytes,
     cudaStream_t stream);
 
-nvcompStatus_t decompressGetSizeAsync(
+hipcompStatus_t decompressGetSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
     cudaStream_t stream);
 
-nvcompStatus_t decompressGetTempSize(
+hipcompStatus_t decompressGetTempSize(
     const size_t num_chunks,
     const size_t max_uncompressed_chunk_bytes,
     size_t* const temp_bytes);
 
-nvcompStatus_t decompressAsync(
+hipcompStatus_t decompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     const size_t* device_uncompressed_bytes,
@@ -193,7 +193,7 @@ nvcompStatus_t decompressAsync(
     void* const device_temp_ptr,
     size_t temp_bytes,
     void* const* device_uncompressed_ptrs,
-    nvcompStatus_t* device_status_ptrs,
+    hipcompStatus_t* device_status_ptrs,
     cudaStream_t stream);
 
 static const int PASS_TEST = 1;
@@ -273,20 +273,20 @@ int test_generic_batch_compression_and_decompression(
       sizeof(*device_batch_bytes) * batch_size,
       cudaMemcpyHostToDevice));
 
-  nvcompStatus_t status;
+  hipcompStatus_t status;
 
   // Compress on the GPU using batched API
   size_t comp_temp_bytes;
   status = compressGetTempSize(batch_size, max_chunk_size, &comp_temp_bytes);
   if (max_chunk_size > 1<<16) printf("max_chunk_size = %lu\n", max_chunk_size);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   void* d_comp_temp;
   CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
 
   size_t max_comp_out_bytes;
   status = compressGetMaxOutputChunkSize(max_chunk_size, &max_comp_out_bytes);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   void** host_comp_out = malloc(sizeof(void*) * batch_size);
   for (size_t i = 0; i < batch_size; ++i) {
@@ -319,7 +319,7 @@ int test_generic_batch_compression_and_decompression(
       device_comp_out,
       device_comp_out_bytes,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   CUDA_CHECK(cudaFree(d_comp_temp));
@@ -346,7 +346,7 @@ int test_generic_batch_compression_and_decompression(
       device_decomp_out_bytes,
       batch_size,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // copy the output sizes down and check them
@@ -387,7 +387,7 @@ int test_generic_batch_compression_and_decompression(
         (void* const*)device_decomp_out,
         NULL,
         stream);
-    REQUIRE(status == nvcompSuccess);
+    REQUIRE(status == hipcompSuccess);
     
     // Verify correctness
     for (size_t i = 0; i < batch_size; i++) {
@@ -402,7 +402,7 @@ int test_generic_batch_compression_and_decompression(
     }
   }
 
-  nvcompStatus_t* device_statuses;
+  hipcompStatus_t* device_statuses;
   CUDA_CHECK(cudaMalloc(
       (void**)&device_statuses, sizeof(*device_statuses) * batch_size));
   status = decompressAsync(
@@ -416,13 +416,13 @@ int test_generic_batch_compression_and_decompression(
       (void* const*)device_decomp_out,
       device_statuses,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   CUDA_CHECK(cudaDeviceSynchronize());
   CUDA_CHECK(cudaStreamDestroy(stream));
 
   // check statuses
-  nvcompStatus_t* host_statuses = malloc(sizeof(*device_statuses) * batch_size);
+  hipcompStatus_t* host_statuses = malloc(sizeof(*device_statuses) * batch_size);
   CUDA_CHECK(cudaMemcpy(
       host_statuses,
       device_statuses,
@@ -431,7 +431,7 @@ int test_generic_batch_compression_and_decompression(
   CUDA_CHECK(cudaFree(device_statuses));
 
   for (size_t i = 0; i < batch_size; ++i) {
-    REQUIRE(host_statuses[i] == nvcompSuccess);
+    REQUIRE(host_statuses[i] == hipcompSuccess);
   }
   free(host_statuses);
 
@@ -560,7 +560,7 @@ int test_generic_batch_decompression_errors(
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
-  nvcompStatus_t status;
+  hipcompStatus_t status;
 
   // attempt to get the size
   size_t* device_decomp_out_bytes;
@@ -579,7 +579,7 @@ int test_generic_batch_decompression_errors(
       device_decomp_out_bytes,
       batch_size,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // copy the output sizes down and check them
@@ -637,7 +637,7 @@ int test_generic_batch_decompression_errors(
       sizeof(*device_decomp_out) * batch_size,
       cudaMemcpyHostToDevice));
 
-  nvcompStatus_t* device_statuses;
+  hipcompStatus_t* device_statuses;
   CUDA_CHECK(cudaMalloc(
       (void**)&device_statuses, sizeof(*device_statuses) * batch_size));
   status = decompressAsync(
@@ -651,7 +651,7 @@ int test_generic_batch_decompression_errors(
       (void* const*)device_decomp_out,
       device_statuses,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -665,7 +665,7 @@ int test_generic_batch_decompression_errors(
   free(host_in_ptrs);
 
   // check statuses
-  nvcompStatus_t* host_statuses = malloc(sizeof(*device_statuses) * batch_size);
+  hipcompStatus_t* host_statuses = malloc(sizeof(*device_statuses) * batch_size);
   CUDA_CHECK(cudaMemcpy(
       host_statuses,
       device_statuses,
@@ -674,9 +674,9 @@ int test_generic_batch_decompression_errors(
   CUDA_CHECK(cudaFree(device_statuses));
 
   for (size_t i = 0; i < batch_size; ++i) {
-    if (host_statuses[i] != nvcompErrorCannotDecompress) {
+    if (host_statuses[i] != hipcompErrorCannotDecompress) {
     }
-    REQUIRE(host_statuses[i] == nvcompErrorCannotDecompress);
+    REQUIRE(host_statuses[i] == hipcompErrorCannotDecompress);
   }
   free(host_statuses);
   CUDA_CHECK(cudaFree(device_decomp_out_bytes));

@@ -31,11 +31,11 @@
 #include "LZ4Decompressor.h"
 #include "TempSpaceBroker.h"
 #include "common.h"
-#include "nvcomp_cub.cuh"
+#include "hipcomp_cub.cuh"
 
-#include "nvcomp/lz4.h"
+#include "hipcomp/lz4.h"
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -84,7 +84,7 @@ size_t LZ4Decompressor::calculate_workspace_size(
 {
   // compute tempspace
   size_t c_api_space;
-  CHECK_API_CALL(nvcompBatchedLZ4DecompressGetTempSize(
+  CHECK_API_CALL(hipcompBatchedLZ4DecompressGetTempSize(
       num_chunks, chunk_size, &c_api_space));
 
   // we need an input and output pointer for each chunk
@@ -94,7 +94,7 @@ size_t LZ4Decompressor::calculate_workspace_size(
   // we need actual output sizes
   const size_t actual_size_bytes = sizeof(size_t) * num_chunks;
   // we need the error status for each chunk
-  const size_t status_bytes = sizeof(nvcompStatus_t) * num_chunks;
+  const size_t status_bytes = sizeof(hipcompStatus_t) * num_chunks;
 
   return c_api_space + pointer_bytes + size_bytes + actual_size_bytes
          + status_bytes;
@@ -168,7 +168,7 @@ void LZ4Decompressor::decompress_async(cudaStream_t stream)
 
   uint8_t* workspace;
   size_t workspace_size;
-  CHECK_API_CALL(nvcompBatchedLZ4DecompressGetTempSize(
+  CHECK_API_CALL(hipcompBatchedLZ4DecompressGetTempSize(
       m_num_chunks, m_chunk_size, &workspace_size));
   temp.reserve(&workspace, workspace_size);
 
@@ -193,7 +193,7 @@ void LZ4Decompressor::decompress_async(cudaStream_t stream)
   size_t* actual_out_sizes_devices;
   temp.reserve(&actual_out_sizes_devices, m_num_chunks);
 
-  nvcompStatus_t* device_statuses;
+  hipcompStatus_t* device_statuses;
   temp.reserve(&device_statuses, m_num_chunks);
 
   const dim3 block(128);
@@ -211,7 +211,7 @@ void LZ4Decompressor::decompress_async(cudaStream_t stream)
       out_ptrs_device,
       out_sizes_device);
 
-  CHECK_API_CALL(nvcompBatchedLZ4DecompressAsync(
+  CHECK_API_CALL(hipcompBatchedLZ4DecompressAsync(
       in_ptrs_device,
       in_sizes_device,
       out_sizes_device,
@@ -239,4 +239,4 @@ bool LZ4Decompressor::is_output_configured() const
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

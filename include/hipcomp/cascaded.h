@@ -26,10 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_CASCADED_H
-#define NVCOMP_CASCADED_H
+#ifndef HIPCOMP_CASCADED_H
+#define HIPCOMP_CASCADED_H
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
 #include <cuda_runtime.h>
 #include <stdint.h>
@@ -57,7 +57,7 @@ typedef struct
    * @brief Whether or not to bitpack the final layers.
    */
   int use_bp;
-} nvcompCascadedFormatOpts;
+} hipcompCascadedFormatOpts;
 
 /**
  * @brief Configure the Cascaded compressor and return temp and output
@@ -74,11 +74,11 @@ typedef struct
  * @param temp_bytes The temporary memory required for compression (output)
  * @param compressed_bytes The estaimted size of the compressed result (output)
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompCascadedCompressConfigure(
-    const nvcompCascadedFormatOpts* format_opts,
-    nvcompType_t type,
+hipcompStatus_t hipcompCascadedCompressConfigure(
+    const hipcompCascadedFormatOpts* format_opts,
+    hipcompType_t type,
     size_t uncompressed_bytes,
     size_t* metadata_bytes,
     size_t* temp_bytes,
@@ -109,11 +109,11 @@ nvcompStatus_t nvcompCascadedCompressConfigure(
  * directly accessible by the GPU.
  * @param stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompCascadedCompressAsync(
-    const nvcompCascadedFormatOpts* format_opts,
-    nvcompType_t type,
+hipcompStatus_t hipcompCascadedCompressAsync(
+    const hipcompCascadedFormatOpts* format_opts,
+    hipcompType_t type,
     const void* uncompressed_ptr,
     size_t uncompressed_bytes,
     void* temp_ptr,
@@ -142,9 +142,9 @@ nvcompStatus_t nvcompCascadedCompressAsync(
  * (output).
  * @param stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompCascadedDecompressConfigure(
+hipcompStatus_t hipcompCascadedDecompressConfigure(
     const void* compressed_ptr,
     size_t compressed_bytes,
     void** metadata_ptr,
@@ -164,12 +164,12 @@ nvcompStatus_t nvcompCascadedDecompressConfigure(
  * @param temp_bytes The size of the temporary workspace.
  * @param uncompressed_ptr The output location on the device (output).
  * @param uncompressed_bytes The size of the uncompressed data as returned by
- * `nvcompLZ4DecompressConfigure()`.
+ * `hipcompLZ4DecompressConfigure()`.
  * @param stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompCascadedDecompressAsync(
+hipcompStatus_t hipcompCascadedDecompressAsync(
     const void* compressed_ptr,
     size_t compressed_bytes,
     const void* metadata_ptr,
@@ -183,11 +183,11 @@ nvcompStatus_t nvcompCascadedDecompressAsync(
 /**
  * @brief Destroys the metadata object and frees the associated memory.  Must be
  * used to destroy metadata that is generated from
- * nvcompCascadedDecompressConfigure.
+ * hipcompCascadedDecompressConfigure.
  *
  * @param metadata_ptr The pointer to destroy.
  */
-void nvcompCascadedDestroyMetadata(void* metadata_ptr);
+void hipcompCascadedDestroyMetadata(void* metadata_ptr);
 
 /**************************************************************************
  *  Cascaded Selector types and API calls
@@ -218,7 +218,7 @@ typedef struct
    */
   unsigned seed;
 
-} nvcompCascadedSelectorOpts;
+} hipcompCascadedSelectorOpts;
 
 /**
  * @brief Configure the cascaded selector and get the temp memory size needed
@@ -230,11 +230,11 @@ typedef struct
  * @param uncompressed_bytes The size of the uncompressed data in bytes.
  * @param temp_bytes The size of the temporary workspace in bytes (output).
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompCascadedSelectorConfigure(
-    nvcompCascadedSelectorOpts* opts,
-    nvcompType_t type,
+hipcompStatus_t hipcompCascadedSelectorConfigure(
+    hipcompCascadedSelectorOpts* opts,
+    hipcompType_t type,
     size_t uncompressed_bytes,
     size_t* temp_bytes);
 
@@ -254,16 +254,16 @@ nvcompStatus_t nvcompCascadedSelectorConfigure(
  * (output)
  * @param stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompCascadedSelectorRun(
-    nvcompCascadedSelectorOpts* opts,
-    nvcompType_t type,
+hipcompStatus_t hipcompCascadedSelectorRun(
+    hipcompCascadedSelectorOpts* opts,
+    hipcompType_t type,
     const void* uncompressed_ptr,
     size_t uncompressed_bytes,
     void* temp_ptr,
     size_t temp_bytes,
-    nvcompCascadedFormatOpts* format_opts,
+    hipcompCascadedFormatOpts* format_opts,
     double* est_ratio,
     cudaStream_t stream);
 
@@ -289,7 +289,7 @@ typedef struct
   /**
    * @brief The datatype used to define the bit-width for compression
    */
-  nvcompType_t type;
+  hipcompType_t type;
 
   /**
    * @brief The number of Run Length Encodings to perform.
@@ -305,11 +305,11 @@ typedef struct
    * @brief Whether or not to bitpack the final layers.
    */
   int use_bp;
-} nvcompBatchedCascadedOpts_t;
+} hipcompBatchedCascadedOpts_t;
 
 // Default options for batched compression
-static const nvcompBatchedCascadedOpts_t nvcompBatchedCascadedDefaultOpts
-    = {4096, NVCOMP_TYPE_INT, 2, 1, 1};
+static const hipcompBatchedCascadedOpts_t hipcompBatchedCascadedDefaultOpts
+    = {4096, HIPCOMP_TYPE_INT, 2, 1, 1};
 
 /**
  * @brief Get temporary space required for compression.
@@ -324,18 +324,18 @@ static const nvcompBatchedCascadedOpts_t nvcompBatchedCascadedDefaultOpts
  * @param temp_bytes The size of the required GPU workspace for compression
  * (output).
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedCascadedCompressGetTempSize(
+hipcompStatus_t hipcompBatchedCascadedCompressGetTempSize(
     size_t batch_size,
     size_t max_uncompressed_chunk_bytes,
-    nvcompBatchedCascadedOpts_t format_opts,
+    hipcompBatchedCascadedOpts_t format_opts,
     size_t* temp_bytes);
 
 /**
  * @brief Get the maximum size any chunk could compress to in the batch. That
  * is, the minimum amount of output memory required to be given
- * nvcompBatchedCascadedCompressAsync() for each batch item.
+ * hipcompBatchedCascadedCompressAsync() for each batch item.
  *
  * Chunk size must be limited by the shared memory available on the GPU
  * being used.  In general, it must not exceed 16384, but 4096 bytes is
@@ -346,17 +346,17 @@ nvcompStatus_t nvcompBatchedCascadedCompressGetTempSize(
  * @param max_compressed_byes The maximum compressed size of the largest chunk
  * (output).
  *
- * @return The nvcompSuccess unless there is an error.
+ * @return The hipcompSuccess unless there is an error.
  */
-nvcompStatus_t nvcompBatchedCascadedCompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedCascadedCompressGetMaxOutputChunkSize(
     size_t max_uncompressed_chunk_bytes,
-    nvcompBatchedCascadedOpts_t format_opts,
+    hipcompBatchedCascadedOpts_t format_opts,
     size_t* max_compressed_bytes);
 
 /**
  * @brief Perform batched asynchronous compression.
  *
- * NOTE: Unlike `nvcompCascadedCompressAsync`, a valid compression format must
+ * NOTE: Unlike `hipcompCascadedCompressAsync`, a valid compression format must
  * be supplied to `format_opts`.
  *
  * NOTE: The current implementation does not support uncompressed size larger
@@ -383,9 +383,9 @@ nvcompStatus_t nvcompBatchedCascadedCompressGetMaxOutputChunkSize(
  * @param[in] format_opts The cascaded format options. The format must be valid.
  * @param[in] stream The cuda stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedCascadedCompressAsync(
+hipcompStatus_t hipcompBatchedCascadedCompressAsync(
     const void* const* device_uncompressed_ptrs,
     const size_t* device_uncompressed_bytes,
     size_t max_uncompressed_chunk_bytes, // not used
@@ -394,7 +394,7 @@ nvcompStatus_t nvcompBatchedCascadedCompressAsync(
     size_t temp_bytes,     // not used
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
-    const nvcompBatchedCascadedOpts_t format_opts,
+    const hipcompBatchedCascadedOpts_t format_opts,
     cudaStream_t stream);
 
 /**
@@ -406,17 +406,17 @@ nvcompStatus_t nvcompBatchedCascadedCompressAsync(
  * @param temp_bytes The amount of temporary GPU space that will be required to
  * decompress.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedCascadedDecompressGetTempSize(
+hipcompStatus_t hipcompBatchedCascadedDecompressGetTempSize(
     size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t* temp_bytes);
 
 /**
  * @brief Perform batched asynchronous decompression.
  *
  * NOTE: This function is used to decompress compressed buffers produced by
- * `nvcompBatchedCascadedCompressAsync`. Currently it is not compatible with
- * compressed buffers produced by `nvcompCascadedCompressAsync`.
+ * `hipcompBatchedCascadedCompressAsync`. Currently it is not compatible with
+ * compressed buffers produced by `hipcompCascadedCompressAsync`.
  *
  * @param[in] device_compressed_ptrs Array with size \p batch_size of pointers
  * in device-accessible memory to compressed buffers. Each compressed buffer
@@ -428,7 +428,7 @@ nvcompStatus_t nvcompBatchedCascadedDecompressGetTempSize(
  * buffers in bytes. The sizes should reside in device-accessible memory. If the
  * size is not large enough to hold all decompressed elements, the decompressor
  * will set the status specified in \p device_statuses corresponding to the
- * overflow partition to `nvcompErrorCannotDecompress`.
+ * overflow partition to `hipcompErrorCannotDecompress`.
  * @param[out] device_actual_uncompressed_bytes Array with size \p batch_size of
  * the actual number of bytes decompressed for every partitions. This argument
  * needs to be preallocated.
@@ -442,12 +442,12 @@ nvcompStatus_t nvcompBatchedCascadedDecompressGetTempSize(
  * @param[out] device_statuses Array with size \p batch_size of statuses in
  * device-accessible memory. This argument needs to be preallocated. For each
  * partition, if the decompression is successful, the status will be set to
- * `nvcompSuccess`. If the decompression is not successful, for example due to
+ * `hipcompSuccess`. If the decompression is not successful, for example due to
  * the corrupted input or out-of-bound errors, the status will be set to
- * `nvcompErrorCannotDecompress`.
+ * `hipcompErrorCannotDecompress`.
  * @param[in] stream The cuda stream to operate on.
  */
-nvcompStatus_t nvcompBatchedCascadedDecompressAsync(
+hipcompStatus_t hipcompBatchedCascadedDecompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     const size_t* device_uncompressed_bytes,
@@ -456,7 +456,7 @@ nvcompStatus_t nvcompBatchedCascadedDecompressAsync(
     void* const device_temp_ptr, // not used
     size_t temp_bytes,           // not used
     void* const* device_uncompressed_ptrs,
-    nvcompStatus_t* device_statuses,
+    hipcompStatus_t* device_statuses,
     cudaStream_t stream);
 
 /**
@@ -474,7 +474,7 @@ nvcompStatus_t nvcompBatchedCascadedDecompressAsync(
  * @param[in] batch_size Number of partitions to check sizes.
  * @param[in] stream The cuda stream to operate on.
  */
-nvcompStatus_t nvcompBatchedCascadedGetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedCascadedGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,

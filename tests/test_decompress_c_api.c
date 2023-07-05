@@ -26,9 +26,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nvcomp.h"
-#include "nvcomp/cascaded.h"
-#include "nvcomp/lz4.h"
+#include "hipcomp.h"
+#include "hipcomp/cascaded.h"
+#include "hipcomp/lz4.h"
 
 #include "cuda_runtime.h"
 
@@ -71,26 +71,26 @@ int check_decompress(
   size_t output_bytes;
   void* metadata_ptr = NULL;
 
-  nvcompStatus_t status = nvcompDecompressGetMetadata(
+  hipcompStatus_t status = hipcompDecompressGetMetadata(
       d_comp_out, comp_out_bytes, &metadata_ptr, stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
-  status = nvcompDecompressGetTempSize(metadata_ptr, &temp_bytes);
-  REQUIRE(status == nvcompSuccess);
+  status = hipcompDecompressGetTempSize(metadata_ptr, &temp_bytes);
+  REQUIRE(status == hipcompSuccess);
 
   // allocate temp buffer
   void* temp_ptr;
   CUDA_CHECK(cudaMalloc(&temp_ptr, temp_bytes));
 
-  status = nvcompDecompressGetOutputSize(metadata_ptr, &output_bytes);
-  REQUIRE(status == nvcompSuccess);
+  status = hipcompDecompressGetOutputSize(metadata_ptr, &output_bytes);
+  REQUIRE(status == hipcompSuccess);
 
   // allocate output buffer
   void* out_ptr;
   CUDA_CHECK(cudaMalloc(&out_ptr, output_bytes));
 
   // execute decompression (asynchronous)
-  status = nvcompDecompressAsync(
+  status = hipcompDecompressAsync(
       d_comp_out,
       comp_out_bytes,
       temp_ptr,
@@ -99,11 +99,11 @@ int check_decompress(
       out_ptr,
       output_bytes,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  nvcompCascadedDestroyMetadata(metadata_ptr);
+  hipcompCascadedDestroyMetadata(metadata_ptr);
 
   // Copy result back to host
   int* result = malloc(input_size * sizeof(int));
@@ -123,7 +123,7 @@ int check_decompress(
 int test_cascaded(void)
 {
   typedef int T;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
   int packing = 0;
   int RLE = 1;
@@ -138,7 +138,7 @@ int test_cascaded(void)
   CUDA_CHECK(cudaMalloc(&d_in_data, in_bytes));
   CUDA_CHECK(cudaMemcpy(d_in_data, input, in_bytes, cudaMemcpyHostToDevice));
 
-  nvcompCascadedFormatOpts comp_opts;
+  hipcompCascadedFormatOpts comp_opts;
   comp_opts.num_RLEs = RLE;
   comp_opts.num_deltas = Delta;
   comp_opts.use_bp = packing;
@@ -146,20 +146,20 @@ int test_cascaded(void)
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
-  nvcompStatus_t status;
+  hipcompStatus_t status;
 
   // Compress on the GPU
   size_t comp_temp_bytes;
   size_t comp_out_bytes;
   size_t metadata_bytes;
-  status = nvcompCascadedCompressConfigure(
+  status = hipcompCascadedCompressConfigure(
       &comp_opts,
       type,
       in_bytes,
       &metadata_bytes,
       &comp_temp_bytes,
       &comp_out_bytes);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   void* d_comp_temp;
   void* d_comp_out;
@@ -168,7 +168,7 @@ int test_cascaded(void)
 
   size_t* d_comp_out_bytes;
   CUDA_CHECK(cudaMalloc((void**)&d_comp_out_bytes, sizeof(*d_comp_out_bytes)));
-  status = nvcompCascadedCompressAsync(
+  status = hipcompCascadedCompressAsync(
       &comp_opts,
       type,
       d_in_data,
@@ -178,7 +178,7 @@ int test_cascaded(void)
       d_comp_out,
       d_comp_out_bytes,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaMemcpy(
       &comp_out_bytes,
@@ -200,7 +200,7 @@ int test_cascaded(void)
 int test_lz4(void)
 {
   typedef int T;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
   const size_t input_size = 123000;
 
@@ -216,13 +216,13 @@ int test_lz4(void)
   CUDA_CHECK(cudaMalloc(&d_in_data, in_bytes));
   CUDA_CHECK(cudaMemcpy(d_in_data, input, in_bytes, cudaMemcpyHostToDevice));
 
-  nvcompLZ4FormatOpts opts;
+  hipcompLZ4FormatOpts opts;
   opts.chunk_size = 1 << 16;
 
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
-  nvcompStatus_t status;
+  hipcompStatus_t status;
 
   size_t* p_comp_out_bytes;
   CUDA_CHECK(
@@ -231,21 +231,21 @@ int test_lz4(void)
   // Compress on the GPU
   size_t comp_temp_bytes;
   size_t metadata_bytes;
-  status = nvcompLZ4CompressConfigure(
+  status = hipcompLZ4CompressConfigure(
       &opts,
       type,
       in_bytes,
       &metadata_bytes,
       &comp_temp_bytes,
       p_comp_out_bytes);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   void* d_comp_temp;
   void* d_comp_out;
   CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
   CUDA_CHECK(cudaMalloc(&d_comp_out, *p_comp_out_bytes));
 
-  status = nvcompLZ4CompressAsync(
+  status = hipcompLZ4CompressAsync(
       &opts,
       type,
       d_in_data,
@@ -255,7 +255,7 @@ int test_lz4(void)
       d_comp_out,
       p_comp_out_bytes,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   cudaFree(d_comp_temp);

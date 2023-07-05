@@ -26,11 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_LZ4METADATA_H
-#define NVCOMP_LZ4METADATA_H
+#ifndef HIPCOMP_LZ4METADATA_H
+#define HIPCOMP_LZ4METADATA_H
 
 #include "Metadata.h"
-#include "nvcomp/lz4.h"
+#include "hipcomp/lz4.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -38,7 +38,7 @@
 
 #define LZ4_FLAG 4
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -70,7 +70,7 @@ public:
    * @param compressedBytes The size of the data and metadata compressed.
    */
   LZ4Metadata(
-      const nvcompType_t type,
+      const hipcompType_t type,
       const size_t uncompChunkBytes,
       const size_t uncompressedBytes,
       const size_t compressedBytes);
@@ -81,7 +81,7 @@ public:
    *
    * @param memPtr The memory containing the metadata on the CPU.  This is in
    * the raw format that is contained at the beginning of any memory compressed
-   * by the nvcomp LZ4 compressor.
+   * by the hipcomp LZ4 compressor.
    * @param compressedBytes The total size of the data in memPtr
    */
   LZ4Metadata(const void* const memPtr, size_t compressedBytes);
@@ -125,6 +125,6 @@ private:
 };
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

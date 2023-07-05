@@ -28,8 +28,8 @@
 
 #pragma once
 
-#include "nvcomp.h"
-#include "nvcomp.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
 
 #include <cassert>
 #include <chrono>
@@ -43,7 +43,7 @@
 using ssize_t = ptrdiff_t;
 #endif
 
-namespace nvcomp
+namespace hipcomp
 {
 
 #ifdef __GNUC__
@@ -161,30 +161,30 @@ using larger_t = typename make_larger<U, T>::type;
 
 } // namespace
 
-__inline__ size_t sizeOfnvcompType(nvcompType_t type)
+__inline__ size_t sizeOfhipcompType(hipcompType_t type)
 {
   switch (type) {
-  case NVCOMP_TYPE_BITS:
+  case HIPCOMP_TYPE_BITS:
     return 1;
-  case NVCOMP_TYPE_CHAR:
+  case HIPCOMP_TYPE_CHAR:
     return sizeof(int8_t);
-  case NVCOMP_TYPE_UCHAR:
+  case HIPCOMP_TYPE_UCHAR:
     return sizeof(uint8_t);
-  case NVCOMP_TYPE_SHORT:
+  case HIPCOMP_TYPE_SHORT:
     return sizeof(int16_t);
-  case NVCOMP_TYPE_USHORT:
+  case HIPCOMP_TYPE_USHORT:
     return sizeof(uint16_t);
-  case NVCOMP_TYPE_INT:
+  case HIPCOMP_TYPE_INT:
     return sizeof(int32_t);
-  case NVCOMP_TYPE_UINT:
+  case HIPCOMP_TYPE_UINT:
     return sizeof(uint32_t);
-  case NVCOMP_TYPE_LONGLONG:
+  case HIPCOMP_TYPE_LONGLONG:
     return sizeof(int64_t);
-  case NVCOMP_TYPE_ULONGLONG:
+  case HIPCOMP_TYPE_ULONGLONG:
     return sizeof(uint64_t);
   default:
     throw std::runtime_error("Unsupported type " + std::to_string(type));
   }
 }
 
-} // namespace nvcomp
+} // namespace hipcomp

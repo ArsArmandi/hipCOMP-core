@@ -29,11 +29,11 @@
 #pragma once
 
 #include "cuda_runtime.h"
-#include "nvcomp.h"
+#include "hipcomp.h"
 
 #include <cstddef>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 class BitPackGPU
@@ -63,7 +63,7 @@ public:
   static void compress(
       void* workspace,
       size_t workspaceSize,
-      nvcompType_t inType,
+      hipcompType_t inType,
       void* const* outPtr,
       const void* in,
       const size_t* numDevice,
@@ -80,7 +80,7 @@ public:
    *
    * @return The size in bytes of the required workspace.
    */
-  static size_t requiredWorkspaceSize(size_t num, nvcompType_t type);
+  static size_t requiredWorkspaceSize(size_t num, hipcompType_t type);
 };
 
-} // namespace nvcomp
+} // namespace hipcomp

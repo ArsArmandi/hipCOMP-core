@@ -28,7 +28,7 @@
 
 #ifdef ENABLE_BITCOMP
 
-#include "nvcomp/bitcomp.h"
+#include "hipcomp/bitcomp.h"
 #include "test_batch_c_api.h"
 
 GENERATE_TESTS(Bitcomp);

@@ -37,7 +37,7 @@
 
 #include <iostream>
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -57,7 +57,7 @@ constexpr const size_t NULL_OFFSET = static_cast<size_t>(-1);
  *****************************************************************************/
 
 LZ4Metadata::LZ4Metadata(
-    const nvcompType_t type,
+    const hipcompType_t type,
     const size_t uncompChunkBytes,
     const size_t uncompressedBytes,
     const size_t compressedBytes) :
@@ -72,7 +72,7 @@ LZ4Metadata::LZ4Metadata(
 
 LZ4Metadata::LZ4Metadata(const void* const memPtr, size_t compressedBytes) :
     LZ4Metadata(
-        NVCOMP_TYPE_UCHAR,
+        HIPCOMP_TYPE_UCHAR,
         ((const size_t*)memPtr)[ChunkSize],
         ((const size_t*)memPtr)[UncompressedSize],
         compressedBytes)
@@ -143,4 +143,4 @@ void LZ4Metadata::check() const
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

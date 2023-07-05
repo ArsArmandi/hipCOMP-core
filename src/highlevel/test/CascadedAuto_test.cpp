@@ -28,10 +28,10 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "nvcomp.h"
-#include "nvcomp.hpp"
-#include "nvcomp/cascaded.h"
-#include "nvcomp/cascaded.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
+#include "hipcomp/cascaded.h"
+#include "hipcomp/cascaded.hpp"
 
 #include "../../../tests/catch.hpp"
 #include "../CascadedCommon.h"
@@ -66,7 +66,7 @@
   }
 #endif
 
-using namespace nvcomp;
+using namespace hipcomp;
 using namespace std;
 
 /******************************************************************************
@@ -88,7 +88,7 @@ TEST_CASE("AutoTempSize_OutputSize_C", "[small]")
   size_t temp_bytes = 0;
   size_t compressed_bytes = 0;
 
-  nvcompStatus_t err = nvcompCascadedCompressConfigure(
+  hipcompStatus_t err = hipcompCascadedCompressConfigure(
       NULL,
       TypeOf<T>(),
       numBytes,
@@ -96,7 +96,7 @@ TEST_CASE("AutoTempSize_OutputSize_C", "[small]")
       &temp_bytes,
       &compressed_bytes);
 
-  REQUIRE(err == nvcompSuccess);
+  REQUIRE(err == hipcompSuccess);
   REQUIRE(temp_bytes == 12251072);
   REQUIRE(compressed_bytes == 12000256);
 

@@ -26,9 +26,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
-namespace nvcomp {
+namespace hipcomp {
 
 /**
  * @brief The result of the compression and decompression routines
@@ -98,7 +98,7 @@ void gpu_unsnap(
     const size_t* device_in_bytes,
     void* const* device_out_ptr,
     const size_t* device_out_available_bytes,
-    nvcompStatus_t* outputs,
+    hipcompStatus_t* outputs,
     size_t* device_out_bytes,
     int count,
     cudaStream_t stream);
@@ -129,4 +129,4 @@ void gpu_get_uncompressed_sizes(
   size_t* device_out_bytes,
   int count,
   cudaStream_t stream);
-} // namespace nvcomp
+} // namespace hipcomp

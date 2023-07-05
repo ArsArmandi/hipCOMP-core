@@ -34,7 +34,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -57,7 +57,7 @@ public:
    * @param data_type The type of the data to compress.
    */
   LZ4Compressor(
-      const uint8_t* decomp_data, size_t decomp_data_size, size_t chunk_size, nvcompType_t data_type);
+      const uint8_t* decomp_data, size_t decomp_data_size, size_t chunk_size, hipcompType_t data_type);
 
   LZ4Compressor(const LZ4Compressor& other) = delete;
   LZ4Compressor& operator=(const LZ4Compressor& other) = delete;
@@ -87,7 +87,7 @@ private:
   const uint8_t* m_input_ptr;
   size_t m_input_size;
   size_t m_chunk_size;
-  nvcompType_t m_data_type;
+  hipcompType_t m_data_type;
   size_t m_num_chunks;
   uint8_t* m_output_ptr;
   size_t* m_output_offsets;
@@ -100,4 +100,4 @@ private:
 };
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

@@ -24,14 +24,14 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_CUDAUTILS_H
-#define NVCOMP_CUDAUTILS_H
+#ifndef HIPCOMP_CUDAUTILS_H
+#define HIPCOMP_CUDAUTILS_H
 
 #include "cuda_runtime.h"
 
 #include <string>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 enum CopyDirection {
@@ -114,6 +114,6 @@ private:
   static void* void_device_pointer(void* ptr);
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

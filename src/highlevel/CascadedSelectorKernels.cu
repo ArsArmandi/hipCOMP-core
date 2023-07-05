@@ -32,10 +32,10 @@
 #include "DeltaGPU.h"
 #include "TempSpaceBroker.h"
 #include "common.h"
-#include "nvcomp.hpp"
+#include "hipcomp.hpp"
 #include "type_macros.h"
 
-#include "nvcomp_cub.cuh"
+#include "hipcomp_cub.cuh"
 
 #include <algorithm>
 #include <cassert>
@@ -50,7 +50,7 @@
 #include <malloc.h>
 #endif
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -570,7 +570,7 @@ void SamplingFastOption(
     size_t* const sample_offsets,
     const size_t sample_bytes,
     const size_t num_samples,
-    const nvcompType_t in_type,
+    const hipcompType_t in_type,
     void* const workspace,
     const size_t workspaceSize,
     size_t* outsizeBuffer,
@@ -578,10 +578,10 @@ void SamplingFastOption(
     cudaStream_t stream)
 {
 
-  const nvcompType_t countType
-      = selectRunsType(sample_bytes / sizeOfnvcompType(in_type));
+  const hipcompType_t countType
+      = selectRunsType(sample_bytes / sizeOfhipcompType(in_type));
 
-  NVCOMP_TYPE_TWO_SWITCH(
+  HIPCOMP_TYPE_TWO_SWITCH(
       in_type,
       countType,
       SampleFusedOption_internal,
@@ -597,4 +597,4 @@ void SamplingFastOption(
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

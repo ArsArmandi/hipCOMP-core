@@ -28,7 +28,7 @@
 
 #include "Check.h"
 
-namespace nvcomp
+namespace hipcomp
 {
 
 /******************************************************************************
@@ -48,15 +48,15 @@ void Check::not_null(
 }
 
 void Check::api_call(
-    const nvcompStatus_t err, const std::string& filename, const int line)
+    const hipcompStatus_t err, const std::string& filename, const int line)
 {
-  if (err != nvcompSuccess) {
+  if (err != hipcompSuccess) {
     print_fail_position(filename, line);
-    throw NVCompException(err, "API CALL FAILED");
+    throw HipCompException(err, "API CALL FAILED");
   }
 }
 
-nvcompStatus_t Check::exception_to_error(
+hipcompStatus_t Check::exception_to_error(
     const std::exception& e, const std::string& function_name)
 {
   std::string context;
@@ -65,11 +65,11 @@ nvcompStatus_t Check::exception_to_error(
   }
 
   // generic error
-  nvcompStatus_t err = nvcompErrorInvalidValue;
+  hipcompStatus_t err = hipcompErrorInvalidValue;
 
   // NOTE: this depends on RTTI being enabled.
-  if (dynamic_cast<const NVCompException*>(&e)) {
-    const NVCompException& nve = dynamic_cast<const NVCompException&>(e);
+  if (dynamic_cast<const HipCompException*>(&e)) {
+    const HipCompException& nve = dynamic_cast<const HipCompException&>(e);
     err = nve.get_error();
   }
 
@@ -82,4 +82,4 @@ void Check::print_fail_position(const std::string& filename, const int line)
   std::cerr << "CHECK FAILED: " << filename << ":" << line << std::endl;
 }
 
-} // namespace nvcomp
+} // namespace hipcomp

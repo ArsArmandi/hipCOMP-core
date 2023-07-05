@@ -28,9 +28,9 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "nvcomp.h"
-#include "nvcomp/cascaded.h"
-#include "nvcomp/cascaded.hpp"
+#include "hipcomp.h"
+#include "hipcomp/cascaded.h"
+#include "hipcomp/cascaded.hpp"
 
 #include "test_common.h"
 
@@ -46,7 +46,7 @@
 template <typename T>
 void test_auto_c(const std::vector<T>& data)
 {
-  const nvcompType_t type = nvcomp::TypeOf<T>();
+  const hipcompType_t type = hipcomp::TypeOf<T>();
 
 #if VERBOSE > 1
   // dump input data
@@ -78,15 +78,15 @@ void test_auto_c(const std::vector<T>& data)
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    nvcompStatus_t status;
+    hipcompStatus_t status;
 
     // Compress on the GPU
     size_t comp_temp_bytes;
     size_t metadata_bytes;
 
-    status = nvcompCascadedCompressConfigure(
+    status = hipcompCascadedCompressConfigure(
         NULL, // Null means to auto-select the best scheme
-        nvcomp::TypeOf<T>(),
+        hipcomp::TypeOf<T>(),
         in_bytes,
         &metadata_bytes,
         &comp_temp_bytes,
@@ -96,9 +96,9 @@ void test_auto_c(const std::vector<T>& data)
     CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
     CUDA_CHECK(cudaMalloc(&d_comp_out, comp_out_bytes));
 
-    status = nvcompCascadedCompressAsync(
+    status = hipcompCascadedCompressAsync(
         NULL,
-        nvcomp::TypeOf<T>(),
+        hipcomp::TypeOf<T>(),
         d_in_data,
         in_bytes,
         d_comp_temp,
@@ -106,7 +106,7 @@ void test_auto_c(const std::vector<T>& data)
         d_comp_out,
         &comp_out_bytes,
         stream);
-    REQUIRE(status == nvcompSuccess);
+    REQUIRE(status == hipcompSuccess);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     cudaFree(d_comp_temp);
@@ -132,7 +132,7 @@ void test_auto_c(const std::vector<T>& data)
     size_t decomp_temp_bytes;
     size_t decomp_out_bytes;
 
-    nvcompStatus_t err = nvcompCascadedDecompressConfigure(
+    hipcompStatus_t err = hipcompCascadedDecompressConfigure(
         d_comp_out,
         comp_out_bytes,
         &metadata,
@@ -140,7 +140,7 @@ void test_auto_c(const std::vector<T>& data)
         &decomp_temp_bytes,
         &decomp_out_bytes,
         stream);
-    REQUIRE(err == nvcompSuccess);
+    REQUIRE(err == hipcompSuccess);
 
     // allocate temp buffer
     void* d_decomp_temp;
@@ -155,7 +155,7 @@ void test_auto_c(const std::vector<T>& data)
     auto start = std::chrono::steady_clock::now();
 
     // execute decompression (asynchronous)
-    err = nvcompCascadedDecompressAsync(
+    err = hipcompCascadedDecompressAsync(
         d_comp_out,
         comp_out_bytes,
         metadata,
@@ -165,7 +165,7 @@ void test_auto_c(const std::vector<T>& data)
         decomp_out_ptr,
         decomp_out_bytes,
         stream);
-    REQUIRE(err == nvcompSuccess);
+    REQUIRE(err == hipcompSuccess);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -174,7 +174,7 @@ void test_auto_c(const std::vector<T>& data)
     std::cout << "throughput (GB/s): " << gbs(start, end, decomp_out_bytes)
               << std::endl;
 
-    nvcompCascadedDestroyMetadata(metadata);
+    hipcompCascadedDestroyMetadata(metadata);
 
     cudaStreamDestroy(stream);
     cudaFree(d_decomp_temp);
@@ -204,7 +204,7 @@ void test_auto_c(const std::vector<T>& data)
 template <typename T>
 void test_auto_cpp(const std::vector<T>& data)
 {
-  const nvcompType_t type = nvcomp::TypeOf<T>();
+  const hipcompType_t type = hipcomp::TypeOf<T>();
 
 #if VERBOSE > 1
   // dump input data
@@ -237,7 +237,7 @@ void test_auto_cpp(const std::vector<T>& data)
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    CascadedCompressor compressor(nvcomp::TypeOf<T>());
+    CascadedCompressor compressor(hipcomp::TypeOf<T>());
 
     size_t comp_temp_bytes;
     compressor.configure(in_bytes, &comp_temp_bytes, &comp_out_bytes);

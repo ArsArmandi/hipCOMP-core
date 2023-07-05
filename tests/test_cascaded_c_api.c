@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nvcomp.h"
-#include "nvcomp/cascaded.h"
+#include "hipcomp.h"
+#include "hipcomp/cascaded.h"
 
 #include "cuda_runtime.h"
 
@@ -57,10 +57,10 @@
     }                                                                          \
   } while (0)
 
-static int check_cascaded(const nvcompCascadedFormatOpts comp_opts)
+static int check_cascaded(const hipcompCascadedFormatOpts comp_opts)
 {
   typedef int T;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
   const size_t input_size = 16;
   T input[16] = {0, 2, 2, 3, 0, 0, 0, 0, 0, 3, 1, 1, 1, 1, 1, 1};
@@ -74,20 +74,20 @@ static int check_cascaded(const nvcompCascadedFormatOpts comp_opts)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  nvcompStatus_t status;
+  hipcompStatus_t status;
 
   // Compress on the GPU
   size_t comp_temp_bytes;
   size_t comp_out_bytes;
   size_t metadata_bytes;
-  status = nvcompCascadedCompressConfigure(
+  status = hipcompCascadedCompressConfigure(
       &comp_opts,
       type,
       in_bytes,
       &metadata_bytes,
       &comp_temp_bytes,
       &comp_out_bytes);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   void* d_comp_temp;
   void* d_comp_out;
@@ -102,7 +102,7 @@ static int check_cascaded(const nvcompCascadedFormatOpts comp_opts)
       sizeof(*d_comp_out_bytes),
       cudaMemcpyHostToDevice));
 
-  status = nvcompCascadedCompressAsync(
+  status = hipcompCascadedCompressAsync(
       &comp_opts,
       type,
       d_in_data,
@@ -112,7 +112,7 @@ static int check_cascaded(const nvcompCascadedFormatOpts comp_opts)
       d_comp_out,
       d_comp_out_bytes,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   CUDA_CHECK(cudaMemcpy(
@@ -129,7 +129,7 @@ static int check_cascaded(const nvcompCascadedFormatOpts comp_opts)
   size_t output_bytes;
   void* metadata_ptr = NULL;
 
-  status = nvcompCascadedDecompressConfigure(
+  status = hipcompCascadedDecompressConfigure(
       d_comp_out,
       comp_out_bytes,
       &metadata_ptr,
@@ -137,7 +137,7 @@ static int check_cascaded(const nvcompCascadedFormatOpts comp_opts)
       &temp_bytes,
       &output_bytes,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   // allocate temp buffer
   void* temp_ptr;
@@ -147,7 +147,7 @@ static int check_cascaded(const nvcompCascadedFormatOpts comp_opts)
   CUDA_CHECK(cudaMalloc(&out_ptr, output_bytes));
 
   // execute decompression (asynchronous)
-  status = nvcompCascadedDecompressAsync(
+  status = hipcompCascadedDecompressAsync(
       d_comp_out,
       comp_out_bytes,
       metadata_ptr,
@@ -157,11 +157,11 @@ static int check_cascaded(const nvcompCascadedFormatOpts comp_opts)
       out_ptr,
       output_bytes,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   CUDA_CHECK(cudaDeviceSynchronize());
 
-  nvcompCascadedDestroyMetadata(metadata_ptr);
+  hipcompCascadedDestroyMetadata(metadata_ptr);
 
   // Copy result back to host
   int res[16];
@@ -180,7 +180,7 @@ static int check_cascaded(const nvcompCascadedFormatOpts comp_opts)
 
 int test_rle_delta(void)
 {
-  nvcompCascadedFormatOpts comp_opts;
+  hipcompCascadedFormatOpts comp_opts;
   comp_opts.num_RLEs = 1;
   comp_opts.num_deltas = 1;
   comp_opts.use_bp = 0;
@@ -190,7 +190,7 @@ int test_rle_delta(void)
 
 int test_rle_delta_bp(void)
 {
-  nvcompCascadedFormatOpts comp_opts;
+  hipcompCascadedFormatOpts comp_opts;
   comp_opts.num_RLEs = 1;
   comp_opts.num_deltas = 1;
   comp_opts.use_bp = 1;
@@ -201,7 +201,7 @@ int test_rle_delta_bp(void)
 int test_ones_init_data(void)
 {
   typedef int T;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
   const size_t input_size = 12;
   const int input[12] = {0, 2, 2, 3, 0, 0, 3, 1, 1, 1, 1, 1};
@@ -221,7 +221,7 @@ int test_ones_init_data(void)
         CUDA_CHECK(
             cudaMemcpy(d_in_data, input, in_bytes, cudaMemcpyHostToDevice));
 
-        nvcompCascadedFormatOpts comp_opts;
+        hipcompCascadedFormatOpts comp_opts;
         comp_opts.num_RLEs = RLE;
         comp_opts.num_deltas = Delta;
         comp_opts.use_bp = packing;
@@ -229,20 +229,20 @@ int test_ones_init_data(void)
         cudaStream_t stream;
         CUDA_CHECK(cudaStreamCreate(&stream));
 
-        nvcompStatus_t status;
+        hipcompStatus_t status;
 
         // Compress on the GPU
         size_t comp_temp_bytes;
         size_t comp_out_bytes;
         size_t metadata_bytes;
-        status = nvcompCascadedCompressConfigure(
+        status = hipcompCascadedCompressConfigure(
             &comp_opts,
             type,
             in_bytes,
             &metadata_bytes,
             &comp_temp_bytes,
             &comp_out_bytes);
-        REQUIRE(status == nvcompSuccess);
+        REQUIRE(status == hipcompSuccess);
 
         void* d_comp_temp;
         void* d_comp_out;
@@ -253,7 +253,7 @@ int test_ones_init_data(void)
         CUDA_CHECK(
             cudaMalloc((void**)&d_comp_out_bytes, sizeof(*d_comp_out_bytes)));
 
-        status = nvcompCascadedCompressAsync(
+        status = hipcompCascadedCompressAsync(
             &comp_opts,
             type,
             d_in_data,
@@ -263,7 +263,7 @@ int test_ones_init_data(void)
             d_comp_out,
             d_comp_out_bytes,
             stream);
-        REQUIRE(status == nvcompSuccess);
+        REQUIRE(status == hipcompSuccess);
         CUDA_CHECK(cudaStreamSynchronize(stream));
         CUDA_CHECK(cudaMemcpy(
             &comp_out_bytes,
@@ -282,7 +282,7 @@ int test_ones_init_data(void)
         size_t output_bytes;
         void* metadata_ptr = NULL;
 
-        status = nvcompCascadedDecompressConfigure(
+        status = hipcompCascadedDecompressConfigure(
             d_comp_out,
             comp_out_bytes,
             &metadata_ptr,
@@ -290,7 +290,7 @@ int test_ones_init_data(void)
             &temp_bytes,
             &output_bytes,
             stream);
-        REQUIRE(status == nvcompSuccess);
+        REQUIRE(status == hipcompSuccess);
 
         // allocate temp buffer
         void* temp_ptr;
@@ -300,7 +300,7 @@ int test_ones_init_data(void)
         CUDA_CHECK(cudaMalloc(&out_ptr, output_bytes));
 
         // execute decompression (asynchronous)
-        status = nvcompCascadedDecompressAsync(
+        status = hipcompCascadedDecompressAsync(
             d_comp_out,
             comp_out_bytes,
             metadata_ptr,
@@ -310,12 +310,12 @@ int test_ones_init_data(void)
             out_ptr,
             output_bytes,
             stream);
-        REQUIRE(status == nvcompSuccess);
+        REQUIRE(status == hipcompSuccess);
 
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
         // Destory the metadata object and free memory
-        nvcompCascadedDestroyMetadata(metadata_ptr);
+        hipcompCascadedDestroyMetadata(metadata_ptr);
 
         // Copy result back to host
         int res[12];
@@ -341,12 +341,12 @@ int test_ones_init_data(void)
 static int test_cascaded_backward_compatibility(void)
 {
   typedef int T;
-  const nvcompType_t type = NVCOMP_TYPE_INT;
+  const hipcompType_t type = HIPCOMP_TYPE_INT;
 
   const size_t input_size = 16;
   T input[16] = {0, 2, 2, 3, 0, 0, 0, 0, 0, 3, 1, 1, 1, 1, 1, 1};
 
-  nvcompCascadedFormatOpts comp_opts;
+  hipcompCascadedFormatOpts comp_opts;
   comp_opts.num_RLEs = 1;
   comp_opts.num_deltas = 1;
   comp_opts.use_bp = 0;
@@ -360,20 +360,20 @@ static int test_cascaded_backward_compatibility(void)
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
-  nvcompStatus_t status;
+  hipcompStatus_t status;
 
   // Compress on the GPU
   size_t comp_temp_bytes;
   size_t comp_out_bytes;
   size_t metadata_bytes;
-  status = nvcompCascadedCompressConfigure(
+  status = hipcompCascadedCompressConfigure(
       &comp_opts,
       type,
       in_bytes,
       &metadata_bytes,
       &comp_temp_bytes,
       &comp_out_bytes);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   void* d_comp_temp;
   void* d_comp_out;
@@ -384,7 +384,7 @@ static int test_cascaded_backward_compatibility(void)
   // that we are backward compatible with original 2.0.0 implementation, which
   // accepted it (a bug). We will remove this test (and compatibility) in a
   // futrue release.
-  status = nvcompCascadedCompressAsync(
+  status = hipcompCascadedCompressAsync(
       &comp_opts,
       type,
       d_in_data,
@@ -394,7 +394,7 @@ static int test_cascaded_backward_compatibility(void)
       d_comp_out,
       &comp_out_bytes,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   CUDA_CHECK(cudaFree(d_comp_temp));
@@ -405,7 +405,7 @@ static int test_cascaded_backward_compatibility(void)
   size_t output_bytes;
   void* metadata_ptr = NULL;
 
-  status = nvcompCascadedDecompressConfigure(
+  status = hipcompCascadedDecompressConfigure(
       d_comp_out,
       comp_out_bytes,
       &metadata_ptr,
@@ -413,7 +413,7 @@ static int test_cascaded_backward_compatibility(void)
       &temp_bytes,
       &output_bytes,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   // allocate temp buffer
   void* temp_ptr;
@@ -423,7 +423,7 @@ static int test_cascaded_backward_compatibility(void)
   CUDA_CHECK(cudaMalloc(&out_ptr, output_bytes));
 
   // execute decompression (asynchronous)
-  status = nvcompCascadedDecompressAsync(
+  status = hipcompCascadedDecompressAsync(
       d_comp_out,
       comp_out_bytes,
       metadata_ptr,
@@ -433,11 +433,11 @@ static int test_cascaded_backward_compatibility(void)
       out_ptr,
       output_bytes,
       stream);
-  REQUIRE(status == nvcompSuccess);
+  REQUIRE(status == hipcompSuccess);
 
   CUDA_CHECK(cudaDeviceSynchronize());
 
-  nvcompCascadedDestroyMetadata(metadata_ptr);
+  hipcompCascadedDestroyMetadata(metadata_ptr);
 
   // Copy result back to host
   int res[16];

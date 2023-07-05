@@ -32,17 +32,17 @@
 #include "highlevel/LZ4Metadata.h"
 #include "highlevel/Metadata.h"
 
-#include "nvcomp.h"
-#include "nvcomp/cascaded.h"
-#include "nvcomp/lz4.h"
-#include "nvcomp/bitcomp.h"
+#include "hipcomp.h"
+#include "hipcomp/cascaded.h"
+#include "hipcomp/lz4.h"
+#include "hipcomp/bitcomp.h"
 
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 
-using namespace nvcomp;
-using namespace nvcomp::highlevel;
+using namespace hipcomp;
+using namespace hipcomp::highlevel;
 
 #define DEPRECATED_FUNC(replacement)                                           \
   do {                                                                         \
@@ -59,7 +59,7 @@ namespace
 void warn_deprecated(
     const std::string& name, const std::string& replacement = "")
 {
-  const char* const level = std::getenv("NVCOMP_WARN");
+  const char* const level = std::getenv("HIPCOMP_WARN");
   if (level == nullptr || strcmp(level, "SILENT") != 0) {
     std::cerr << "WARNING: The function '" << name
               << "' is deprecated and "
@@ -68,25 +68,25 @@ void warn_deprecated(
       std::cerr << "Please use '" << replacement << "' instead. ";
     }
     std::cerr << "To suppress this message, define the environment variable "
-                 "'NVCOMP_WARN=SILENT'."
+                 "'HIPCOMP_WARN=SILENT'."
               << std::endl;
   }
 }
 
 } // namespace
 
-nvcompStatus_t nvcompDecompressGetMetadata(
+hipcompStatus_t hipcompDecompressGetMetadata(
     const void* const in_ptr,
     const size_t in_bytes,
     void** const metadata_ptr,
     cudaStream_t stream)
 {
-  DEPRECATED_FUNC("nvcomp*DecompressConfigure()");
+  DEPRECATED_FUNC("hipcomp*DecompressConfigure()");
 
   cudaStreamSynchronize(stream);
-  if (nvcompLZ4IsData(in_ptr, in_bytes, stream)) {
+  if (hipcompLZ4IsData(in_ptr, in_bytes, stream)) {
     size_t metadata_bytes, temp_bytes, uncompressed_bytes;
-    return nvcompLZ4DecompressConfigure(
+    return hipcompLZ4DecompressConfigure(
         in_ptr,
         in_bytes,
         metadata_ptr,
@@ -96,11 +96,11 @@ nvcompStatus_t nvcompDecompressGetMetadata(
         stream);
   }
 #ifdef ENABLE_BITCOMP
-  else if (nvcompIsBitcompData(in_ptr, in_bytes)) {
+  else if (hipcompIsBitcompData(in_ptr, in_bytes)) {
     size_t temp_bytes;
     size_t out_bytes;
     size_t metadata_bytes;
-    return nvcompBitcompDecompressConfigure(
+    return hipcompBitcompDecompressConfigure(
         in_ptr,
         in_bytes,
         metadata_ptr,
@@ -115,7 +115,7 @@ nvcompStatus_t nvcompDecompressGetMetadata(
     size_t out_bytes;
     size_t metadata_bytes;
 
-    return nvcompCascadedDecompressConfigure(
+    return hipcompCascadedDecompressConfigure(
                in_ptr, 
                in_bytes, 
                metadata_ptr, 
@@ -126,36 +126,36 @@ nvcompStatus_t nvcompDecompressGetMetadata(
   }
 }
 
-void nvcompDecompressDestroyMetadata(void* const metadata_ptr)
+void hipcompDecompressDestroyMetadata(void* const metadata_ptr)
 {
-  DEPRECATED_FUNC("nvcomp*DestroyMetadata()");
+  DEPRECATED_FUNC("hipcomp*DestroyMetadata()");
 #ifdef ENABLE_BITCOMP
   const Metadata* const metadata = static_cast<const Metadata*>(metadata_ptr);
 #endif
-  if (nvcompLZ4IsMetadata(metadata_ptr)) {
-    nvcompLZ4DestroyMetadata(metadata_ptr);
+  if (hipcompLZ4IsMetadata(metadata_ptr)) {
+    hipcompLZ4DestroyMetadata(metadata_ptr);
   }
 #ifdef ENABLE_BITCOMP
   else if (metadata->getCompressionType() == BitcompMetadata::COMPRESSION_ID) {
-    nvcompBitcompDestroyMetadata(metadata_ptr);
+    hipcompBitcompDestroyMetadata(metadata_ptr);
   }
 #endif
   else {
-    nvcompCascadedDestroyMetadata(metadata_ptr);
+    hipcompCascadedDestroyMetadata(metadata_ptr);
   }
 }
 
-nvcompStatus_t nvcompDecompressGetTempSize(
+hipcompStatus_t hipcompDecompressGetTempSize(
     const void* const metadata_ptr, size_t* const temp_bytes)
 {
-  DEPRECATED_FUNC("nvcomp*DecompressConfigure()");
+  DEPRECATED_FUNC("hipcomp*DecompressConfigure()");
 
   const Metadata* const metadata = static_cast<const Metadata*>(metadata_ptr);
-  if (nvcompLZ4IsMetadata(metadata_ptr)) {
+  if (hipcompLZ4IsMetadata(metadata_ptr)) {
     try {
       size_t metadata_bytes = sizeof(LZ4Metadata);
       size_t uncompressed_bytes;
-      CHECK_API_CALL(nvcompLZ4DecompressConfigure(
+      CHECK_API_CALL(hipcompLZ4DecompressConfigure(
           nullptr,
           metadata_bytes,
           (void**)&metadata_ptr,
@@ -164,74 +164,74 @@ nvcompStatus_t nvcompDecompressGetTempSize(
           &uncompressed_bytes,
           0));
     } catch (const std::exception& e) {
-      return Check::exception_to_error(e, "nvcompDecompressGetTempSize()");
+      return Check::exception_to_error(e, "hipcompDecompressGetTempSize()");
     }
-    return nvcompSuccess;
+    return hipcompSuccess;
   }
   else if (metadata->getCompressionType() == BitcompMetadata::COMPRESSION_ID) {
     *temp_bytes = 0;
 #ifdef ENABLE_BITCOMP
-    return nvcompSuccess;
+    return hipcompSuccess;
 #else
-    return nvcompErrorNotSupported;
+    return hipcompErrorNotSupported;
 #endif
   }
   else {
     *temp_bytes = static_cast<const CascadedMetadata*>(metadata_ptr)->getTempBytes();
-    return nvcompSuccess;
+    return hipcompSuccess;
 
   }
 }
 
-nvcompStatus_t nvcompDecompressGetOutputSize(
+hipcompStatus_t hipcompDecompressGetOutputSize(
     const void* const metadata_ptr, size_t* const output_bytes)
 {
-  DEPRECATED_FUNC("nvcomp*DecompressConfigure()");
+  DEPRECATED_FUNC("hipcomp*DecompressConfigure()");
 
   if (metadata_ptr == nullptr) {
     std::cerr << "Cannot get the output size from a null metadata."
               << std::endl;
-    return nvcompErrorInvalidValue;
+    return hipcompErrorInvalidValue;
   }
   if (output_bytes == nullptr) {
     std::cerr << "Cannot write the output size to a null location."
               << std::endl;
-    return nvcompErrorInvalidValue;
+    return hipcompErrorInvalidValue;
   }
 
   const Metadata* const metadata = static_cast<const Metadata*>(metadata_ptr);
   *output_bytes = metadata->getUncompressedSize();
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompDecompressGetType(
-    const void* const metadata_ptr, nvcompType_t* const type)
+hipcompStatus_t hipcompDecompressGetType(
+    const void* const metadata_ptr, hipcompType_t* const type)
 {
   DEPRECATED_FUNC(""); // no replacement
 
   if (metadata_ptr == nullptr) {
     std::cerr << "Cannot get the type from a null metadata." << std::endl;
-    return nvcompErrorInvalidValue;
+    return hipcompErrorInvalidValue;
   }
   if (type == nullptr) {
     std::cerr << "Cannot write the typeto a null location." << std::endl;
-    return nvcompErrorInvalidValue;
+    return hipcompErrorInvalidValue;
   }
 
-  if (nvcompLZ4IsMetadata(metadata_ptr)) {
+  if (hipcompLZ4IsMetadata(metadata_ptr)) {
     // LZ4 always operates on bytes
-    *type = NVCOMP_TYPE_CHAR;
+    *type = HIPCOMP_TYPE_CHAR;
   }
   else {
     const Metadata* const metadata = static_cast<const Metadata*>(metadata_ptr);
     *type = metadata->getValueType();
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompDecompressAsync(
+hipcompStatus_t hipcompDecompressAsync(
     const void* const in_ptr,
     const size_t in_bytes,
     void* const temp_ptr,
@@ -241,11 +241,11 @@ nvcompStatus_t nvcompDecompressAsync(
     const size_t out_bytes,
     cudaStream_t stream)
 {
-  DEPRECATED_FUNC("nvcomp*DecompressAsync()");
+  DEPRECATED_FUNC("hipcomp*DecompressAsync()");
 
   const Metadata* const metadata = static_cast<const Metadata*>(metadata_ptr);
-  if (nvcompLZ4IsMetadata(metadata_ptr)) {
-    return nvcompLZ4DecompressAsync(
+  if (hipcompLZ4IsMetadata(metadata_ptr)) {
+    return hipcompLZ4DecompressAsync(
         in_ptr,
         in_bytes,
         metadata_ptr,
@@ -259,7 +259,7 @@ nvcompStatus_t nvcompDecompressAsync(
   else if (metadata->getCompressionType() == BitcompMetadata::COMPRESSION_ID) {
 #ifdef ENABLE_BITCOMP
     const size_t metadata_bytes = sizeof(BitcompMetadata);
-    return nvcompBitcompDecompressAsync(
+    return hipcompBitcompDecompressAsync(
         in_ptr,
         in_bytes,
         metadata_ptr,
@@ -270,11 +270,11 @@ nvcompStatus_t nvcompDecompressAsync(
         out_bytes,
         stream);
 #else
-    return nvcompErrorNotSupported;
+    return hipcompErrorNotSupported;
 #endif
   } else {
     size_t metadata_bytes = 0;
-    return nvcompCascadedDecompressAsync(
+    return hipcompCascadedDecompressAsync(
         in_ptr,
         in_bytes,
         metadata_ptr,

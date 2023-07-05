@@ -32,16 +32,16 @@
 #include "RunLengthEncodeGPU.h"
 #include "TempSpaceBroker.h"
 #include "common.h"
-#include "nvcomp.hpp"
+#include "hipcomp.hpp"
 #include "type_macros.h"
 
-#include "nvcomp_cub.cuh"
+#include "hipcomp_cub.cuh"
 
 #include <cassert>
 #include <stdexcept>
 #include <string>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 /******************************************************************************
@@ -516,16 +516,16 @@ void compressDownstreamInternal(
 void RunLengthEncodeGPU::compress(
     void* workspace,
     size_t workspaceSize,
-    nvcompType_t valueType,
+    hipcompType_t valueType,
     void* const outValues,
-    nvcompType_t countType,
+    hipcompType_t countType,
     void* const outCounts,
     size_t* const numOutDevice,
     const void* const in,
     const size_t num,
     cudaStream_t stream)
 {
-  NVCOMP_TYPE_TWO_SWITCH(
+  HIPCOMP_TYPE_TWO_SWITCH(
       valueType,
       countType,
       compressInternal,
@@ -542,9 +542,9 @@ void RunLengthEncodeGPU::compress(
 void RunLengthEncodeGPU::compressDownstream(
     void* workspace,
     size_t workspaceSize,
-    nvcompType_t valueType,
+    hipcompType_t valueType,
     void** const outValuesPtr,
-    nvcompType_t countType,
+    hipcompType_t countType,
     void** const outCountsPtr,
     size_t* const numOutDevice,
     const void* const in,
@@ -552,7 +552,7 @@ void RunLengthEncodeGPU::compressDownstream(
     const size_t maxNum,
     cudaStream_t stream)
 {
-  NVCOMP_TYPE_TWO_SWITCH(
+  HIPCOMP_TYPE_TWO_SWITCH(
       valueType,
       countType,
       compressDownstreamInternal,
@@ -568,10 +568,10 @@ void RunLengthEncodeGPU::compressDownstream(
 }
 
 size_t RunLengthEncodeGPU::requiredWorkspaceSize(
-    const size_t num, const nvcompType_t valueType, const nvcompType_t runType)
+    const size_t num, const hipcompType_t valueType, const hipcompType_t runType)
 {
-  NVCOMP_TYPE_TWO_SWITCH_RETURN(
+  HIPCOMP_TYPE_TWO_SWITCH_RETURN(
       valueType, runType, requiredWorkspaceSizeTyped, num);
 }
 
-} // namespace nvcomp
+} // namespace hipcomp

@@ -33,7 +33,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 /******************************************************************************
@@ -88,4 +88,4 @@ void* TempSpaceBroker::next() const
   return static_cast<char*>(m_base) + m_offset;
 }
 
-} // namespace nvcomp
+} // namespace hipcomp

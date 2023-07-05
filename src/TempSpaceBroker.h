@@ -31,7 +31,7 @@
 
 #include <cstddef>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 class TempSpaceBroker
@@ -92,6 +92,6 @@ private:
   void* reserve(const size_t alignment, const size_t num, const size_t size);
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

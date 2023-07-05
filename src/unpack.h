@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_UNPACK_H
-#define NVCOMP_UNPACK_H
+#ifndef HIPCOMP_UNPACK_H
+#define HIPCOMP_UNPACK_H
 
 #include <limits>
 #include <cstdint>
@@ -35,16 +35,16 @@
 #include <cassert>
 
 #ifdef __CUDACC__
-#define NVCOMP_HOST_DEVICE __device__ __host__
+#define HIPCOMP_HOST_DEVICE __device__ __host__
 #else
-#define NVCOMP_HOST_DEVICE
+#define HIPCOMP_HOST_DEVICE
 #endif
 
-namespace nvcomp
+namespace hipcomp
 {
   
 template <typename T>
-NVCOMP_HOST_DEVICE T unpackBytes(
+HIPCOMP_HOST_DEVICE T unpackBytes(
     const void* data, const uint8_t numBits, const T minValue, const size_t i)
 {
   using U = typename std::make_unsigned<T>::type;
@@ -93,6 +93,6 @@ NVCOMP_HOST_DEVICE T unpackBytes(
 
 }
 
-#undef NVCOMP_HOST_DEVICE
+#undef HIPCOMP_HOST_DEVICE
 
 #endif

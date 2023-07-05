@@ -26,18 +26,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_API_HPP
-#define NVCOMP_API_HPP
+#ifndef HIPCOMP_API_HPP
+#define HIPCOMP_API_HPP
 
-#include "nvcomp.h"
-#include "nvcomp/lz4.h"
+#include "hipcomp.h"
+#include "hipcomp/lz4.h"
 
 #include <cstdint>
 #include <cuda_runtime.h>
 #include <stdexcept>
 #include <string>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 /******************************************************************************
@@ -45,31 +45,31 @@ namespace nvcomp
  *****************************************************************************/
 
 /**
- * @brief The top-level exception throw by nvcomp C++ methods.
+ * @brief The top-level exception throw by hipcomp C++ methods.
  */
-class NVCompException : public std::runtime_error
+class HipCompException : public std::runtime_error
 {
 public:
   /**
-   * @brief Create a new NVCompException.
+   * @brief Create a new HipCompException.
    *
    * @param err The error associated with the exception.
    * @param msg The error message.
    */
-  NVCompException(nvcompStatus_t err, const std::string& msg) :
+  HipCompException(hipcompStatus_t err, const std::string& msg) :
       std::runtime_error(msg + " : code=" + std::to_string(err) + "."),
       m_err(err)
   {
     // do nothing
   }
 
-  nvcompStatus_t get_error() const
+  hipcompStatus_t get_error() const
   {
     return m_err;
   }
 
 private:
-  nvcompStatus_t m_err;
+  hipcompStatus_t m_err;
 };
 
 /**
@@ -99,7 +99,7 @@ public:
    * and the size of the compressed data on output.
    * @param stream The stream to operate on.
    *
-   * @throw NVCompException If compression fails to launch on the stream.
+   * @throw HipCompException If compression fails to launch on the stream.
    */
   virtual void compress_async(
       const void* in_ptr,
@@ -146,38 +146,38 @@ public:
  *****************************************************************************/
 
 template <typename T>
-inline nvcompType_t TypeOf()
+inline hipcompType_t TypeOf()
 {
   if (std::is_same<T, int8_t>::value) {
-    return NVCOMP_TYPE_CHAR;
+    return HIPCOMP_TYPE_CHAR;
   } else if (std::is_same<T, uint8_t>::value) {
-    return NVCOMP_TYPE_UCHAR;
+    return HIPCOMP_TYPE_UCHAR;
   } else if (std::is_same<T, int16_t>::value) {
-    return NVCOMP_TYPE_SHORT;
+    return HIPCOMP_TYPE_SHORT;
   } else if (std::is_same<T, uint16_t>::value) {
-    return NVCOMP_TYPE_USHORT;
+    return HIPCOMP_TYPE_USHORT;
   } else if (std::is_same<T, int32_t>::value) {
-    return NVCOMP_TYPE_INT;
+    return HIPCOMP_TYPE_INT;
   } else if (std::is_same<T, uint32_t>::value) {
-    return NVCOMP_TYPE_UINT;
+    return HIPCOMP_TYPE_UINT;
   } else if (std::is_same<T, int64_t>::value) {
-    return NVCOMP_TYPE_LONGLONG;
+    return HIPCOMP_TYPE_LONGLONG;
   } else if (std::is_same<T, uint64_t>::value) {
-    return NVCOMP_TYPE_ULONGLONG;
+    return HIPCOMP_TYPE_ULONGLONG;
   } else {
-    throw NVCompException(
-        nvcompErrorNotSupported, "nvcomp does not support the given type.");
+    throw HipCompException(
+        hipcompErrorNotSupported, "hipcomp does not support the given type.");
   }
 }
 
-inline void throwExceptionIfError(nvcompStatus_t error, const std::string& msg)
+inline void throwExceptionIfError(hipcompStatus_t error, const std::string& msg)
 {
-  if (error != nvcompSuccess) {
-    throw NVCompException(error, msg);
+  if (error != hipcompSuccess) {
+    throw HipCompException(error, msg);
   }
 }
 
 
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

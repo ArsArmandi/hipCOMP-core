@@ -29,7 +29,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 namespace
@@ -139,4 +139,4 @@ void* CudaUtils::void_device_pointer(void* const ptr)
   return attr.devicePointer;
 }
 
-} // namespace nvcomp
+} // namespace hipcomp

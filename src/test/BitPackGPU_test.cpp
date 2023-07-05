@@ -31,7 +31,7 @@
 #include "tests/catch.hpp"
 #include "BitPackGPU.h"
 #include "common.h"
-#include "nvcomp.hpp"
+#include "hipcomp.hpp"
 #include "unpack.h"
 
 #include "highlevel/CascadedCommon.h"
@@ -60,7 +60,7 @@
   }
 #endif
 
-using namespace nvcomp;
+using namespace hipcomp;
 
 /******************************************************************************
  * HELPER FUNCTIONS ***********************************************************
@@ -145,7 +145,7 @@ void runBitPackingOnGPU(
   size_t workspaceBytes = BitPackGPU::requiredWorkspaceSize(n, TypeOf<T>());
   CUDA_RT_CALL(cudaMalloc(&workspace, workspaceBytes));
 
-  const nvcompType_t inType = TypeOf<T>();
+  const hipcompType_t inType = TypeOf<T>();
 
   cudaStream_t stream;
   CUDA_RT_CALL(cudaStreamCreate(&stream));

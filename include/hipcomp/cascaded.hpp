@@ -26,19 +26,19 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_CASCADED_HPP
-#define NVCOMP_CASCADED_HPP
+#ifndef HIPCOMP_CASCADED_HPP
+#define HIPCOMP_CASCADED_HPP
 
 #include "cascaded.h"
-#include "nvcomp.hpp"
+#include "hipcomp.hpp"
 
 #include <cuda_runtime.h>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 /**
- * @brief Primary compressor offered by nvcomp: RLE-Delta w/ bit-packing
+ * @brief Primary compressor offered by hipcomp: RLE-Delta w/ bit-packing
  * Compression and decompression run asynchronously, but compress() requires
  * that the compressed size (*out_btyes) is known and buffers allocated. Can
  * define synchronous wrapper that includes size estimation kernel + allocation.
@@ -58,7 +58,7 @@ public:
    * @param use_bp Whether or not to bitpack the end result.
    */
   CascadedCompressor(
-      nvcompType_t type, int num_RLEs, int num_deltas, bool use_bp);
+      hipcompType_t type, int num_RLEs, int num_deltas, bool use_bp);
 
   /**
    * @brief Create a new CascadedCompressor without defining the configuration
@@ -71,7 +71,7 @@ public:
    * @param in_ptr The input data on the GPU to compress.
    * @param num_elements The number of elements to compress.
    */
-  explicit CascadedCompressor(nvcompType_t type);
+  explicit CascadedCompressor(hipcompType_t type);
 
   // disable copying
   CascadedCompressor(const CascadedCompressor&) = delete;
@@ -107,7 +107,7 @@ public:
    * managed memory for this function to be asynchronous).
    * @param stream The stream to operate on.
    *
-   * @throw NVCompException If compression fails to launch on the stream.
+   * @throw HipCompException If compression fails to launch on the stream.
    */
   void compress_async(
       const void* in_ptr,
@@ -119,8 +119,8 @@ public:
       cudaStream_t stream) override;
 
 private:
-  nvcompType_t m_type;
-  nvcompCascadedFormatOpts m_opts;
+  hipcompType_t m_type;
+  hipcompCascadedFormatOpts m_opts;
 };
 
 class CascadedDecompressor : public Decompressor
@@ -162,7 +162,7 @@ public:
    * elements.
    * @param stream The stream to operate on.
    *
-   * @throw NVCompException If decompression fails to launch on the stream.
+   * @throw HipCompException If decompression fails to launch on the stream.
    */
   void decompress_async(
       const void* in_ptr,
@@ -194,7 +194,7 @@ private:
   const void* input_data;
   size_t input_byte_len;
   size_t max_temp_size; // Internal variable used to store the temp buffer size
-  nvcompCascadedSelectorOpts opts; // Sampling options
+  hipcompCascadedSelectorOpts opts; // Sampling options
 
 public:
   /**
@@ -207,7 +207,7 @@ public:
    *@param type The type of input data
    */
   CascadedSelector(
-      const void* input, size_t byte_len, nvcompCascadedSelectorOpts opts);
+      const void* input, size_t byte_len, hipcompCascadedSelectorOpts opts);
 
   // disable copying
   CascadedSelector(const CascadedSelector&) = delete;
@@ -229,7 +229,7 @@ public:
    *@param stream The input stream to run the select function
    *@return Selected Cascaded options (RLE, Delta encoding, bit packing)
    */
-  nvcompCascadedFormatOpts select_config(
+  hipcompCascadedFormatOpts select_config(
       void* d_workspace,
       size_t workspace_len,
       double* comp_ratio,
@@ -244,7 +244,7 @@ public:
    *@param stream The input stream to run the select function
    *@return Selected Cascaded options (RLE, Delta encoding, bit packing)
    */
-  nvcompCascadedFormatOpts
+  hipcompCascadedFormatOpts
   select_config(void* d_workspace, size_t workspace_len, cudaStream_t stream);
 };
 
@@ -253,14 +253,14 @@ public:
  *****************************************************************************/
 
 inline CascadedCompressor::CascadedCompressor(
-    nvcompType_t type, int num_RLEs, int num_deltas, bool use_bp) :
+    hipcompType_t type, int num_RLEs, int num_deltas, bool use_bp) :
     m_type(type),
     m_opts{num_RLEs, num_deltas, use_bp}
 {
   // do nothing
 }
 
-inline CascadedCompressor::CascadedCompressor(nvcompType_t type) :
+inline CascadedCompressor::CascadedCompressor(hipcompType_t type) :
     CascadedCompressor(type, -1, -1, false)
 {
   // do nothing
@@ -270,15 +270,15 @@ inline void CascadedCompressor::configure(
     const size_t in_bytes, size_t* const temp_bytes, size_t* const out_bytes)
 {
   size_t metadata_bytes;
-  nvcompCascadedFormatOpts* temp_opts = &m_opts;
+  hipcompCascadedFormatOpts* temp_opts = &m_opts;
   if(m_opts.num_RLEs == -1) {
     temp_opts = NULL;
   }
 
-  nvcompStatus_t status = nvcompCascadedCompressConfigure(
+  hipcompStatus_t status = hipcompCascadedCompressConfigure(
       temp_opts, m_type, in_bytes, &metadata_bytes, temp_bytes, out_bytes);
 
-  throwExceptionIfError(status, "nvcompCascadedCompressConfigure() failed");
+  throwExceptionIfError(status, "hipcompCascadedCompressConfigure() failed");
 }
 
 inline void CascadedCompressor::compress_async(
@@ -291,12 +291,12 @@ inline void CascadedCompressor::compress_async(
     cudaStream_t stream)
 {
 
-  nvcompCascadedFormatOpts* temp_opts = &m_opts;
+  hipcompCascadedFormatOpts* temp_opts = &m_opts;
   if(m_opts.num_RLEs == -1) {
     temp_opts = NULL;
   }
 
-  nvcompStatus_t status = nvcompCascadedCompressAsync(
+  hipcompStatus_t status = hipcompCascadedCompressAsync(
       temp_opts,
       m_type,
       in_ptr,
@@ -306,7 +306,7 @@ inline void CascadedCompressor::compress_async(
       out_ptr,
       out_bytes,
       stream);
-  throwExceptionIfError(status, "nvcompCascadedCompressAsync() failed");
+  throwExceptionIfError(status, "hipcompCascadedCompressAsync() failed");
 }
 
 inline CascadedDecompressor::CascadedDecompressor() :
@@ -319,7 +319,7 @@ inline CascadedDecompressor::CascadedDecompressor() :
 inline CascadedDecompressor::~CascadedDecompressor()
 {
   if (m_metadata_ptr) {
-    nvcompCascadedDestroyMetadata(m_metadata_ptr);
+    hipcompCascadedDestroyMetadata(m_metadata_ptr);
   }
 }
 
@@ -330,7 +330,7 @@ inline void CascadedDecompressor::configure(
     size_t* const out_bytes,
     cudaStream_t stream)
 {
-  nvcompStatus_t status = nvcompCascadedDecompressConfigure(
+  hipcompStatus_t status = hipcompCascadedDecompressConfigure(
       in_ptr,
       in_bytes,
       &m_metadata_ptr,
@@ -338,7 +338,7 @@ inline void CascadedDecompressor::configure(
       temp_bytes,
       out_bytes,
       stream);
-  throwExceptionIfError(status, "nvcompCascadedConfigure() failed");
+  throwExceptionIfError(status, "hipcompCascadedConfigure() failed");
 }
 
 inline void CascadedDecompressor::decompress_async(
@@ -350,7 +350,7 @@ inline void CascadedDecompressor::decompress_async(
     const size_t out_bytes,
     cudaStream_t stream)
 {
-  nvcompStatus_t status = nvcompCascadedDecompressAsync(
+  hipcompStatus_t status = hipcompCascadedDecompressAsync(
       in_ptr,
       in_bytes,
       m_metadata_ptr,
@@ -360,14 +360,14 @@ inline void CascadedDecompressor::decompress_async(
       out_ptr,
       out_bytes,
       stream);
-  throwExceptionIfError(status, "nvcompCascadedQeueryMetadataAsync() failed");
+  throwExceptionIfError(status, "hipcompCascadedQeueryMetadataAsync() failed");
 }
 
 template <typename T>
 inline CascadedSelector<T>::CascadedSelector(
     const void* input,
     const size_t byte_len,
-    nvcompCascadedSelectorOpts selector_opts) :
+    hipcompCascadedSelectorOpts selector_opts) :
     input_data(input),
     input_byte_len(byte_len),
     max_temp_size(0),
@@ -375,7 +375,7 @@ inline CascadedSelector<T>::CascadedSelector(
 {
   size_t temp;
 
-  nvcompStatus_t status = nvcompCascadedSelectorConfigure(
+  hipcompStatus_t status = hipcompCascadedSelectorConfigure(
       &opts, TypeOf<T>(), input_byte_len, &temp);
   throwExceptionIfError(status, "SelectorGetTempSize failed");
 
@@ -390,14 +390,14 @@ inline size_t CascadedSelector<T>::get_temp_size() const
 }
 
 template <typename T>
-inline nvcompCascadedFormatOpts CascadedSelector<T>::select_config(
+inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
     void* d_workspace,
     size_t workspace_size,
     double* comp_ratio,
     cudaStream_t stream)
 {
-  nvcompCascadedFormatOpts cascadedOpts;
-  nvcompStatus_t status = nvcompCascadedSelectorRun(
+  hipcompCascadedFormatOpts cascadedOpts;
+  hipcompStatus_t status = hipcompCascadedSelectorRun(
       &opts,
       TypeOf<T>(),
       input_data,
@@ -413,12 +413,12 @@ inline nvcompCascadedFormatOpts CascadedSelector<T>::select_config(
 }
 
 template <typename T>
-inline nvcompCascadedFormatOpts CascadedSelector<T>::select_config(
+inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
     void* d_workspace, size_t workspace_size, cudaStream_t stream)
 {
   double comp_ratio;
   return select_config(d_workspace, workspace_size, &comp_ratio, stream);
 }
 
-} // namespace nvcomp
+} // namespace hipcomp
 #endif

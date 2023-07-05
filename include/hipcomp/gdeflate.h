@@ -26,10 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_GDEFLATE_H
-#define NVCOMP_GDEFLATE_H
+#ifndef HIPCOMP_GDEFLATE_H
+#define HIPCOMP_GDEFLATE_H
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
 #include <cuda_runtime.h>
 #include <stdint.h>
@@ -53,9 +53,9 @@ typedef struct
  * 1 : low-throughput, high compression ratio
  */
   int algo;
-} nvcompBatchedGdeflateOpts_t;
+} hipcompBatchedGdeflateOpts_t;
 
-static const nvcompBatchedGdeflateOpts_t nvcompBatchedGdeflateDefaultOpts = {0};
+static const hipcompBatchedGdeflateOpts_t hipcompBatchedGdeflateDefaultOpts = {0};
 
 /**
  * @brief Get temporary space required for compression.
@@ -71,18 +71,18 @@ static const nvcompBatchedGdeflateOpts_t nvcompBatchedGdeflateDefaultOpts = {0};
  * @param temp_bytes The size of the required GPU workspace for compression
  * (output).
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedGdeflateCompressGetTempSize(
+hipcompStatus_t hipcompBatchedGdeflateCompressGetTempSize(
     size_t batch_size,
     size_t max_uncompressed_chunk_bytes,
-    nvcompBatchedGdeflateOpts_t format_opts,
+    hipcompBatchedGdeflateOpts_t format_opts,
     size_t* temp_bytes);
 
 /**
  * @brief Get the maximum size any chunk could compress to in the batch. That
  * is, the minimum amount of output memory required to be given
- * nvcompBatchedGdeflateCompressAsync() for each batch item.
+ * hipcompBatchedGdeflateCompressAsync() for each batch item.
  *
  * Chunk size must not exceed
  * 65536 bytes. For best performance, a chunk size of 65536 bytes is
@@ -93,11 +93,11 @@ nvcompStatus_t nvcompBatchedGdeflateCompressGetTempSize(
  * @param max_compressed_byes The maximum compressed size of the largest chunk
  * (output).
  *
- * @return The nvcompSuccess unless there is an error.
+ * @return The hipcompSuccess unless there is an error.
  */
-nvcompStatus_t nvcompBatchedGdeflateCompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedGdeflateCompressGetMaxOutputChunkSize(
     size_t max_uncompressed_chunk_bytes,
-    nvcompBatchedGdeflateOpts_t format_opts,
+    hipcompBatchedGdeflateOpts_t format_opts,
     size_t* max_compressed_bytes);
 
 /**
@@ -121,9 +121,9 @@ nvcompStatus_t nvcompBatchedGdeflateCompressGetMaxOutputChunkSize(
  * @param format_opts The GDeflate compression options to use.
  * @param stream The CUDA stream to operate on.
  *
- * @return nvcompSuccess if successfully launched, and an error code otherwise.
+ * @return hipcompSuccess if successfully launched, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedGdeflateCompressAsync(
+hipcompStatus_t hipcompBatchedGdeflateCompressAsync(
     const void* const* device_uncompressed_ptrs,
     const size_t* device_uncompressed_bytes,
     size_t max_uncompressed_chunk_bytes,
@@ -132,7 +132,7 @@ nvcompStatus_t nvcompBatchedGdeflateCompressAsync(
     size_t temp_bytes,
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
-    nvcompBatchedGdeflateOpts_t format_opts,
+    hipcompBatchedGdeflateOpts_t format_opts,
     cudaStream_t stream);
 
 
@@ -145,9 +145,9 @@ nvcompStatus_t nvcompBatchedGdeflateCompressAsync(
  * @param temp_bytes The amount of temporary GPU space that will be required to
  * decompress.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedGdeflateDecompressGetTempSize(
+hipcompStatus_t hipcompBatchedGdeflateDecompressGetTempSize(
     size_t num_chunks,
     size_t max_uncompressed_chunk_bytes,
     size_t* temp_bytes);
@@ -156,7 +156,7 @@ nvcompStatus_t nvcompBatchedGdeflateDecompressGetTempSize(
  * @brief Perform decompression asynchronously. All pointers must be GPU
  * accessible. In the case where a chunk of compressed data is not a valid GDeflate
  * stream, 0 will be written for the size of the invalid chunk and
- * nvcompStatusCannotDecompress will be flagged for that chunk.
+ * hipcompStatusCannotDecompress will be flagged for that chunk.
  *
  * @param device_compressed_ptrs The pointers on the GPU, to the compressed
  * chunks.
@@ -177,9 +177,9 @@ nvcompStatus_t nvcompBatchedGdeflateDecompressGetTempSize(
  * in which case error status is not reported.
  * @param stream The CUDA stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedGdeflateDecompressAsync(
+hipcompStatus_t hipcompBatchedGdeflateDecompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     const size_t* device_uncompressed_bytes,
@@ -188,7 +188,7 @@ nvcompStatus_t nvcompBatchedGdeflateDecompressAsync(
     void* const device_temp_ptr,
     size_t temp_bytes,
     void* const* device_uncompressed_ptrs,
-    nvcompStatus_t* device_statuses,
+    hipcompStatus_t* device_statuses,
     cudaStream_t stream);
 
 /**
@@ -205,9 +205,9 @@ nvcompStatus_t nvcompBatchedGdeflateDecompressAsync(
  * @param batch_size The number of chunks
  * @param stream The CUDA stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedGdeflateGetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedGdeflateGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
@@ -219,4 +219,4 @@ nvcompStatus_t nvcompBatchedGdeflateGetDecompressSizeAsync(
 }
 #endif
 
-#endif // NVCOMP_GDEFLATE_H
+#endif // HIPCOMP_GDEFLATE_H

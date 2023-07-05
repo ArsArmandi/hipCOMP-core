@@ -26,9 +26,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nvcomp/cascaded.hpp"
+#include "hipcomp/cascaded.hpp"
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -46,7 +46,7 @@ private:
   const void* input_data;
   size_t input_byte_len;
   size_t max_temp_size; // Internal variable used to store the temp buffer size
-  nvcompCascadedSelectorOpts opts; // Sampling options
+  hipcompCascadedSelectorOpts opts; // Sampling options
 
 public:
   /**
@@ -59,7 +59,7 @@ public:
    *@param type The type of input data
    */
   CascadedSelector(
-      const void* input, size_t byte_len, nvcompCascadedSelectorOpts opts);
+      const void* input, size_t byte_len, hipcompCascadedSelectorOpts opts);
 
   // disable copying
   CascadedSelector(const CascadedSelector&) = delete;
@@ -81,7 +81,7 @@ public:
    *@param stream The input stream to run the select function
    *@return Selected Cascaded options (RLE, Delta encoding, bit packing)
    */
-  nvcompCascadedFormatOpts select_config(
+  hipcompCascadedFormatOpts select_config(
       void* d_workspace,
       size_t workspace_len,
       double* comp_ratio,
@@ -96,9 +96,9 @@ public:
    *@param stream The input stream to run the select function
    *@return Selected Cascaded options (RLE, Delta encoding, bit packing)
    */
-  nvcompCascadedFormatOpts
+  hipcompCascadedFormatOpts
   select_config(void* d_workspace, size_t workspace_len, cudaStream_t stream);
 };
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp

@@ -26,14 +26,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nvcomp/lz4.h"
+#include "hipcomp/lz4.h"
 
 #include "Check.h"
 #include "CudaUtils.h"
 #include "LZ4CompressionKernels.h"
 #include "common.h"
-#include "nvcomp.h"
-#include "nvcomp.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
 #include "type_macros.h"
 
 #include <cassert>
@@ -44,10 +44,10 @@
 #include <sstream>
 #include <vector>
 
-using namespace nvcomp;
-using namespace nvcomp::lowlevel;
+using namespace hipcomp;
+using namespace hipcomp::lowlevel;
 
-nvcompStatus_t nvcompBatchedLZ4DecompressGetTempSize(
+hipcompStatus_t hipcompBatchedLZ4DecompressGetTempSize(
     const size_t num_chunks,
     const size_t max_uncompressed_chunk_size,
     size_t* const temp_bytes)
@@ -59,13 +59,13 @@ nvcompStatus_t nvcompBatchedLZ4DecompressGetTempSize(
         = lz4DecompressComputeTempSize(num_chunks, max_uncompressed_chunk_size);
   } catch (const std::exception& e) {
     return Check::exception_to_error(
-        e, "nvcompBatchedLZ4DecompressGetTempSize()");
+        e, "hipcompBatchedLZ4DecompressGetTempSize()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedLZ4DecompressAsync(
+hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     const size_t* device_uncompressed_bytes,
@@ -74,7 +74,7 @@ nvcompStatus_t nvcompBatchedLZ4DecompressAsync(
     void* const device_temp_ptr,
     size_t temp_bytes,
     void* const* device_uncompressed_ptrs,
-    nvcompStatus_t* device_statuses,
+    hipcompStatus_t* device_statuses,
     cudaStream_t stream)
 {
   // NOTE: if we start using `max_uncompressed_chunk_bytes`, we need to check
@@ -97,13 +97,13 @@ nvcompStatus_t nvcompBatchedLZ4DecompressAsync(
         stream);
 
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompBatchedLZ4DecompressAsync()");
+    return Check::exception_to_error(e, "hipcompBatchedLZ4DecompressAsync()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedLZ4GetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedLZ4GetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
@@ -124,16 +124,16 @@ nvcompStatus_t nvcompBatchedLZ4GetDecompressSizeAsync(
         stream);
   } catch (const std::exception& e) {
     return Check::exception_to_error(
-        e, "nvcompBatchedLZ4GetDecompressSizeAsync()");
+        e, "hipcompBatchedLZ4GetDecompressSizeAsync()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedLZ4CompressGetTempSize(
+hipcompStatus_t hipcompBatchedLZ4CompressGetTempSize(
     const size_t batch_size,
     const size_t max_chunk_size,
-    const nvcompBatchedLZ4Opts_t /* format_opts */,
+    const hipcompBatchedLZ4Opts_t /* format_opts */,
     size_t* const temp_bytes)
 {
   CHECK_NOT_NULL(temp_bytes);
@@ -142,15 +142,15 @@ nvcompStatus_t nvcompBatchedLZ4CompressGetTempSize(
     *temp_bytes = lz4BatchCompressComputeTempSize(max_chunk_size, batch_size);
   } catch (const std::exception& e) {
     return Check::exception_to_error(
-        e, "nvcompBatchedLZ4CompressGetTempSize()");
+        e, "hipcompBatchedLZ4CompressGetTempSize()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
     const size_t max_chunk_size,
-    const nvcompBatchedLZ4Opts_t /* format_opts */,
+    const hipcompBatchedLZ4Opts_t /* format_opts */,
     size_t* const max_compressed_size)
 {
   CHECK_NOT_NULL(max_compressed_size);
@@ -159,13 +159,13 @@ nvcompStatus_t nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
     *max_compressed_size = lz4ComputeMaxSize(max_chunk_size);
   } catch (const std::exception& e) {
     return Check::exception_to_error(
-        e, "nvcompBatchedLZ4CompressGetOutputSize()");
+        e, "hipcompBatchedLZ4CompressGetOutputSize()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompBatchedLZ4CompressAsync(
+hipcompStatus_t hipcompBatchedLZ4CompressAsync(
     const void* const* const device_uncompressed_ptrs,
     const size_t* const device_uncompressed_bytes,
     const size_t max_uncompressed_chunk_size,
@@ -174,7 +174,7 @@ nvcompStatus_t nvcompBatchedLZ4CompressAsync(
     const size_t temp_bytes,
     void* const* const device_compressed_ptrs,
     size_t* const device_compressed_bytes,
-    const nvcompBatchedLZ4Opts_t format_opts,
+    const hipcompBatchedLZ4Opts_t format_opts,
     cudaStream_t stream)
 {
   // NOTE: if we start using `max_uncompressed_chunk_bytes`, we need to check
@@ -196,8 +196,8 @@ nvcompStatus_t nvcompBatchedLZ4CompressAsync(
         format_opts.data_type,
         stream);
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompBatchedLZ4CompressAsync()");
+    return Check::exception_to_error(e, "hipcompBatchedLZ4CompressAsync()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }

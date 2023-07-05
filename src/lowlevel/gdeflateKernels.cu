@@ -26,13 +26,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nvcomp/gdeflate.h"
+#include "hipcomp/gdeflate.h"
 
 #include "Check.h"
 #include "CudaUtils.h"
 #include "common.h"
-#include "nvcomp.h"
-#include "nvcomp.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
 #include "type_macros.h"
 
 #include <cassert>
@@ -41,27 +41,27 @@
 #include "gdeflate.h"
 #include "gdeflateKernels.h"
 
-namespace nvcomp
+namespace hipcomp
 {
 
 // The Bitcomp batch decompression outputs bitcompResult_t statuses.
-// Need to convert them to nvcompStatus_t.
-__global__ void convertGdeflateOutputStatusesKernel(nvcompStatus_t *statuses, size_t batch_size) {
-  static_assert (sizeof (nvcompStatus_t) == sizeof (gdeflate::gdeflateStatus_t));
+// Need to convert them to hipcompStatus_t.
+__global__ void convertGdeflateOutputStatusesKernel(hipcompStatus_t *statuses, size_t batch_size) {
+  static_assert (sizeof (hipcompStatus_t) == sizeof (gdeflate::gdeflateStatus_t));
 
   size_t index = (size_t)blockIdx.x * (size_t)blockDim.x + (size_t)threadIdx.x;
   if (index >= batch_size)
     return;
 
   auto ier = reinterpret_cast<gdeflate::gdeflateStatus_t *>(statuses)[index];
-  nvcompStatus_t nvcomp_err = nvcompSuccess;
+  hipcompStatus_t hipcomp_err = hipcompSuccess;
   if (ier != gdeflate::gdeflateSuccess)
-    nvcomp_err = nvcompErrorCannotDecompress;
-  statuses[index] = nvcomp_err;
+    hipcomp_err = hipcompErrorCannotDecompress;
+  statuses[index] = hipcomp_err;
 }
 
 void convertGdeflateOutputStatuses(
-    nvcompStatus_t *statuses,
+    hipcompStatus_t *statuses,
     size_t batch_size,
     cudaStream_t stream) {
     const int threads = 512;
@@ -69,6 +69,6 @@ void convertGdeflateOutputStatuses(
     convertGdeflateOutputStatusesKernel<<<blocks,threads,0,stream>>>(statuses, batch_size);
 }
 
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

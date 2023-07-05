@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NVCOMP_BITCOMPMETADATA_H
-#define NVCOMP_BITCOMPMETADATA_H
+#ifndef HIPCOMP_BITCOMPMETADATA_H
+#define HIPCOMP_BITCOMPMETADATA_H
 
 #ifdef ENABLE_BITCOMP
 #include <bitcomp.h>
@@ -37,7 +37,7 @@ typedef int bitcompHandle_t;
 
 #include "Metadata.h"
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
@@ -80,6 +80,6 @@ private:
 };
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif

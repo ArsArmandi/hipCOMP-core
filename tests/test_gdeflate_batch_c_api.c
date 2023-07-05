@@ -27,7 +27,7 @@
  */
 
 #ifdef ENABLE_GDEFLATE
-#include "nvcomp/gdeflate.h"
+#include "hipcomp/gdeflate.h"
 #include "test_batch_c_api.h"
 
 #define SUPPORT_NULLPTR_APIS

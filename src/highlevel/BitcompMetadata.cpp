@@ -28,7 +28,7 @@
 
 #include "BitcompMetadata.h"
 #include "common.h"
-#include "nvcomp.hpp"
+#include "hipcomp.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -42,14 +42,14 @@
 
 #include <bitcomp.h>
 
-namespace nvcomp
+namespace hipcomp
 {
 namespace highlevel
 {
 
 BitcompMetadata::BitcompMetadata(
     const void* const memPtr, size_t compressedBytes) :
-    Metadata(NVCOMP_TYPE_UCHAR, 0, compressedBytes, COMPRESSION_ID),
+    Metadata(HIPCOMP_TYPE_UCHAR, 0, compressedBytes, COMPRESSION_ID),
     plan(0)
 {
   size_t uncompressedBytes = 0;
@@ -57,44 +57,44 @@ BitcompMetadata::BitcompMetadata(
   if (bitcompCreatePlanFromCompressedData(&plan, memPtr) != BITCOMP_SUCCESS
       || bitcompGetUncompressedSizeFromHandle(plan, &uncompressedBytes) != BITCOMP_SUCCESS
       || bitcompGetDataTypeFromHandle(plan, &t) != BITCOMP_SUCCESS) {
-    throw NVCompException(
-        nvcompErrorInternal, "BitcompMetadata: plan creation error");
+    throw HipCompException(
+        hipcompErrorInternal, "BitcompMetadata: plan creation error");
   }
-  nvcompType_t dataType;
+  hipcompType_t dataType;
   switch (t) {
   case BITCOMP_UNSIGNED_8BIT:
-    dataType = NVCOMP_TYPE_UCHAR;
+    dataType = HIPCOMP_TYPE_UCHAR;
     break;
   case BITCOMP_SIGNED_8BIT:
-    dataType = NVCOMP_TYPE_CHAR;
+    dataType = HIPCOMP_TYPE_CHAR;
     break;
   case BITCOMP_UNSIGNED_16BIT:
-    dataType = NVCOMP_TYPE_USHORT;
+    dataType = HIPCOMP_TYPE_USHORT;
     break;
   case BITCOMP_SIGNED_16BIT:
-    dataType = NVCOMP_TYPE_SHORT;
+    dataType = HIPCOMP_TYPE_SHORT;
     break;
   case BITCOMP_UNSIGNED_32BIT:
-    dataType = NVCOMP_TYPE_UINT;
+    dataType = HIPCOMP_TYPE_UINT;
     break;
   case BITCOMP_SIGNED_32BIT:
-    dataType = NVCOMP_TYPE_INT;
+    dataType = HIPCOMP_TYPE_INT;
     break;
   case BITCOMP_UNSIGNED_64BIT:
-    dataType = NVCOMP_TYPE_ULONGLONG;
+    dataType = HIPCOMP_TYPE_ULONGLONG;
     break;
   case BITCOMP_SIGNED_64BIT:
-    dataType = NVCOMP_TYPE_LONGLONG;
+    dataType = HIPCOMP_TYPE_LONGLONG;
     break;
   default:
-    throw NVCompException(
-        nvcompErrorNotSupported, "BitcompMetadata: unsupported data type");
+    throw HipCompException(
+        hipcompErrorNotSupported, "BitcompMetadata: unsupported data type");
   }
   this->setUncompressedSize(uncompressedBytes);
   this->setValueType(dataType);
 }
 
 } // namespace highlevel
-} // namespace nvcomp
+} // namespace hipcomp
 
 #endif // ENABLE_BITCOMP

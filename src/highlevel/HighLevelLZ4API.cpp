@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nvcomp/lz4.h"
+#include "hipcomp/lz4.h"
 
 #include "../Check.h"
 #include "../CudaUtils.h"
@@ -39,8 +39,8 @@
 #include "MutableLZ4MetadataOnGPU.h"
 #include "lowlevel/LZ4CompressionKernels.h"
 
-#include "nvcomp.h"
-#include "nvcomp.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -50,16 +50,16 @@
 #include <sstream>
 #include <vector>
 
-using namespace nvcomp;
-using namespace nvcomp::lowlevel;
-using namespace nvcomp::highlevel;
+using namespace hipcomp;
+using namespace hipcomp::lowlevel;
+using namespace hipcomp::highlevel;
 
 namespace
 {
 
 static constexpr size_t DEFAULT_CHUNK_SIZE = 1 << 16;
 
-void check_format_opts(const nvcompLZ4FormatOpts* const format_opts)
+void check_format_opts(const hipcompLZ4FormatOpts* const format_opts)
 {
   CHECK_NOT_NULL(format_opts);
 
@@ -69,7 +69,7 @@ void check_format_opts(const nvcompLZ4FormatOpts* const format_opts)
   }
 }
 
-size_t get_chunk_size_or_default(const nvcompLZ4FormatOpts* const format_opts)
+size_t get_chunk_size_or_default(const hipcompLZ4FormatOpts* const format_opts)
 {
   if (format_opts) {
     check_format_opts(format_opts);
@@ -81,13 +81,13 @@ size_t get_chunk_size_or_default(const nvcompLZ4FormatOpts* const format_opts)
 
 } // namespace
 
-int nvcompLZ4IsMetadata(const void* const metadata_ptr)
+int hipcompLZ4IsMetadata(const void* const metadata_ptr)
 {
   const Metadata* const metadata = static_cast<const Metadata*>(metadata_ptr);
   return metadata->getCompressionType() == LZ4Metadata::COMPRESSION_ID;
 }
 
-int nvcompLZ4IsData(const void* const in_ptr, size_t in_bytes, cudaStream_t stream)
+int hipcompLZ4IsData(const void* const in_ptr, size_t in_bytes, cudaStream_t stream)
 {
   // Need at least 2 size_t variables to be valid.
   if (in_ptr == NULL || in_bytes < sizeof(size_t)) {
@@ -104,14 +104,14 @@ int nvcompLZ4IsData(const void* const in_ptr, size_t in_bytes, cudaStream_t stre
   return (header_val == LZ4_FLAG);
 }
 
-void nvcompLZ4DestroyMetadata(void* const metadata_ptr)
+void hipcompLZ4DestroyMetadata(void* const metadata_ptr)
 {
   delete static_cast<LZ4Metadata*>(metadata_ptr);
 }
 
-nvcompStatus_t nvcompLZ4CompressConfigure(
-    const nvcompLZ4FormatOpts* const format_opts,
-    const nvcompType_t in_type,
+hipcompStatus_t hipcompLZ4CompressConfigure(
+    const hipcompLZ4FormatOpts* const format_opts,
+    const hipcompType_t in_type,
     const size_t in_bytes,
     size_t* const metadata_bytes,
     size_t* const temp_bytes,
@@ -124,7 +124,7 @@ nvcompStatus_t nvcompLZ4CompressConfigure(
 
     const size_t chunk_bytes = get_chunk_size_or_default(format_opts);
 
-    if (chunk_bytes % sizeOfnvcompType(in_type) != 0) {
+    if (chunk_bytes % sizeOfhipcompType(in_type) != 0) {
       throw std::invalid_argument("Chunk size needs to be a multiple of the input data type");
     }
 
@@ -143,15 +143,15 @@ nvcompStatus_t nvcompLZ4CompressConfigure(
 
     *out_bytes = serialized_metadata_bytes + max_comp_bytes;
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompLZ4CompressGetTempSize()");
+    return Check::exception_to_error(e, "hipcompLZ4CompressGetTempSize()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompLZ4CompressAsync(
-    const nvcompLZ4FormatOpts* format_opts,
-    const nvcompType_t in_type,
+hipcompStatus_t hipcompLZ4CompressAsync(
+    const hipcompLZ4FormatOpts* format_opts,
+    const hipcompType_t in_type,
     const void* in_ptr,
     const size_t in_bytes,
     void* const temp_ptr,
@@ -178,7 +178,7 @@ nvcompStatus_t nvcompLZ4CompressAsync(
         CudaUtils::device_pointer(temp_ptr), temp_bytes);
 
     // build the metadatas and configure pointers
-    LZ4Metadata metadata(NVCOMP_TYPE_BITS, chunk_bytes, in_bytes, 0);
+    LZ4Metadata metadata(HIPCOMP_TYPE_BITS, chunk_bytes, in_bytes, 0);
 
     MutableLZ4MetadataOnGPU metadataGPU(
         out_ptr, compressor.get_max_output_size());
@@ -195,13 +195,13 @@ nvcompStatus_t nvcompLZ4CompressAsync(
 
     metadataGPU.save_output_size(CudaUtils::device_pointer(out_bytes), stream);
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompLZ4CompressAsync()");
+    return Check::exception_to_error(e, "hipcompLZ4CompressAsync()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompLZ4DecompressConfigure(
+hipcompStatus_t hipcompLZ4DecompressConfigure(
     const void* const in_ptr,
     const size_t in_bytes,
     void** const metadata_ptr,
@@ -237,13 +237,13 @@ nvcompStatus_t nvcompLZ4DecompressConfigure(
         = LZ4Decompressor::calculate_workspace_size(chunk_size, num_chunks);
     *out_bytes = ptr->getUncompressedSize();
   } catch (std::exception& e) {
-    return Check::exception_to_error(e, "nvcompLZ4DecompressConfigure()");
+    return Check::exception_to_error(e, "hipcompLZ4DecompressConfigure()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }
 
-nvcompStatus_t nvcompLZ4DecompressAsync(
+hipcompStatus_t hipcompLZ4DecompressAsync(
     const void* const in_ptr,
     const size_t in_bytes,
     const void* const metadata_ptr,
@@ -263,14 +263,14 @@ nvcompStatus_t nvcompLZ4DecompressAsync(
     LZ4Metadata* metadata = reinterpret_cast<LZ4Metadata*>((void*)metadata_ptr);
 
     if (in_bytes < metadata->getCompressedSize()) {
-      throw NVCompException(
-          nvcompErrorInvalidValue,
+      throw HipCompException(
+          hipcompErrorInvalidValue,
           "Input buffer is smaller than compressed data size: "
               + std::to_string(in_bytes) + " < "
               + std::to_string(metadata->getCompressedSize()));
     } else if (out_bytes < metadata->getUncompressedSize()) {
-      throw NVCompException(
-          nvcompErrorInvalidValue,
+      throw HipCompException(
+          hipcompErrorInvalidValue,
           "Output buffer is smaller than the uncompressed data size: "
               + std::to_string(out_bytes) + " < "
               + std::to_string(metadata->getUncompressedSize()));
@@ -298,8 +298,8 @@ nvcompStatus_t nvcompLZ4DecompressAsync(
         metadata->getUncompressedSize());
     decomp.decompress_async(stream);
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompLZ4DecompressAsync()");
+    return Check::exception_to_error(e, "hipcompLZ4DecompressAsync()");
   }
 
-  return nvcompSuccess;
+  return hipcompSuccess;
 }

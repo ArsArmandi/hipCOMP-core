@@ -54,7 +54,7 @@
   }
 #endif
 
-using namespace nvcomp;
+using namespace hipcomp;
 
 struct Test32BStruct
 {

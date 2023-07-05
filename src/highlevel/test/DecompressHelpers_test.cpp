@@ -28,7 +28,7 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "nvcomp/cascaded.h"
+#include "hipcomp/cascaded.h"
 
 #include "../../../tests/catch.hpp"
 #include "../CascadedCommon.h"
@@ -59,8 +59,8 @@
   }
 #endif
 
-using namespace nvcomp;
-using namespace nvcomp::highlevel;
+using namespace hipcomp;
+using namespace hipcomp::highlevel;
 
 /******************************************************************************
  * HELPER FUNCTIONS ***********************************************************
@@ -100,14 +100,14 @@ __global__ void fromGPU(
 TEST_CASE("Metadata-fcns", "[small]")
 {
   // Create test header
-  nvcompCascadedFormatOpts format_opts;
+  hipcompCascadedFormatOpts format_opts;
   format_opts.num_RLEs = 1;
   format_opts.num_deltas = 0;
   format_opts.use_bp = 1;
 
   CascadedMetadata meta_in(
       format_opts,
-      NVCOMP_TYPE_INT,
+      HIPCOMP_TYPE_INT,
       sizeof(CascadedMetadata),
       sizeof(CascadedMetadata));
 
@@ -137,14 +137,14 @@ TEST_CASE("Metadata-fcns", "[small]")
   gpuMetadata.copyToGPU(meta_in, 0);
 
   void* meta_out;
-  nvcompStatus_t err = nvcompSuccess;
+  hipcompStatus_t err = hipcompSuccess;
 
   // Get temp and output sizes from metadata
   size_t temp_bytes;
   size_t out_bytes;
   size_t metadata_bytes;
-  err = nvcompCascadedDecompressConfigure(d_meta, serialized_metadata_bytes, &meta_out, &metadata_bytes, &temp_bytes, &out_bytes, stream);
-  REQUIRE(err == nvcompSuccess);
+  err = hipcompCascadedDecompressConfigure(d_meta, serialized_metadata_bytes, &meta_out, &metadata_bytes, &temp_bytes, &out_bytes, stream);
+  REQUIRE(err == hipcompSuccess);
 
   CHECK(
       (static_cast<CascadedMetadata*>(meta_out))->getNumRLEs()
@@ -187,6 +187,6 @@ TEST_CASE("Metadata-fcns", "[small]")
   CHECK(out_bytes == sizeof(CascadedMetadata));
 
 //  CUDA_RT_CALL(cudaFree(d_meta));
-  nvcompCascadedDestroyMetadata(meta_out);
+  hipcompCascadedDestroyMetadata(meta_out);
 
 }
