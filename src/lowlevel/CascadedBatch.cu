@@ -32,7 +32,7 @@
 #include "hipcomp/cascaded.h"
 #include "type_macros.h"
 
-#include <cub/cub.cuh>
+#include <hipcub/hipcub.hpp>
 
 #include <cstdint>
 
@@ -136,7 +136,7 @@ __device__ void block_rle_compress(
   // Note: `tmp_buffer` is used because we cannot calculate adjacent differences
   // in place.
 
-  typedef cub::BlockScan<size_type, threadblock_size> BlockScan;
+  typedef hipcub::BlockScan<size_type, threadblock_size> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
 
   const size_type num_inputs_per_thread
@@ -252,7 +252,7 @@ __device__ void block_rle_decompress(
   // first use prefix sum to calculate the output offsets, and then each thread
   // stores the value of the run into the output locations.
 
-  typedef cub::BlockScan<run_type, threadblock_size> BlockScan;
+  typedef hipcub::BlockScan<run_type, threadblock_size> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
 
   *output_num_elements = 0;
@@ -329,7 +329,7 @@ __device__ void block_delta_decompress(
     size_type input_num_elements,
     data_type* output_buffer)
 {
-  typedef cub::BlockScan<data_type, threadblock_size> BlockScan;
+  typedef hipcub::BlockScan<data_type, threadblock_size> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
 
   const int num_rounds = roundUpDiv(input_num_elements, threadblock_size);
@@ -345,7 +345,7 @@ __device__ void block_delta_decompress(
     data_type aggregate;
     BlockScan(temp_storage)
         .ExclusiveScan(
-            input_val, output_val, initial_value, cub::Sum(), aggregate);
+            input_val, output_val, initial_value, hipcub::Sum(), aggregate);
     initial_value += aggregate;
 
     if (idx < input_num_elements)
@@ -390,7 +390,7 @@ __device__ void get_for_bitwidth(
   // process input elements in rounds, where each round processes
   // `threadblock_size` elements, with one element per thread.
 
-  typedef cub::BlockReduce<signed_data_type, threadblock_size> BlockReduce;
+  typedef hipcub::BlockReduce<signed_data_type, threadblock_size> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   signed_data_type thread_data;
@@ -400,10 +400,10 @@ __device__ void get_for_bitwidth(
   }
 
   signed_data_type minimum
-      = BlockReduce(temp_storage).Reduce(thread_data, cub::Min(), num_valid);
+      = BlockReduce(temp_storage).Reduce(thread_data, hipcub::Min(), num_valid);
   __syncthreads();
   signed_data_type maximum
-      = BlockReduce(temp_storage).Reduce(thread_data, cub::Max(), num_valid);
+      = BlockReduce(temp_storage).Reduce(thread_data, hipcub::Max(), num_valid);
   __syncthreads();
 
   const int num_rounds = roundUpDiv(num_elements, threadblock_size);
@@ -417,10 +417,10 @@ __device__ void get_for_bitwidth(
     }
 
     const signed_data_type local_min
-        = BlockReduce(temp_storage).Reduce(thread_data, cub::Min(), num_valid);
+        = BlockReduce(temp_storage).Reduce(thread_data, hipcub::Min(), num_valid);
     __syncthreads();
     const signed_data_type local_max
-        = BlockReduce(temp_storage).Reduce(thread_data, cub::Max(), num_valid);
+        = BlockReduce(temp_storage).Reduce(thread_data, hipcub::Max(), num_valid);
     __syncthreads();
 
     if (threadIdx.x == 0 && local_min < minimum)

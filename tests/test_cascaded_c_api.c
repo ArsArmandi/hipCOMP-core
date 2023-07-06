@@ -73,7 +73,7 @@ static int check_cascaded(const hipcompCascadedFormatOpts comp_opts)
   CUDA_CHECK(cudaMemcpy(d_in_data, input, in_bytes, cudaMemcpyHostToDevice));
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
 
   hipcompStatus_t status;
 
@@ -160,7 +160,7 @@ static int check_cascaded(const hipcompCascadedFormatOpts comp_opts)
       stream);
   REQUIRE(status == hipcompSuccess);
 
-  CUDA_CHECK(cudaDeviceSynchronize());
+  CUDA_CHECK(hipDeviceSynchronize());
 
   hipcompCascadedDestroyMetadata(metadata_ptr);
 
@@ -228,7 +228,7 @@ int test_ones_init_data(void)
         comp_opts.use_bp = packing;
 
         cudaStream_t stream;
-        CUDA_CHECK(cudaStreamCreate(&stream));
+        CUDA_CHECK(hipStreamCreate(&stream));
 
         hipcompStatus_t status;
 
@@ -359,7 +359,7 @@ static int test_cascaded_backward_compatibility(void)
   CUDA_CHECK(cudaMemcpy(d_in_data, input, in_bytes, cudaMemcpyHostToDevice));
 
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  CUDA_CHECK(hipStreamCreate(&stream));
 
   hipcompStatus_t status;
 
@@ -436,7 +436,7 @@ static int test_cascaded_backward_compatibility(void)
       stream);
   REQUIRE(status == hipcompSuccess);
 
-  CUDA_CHECK(cudaDeviceSynchronize());
+  CUDA_CHECK(hipDeviceSynchronize());
 
   hipcompCascadedDestroyMetadata(metadata_ptr);
 

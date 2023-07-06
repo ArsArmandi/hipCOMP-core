@@ -77,7 +77,7 @@ void test_auto_c(const std::vector<T>& data)
         cudaMemcpy(d_in_data, data.data(), in_bytes, cudaMemcpyHostToDevice));
 
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStreamCreate(&stream);
 
     hipcompStatus_t status;
 
@@ -112,7 +112,7 @@ void test_auto_c(const std::vector<T>& data)
 
     cudaFree(d_comp_temp);
     cudaFree(d_in_data);
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
 
     std::cout << "comp_size: " << comp_out_bytes
               << ", compressed ratio: " << std::fixed << std::setprecision(2)
@@ -125,7 +125,7 @@ void test_auto_c(const std::vector<T>& data)
     // between compression and decopmression
 
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStreamCreate(&stream);
 
     // get metadata from compressed data
     void* metadata = NULL;
@@ -177,7 +177,7 @@ void test_auto_c(const std::vector<T>& data)
 
     hipcompCascadedDestroyMetadata(metadata);
 
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
     cudaFree(d_decomp_temp);
     cudaFree(d_comp_out);
 
@@ -236,7 +236,7 @@ void test_auto_cpp(const std::vector<T>& data)
         cudaMemcpy(d_in_data, data.data(), in_bytes, cudaMemcpyHostToDevice));
 
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStreamCreate(&stream);
 
     CascadedCompressor compressor(hipcomp::TypeOf<T>());
 
@@ -262,7 +262,7 @@ void test_auto_cpp(const std::vector<T>& data)
 
     cudaFree(d_comp_temp);
     cudaFree(d_in_data);
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
 
     std::cout << "comp_size: " << comp_out_bytes
               << ", compressed ratio: " << std::fixed << std::setprecision(2)
@@ -275,7 +275,7 @@ void test_auto_cpp(const std::vector<T>& data)
     // between compression and decopmression
 
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStreamCreate(&stream);
 
     size_t decomp_temp_bytes;
     size_t decomp_out_bytes;
@@ -314,7 +314,7 @@ void test_auto_cpp(const std::vector<T>& data)
     std::cout << "throughput (GB/s): " << gbs(start, end, decomp_out_bytes)
               << std::endl;
 
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
     cudaFree(d_decomp_temp);
     cudaFree(d_comp_out);
 

@@ -60,7 +60,7 @@
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
-          cudaGetErrorString(cudaStatus),                                      \
+          hipGetErrorString(hipStatus),                                      \
           cudaStatus);                                                         \
       abort();                                                                 \
     }                                                                          \

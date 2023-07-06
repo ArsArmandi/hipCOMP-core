@@ -35,12 +35,12 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #endif
 
-// Define cub inside of the hipcomp namespace, so as to avoid any conflicts with
-// different versions of cub at link time with other libraries.
-#define CUB_NS_QUALIFIER ::hipcomp::cub
+// Define hipcub inside of the hipcomp namespace, so as to avoid any conflicts with
+// different versions of hipcub at link time with other libraries.
+#define HIPCUB_NS_QUALIFIER ::hipcomp::hipcub
 #define CUB_NS_PREFIX namespace hipcomp {
 #define CUB_NS_POSTFIX }
-#include <cub/cub.cuh>
+#include <hipcub/hipcub.hpp>
 #undef CUB_NS_PREFIX
 #undef CUB_NS_POSTFIX
 #undef CUB_NS_QUALIFIER

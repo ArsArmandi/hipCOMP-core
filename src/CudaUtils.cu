@@ -48,7 +48,7 @@ void CudaUtils::check(const cudaError_t err, const std::string& msg)
   if (err != cudaSuccess) {
     std::string errorStr(
         "Encountered Cuda Error: " + std::to_string(err) + ": '"
-        + std::string(cudaGetErrorString(err)) + "'");
+        + std::string(hipGetErrorString(err)) + "'");
     if (!msg.empty()) {
       errorStr += ": " + msg;
     }
@@ -65,14 +65,14 @@ void CudaUtils::sync(cudaStream_t stream)
 
 void CudaUtils::check_last_error(const std::string& msg)
 {
-  check(cudaGetLastError(), msg);
+  check(hipGetLastError(), msg);
 }
 
 const void* CudaUtils::void_device_pointer(const void* const ptr)
 {
-  cudaPointerAttributes attr;
+  hipPointerAttributes attr;
   check(
-      cudaPointerGetAttributes(&attr, ptr),
+      hipPointerGetAttributes(&attr, ptr),
       "Failed to get pointer "
       "attributes for pointer: "
           + to_string(ptr));
@@ -89,21 +89,21 @@ const void* CudaUtils::void_device_pointer(const void* const ptr)
 
 bool CudaUtils::is_device_pointer(const void* const ptr)
 {
-  cudaPointerAttributes attr;
+  hipPointerAttributes attr;
 
-  cudaError_t err = cudaPointerGetAttributes(&attr, ptr);
+  hipError_t err = hipPointerGetAttributes(&attr, ptr);
 
-  if (err == cudaErrorInvalidValue) {
+  if (err == hipErrorInvalidValue) {
     int cuda_version;
     check(
-        cudaRuntimeGetVersion(&cuda_version),
+        hipRuntimeGetVersion(&hip_version),
         "Failed to get runtime "
         "verison.");
 
     if (cuda_version < 11000) {
       // error is normal for non-device memory -- clear the error and return
       // false
-      (void)cudaGetLastError();
+      (void)hipGetLastError();
       return false;
     }
   }
@@ -115,17 +115,17 @@ bool CudaUtils::is_device_pointer(const void* const ptr)
       "attributes for pointer: "
           + to_string(ptr));
 
-  return attr.type == cudaMemoryTypeDevice;
+  return attr.type == hipMemoryTypeDevice;
 }
 
 void* CudaUtils::void_device_pointer(void* const ptr)
 {
-  cudaPointerAttributes attr;
+  hipPointerAttributes attr;
   // we don't need to worry about the difference between cuda 10 and cuda 11
   // here, as if it's not a device pointer, we want throw an exception either
   // way.
   check(
-      cudaPointerGetAttributes(&attr, ptr),
+      hipPointerGetAttributes(&attr, ptr),
       "Failed to get pointer "
       "attributes for pointer: "
           + to_string(ptr));

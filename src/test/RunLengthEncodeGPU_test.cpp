@@ -50,7 +50,7 @@
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
-          cudaGetErrorString(cudaStatus),                                      \
+          hipGetErrorString(hipStatus),                                      \
           cudaStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
@@ -73,7 +73,7 @@ __global__ void toGPU(
     size_t const num,
     cudaStream_t stream)
 {
-  CUDA_RT_CALL(cudaMemcpyAsync(
+  CUDA_RT_CALL(hipMemcpyAsync(
       output, input, num * sizeof(T), cudaMemcpyHostToDevice, stream));
 }
 
@@ -84,7 +84,7 @@ __global__ void fromGPU(
     size_t const num,
     cudaStream_t stream)
 {
-  CUDA_RT_CALL(cudaMemcpyAsync(
+  CUDA_RT_CALL(hipMemcpyAsync(
       output, input, num * sizeof(T), cudaMemcpyDeviceToHost, stream));
 }
 
@@ -101,7 +101,7 @@ void compressAsyncTestRandom(const size_t n)
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
   cudaStream_t stream;
-  CUDA_RT_CALL(cudaStreamCreate(&stream));
+  CUDA_RT_CALL(hipStreamCreate(&stream));
 
   std::srand(0);
 
@@ -154,11 +154,11 @@ void compressAsyncTestRandom(const size_t n)
       sizeof(outputCounts),
       cudaMemcpyHostToDevice));
 
-  cudaEvent_t start, stop;
+  hipEvent_t start, stop;
 
-  CUDA_RT_CALL(cudaEventCreate(&start));
-  CUDA_RT_CALL(cudaEventCreate(&stop));
-  CUDA_RT_CALL(cudaEventRecord(start, stream));
+  CUDA_RT_CALL(hipEventCreate(&start));
+  CUDA_RT_CALL(hipEventCreate(&stop));
+  CUDA_RT_CALL(hipEventRecord(start, stream));
 
   RunLengthEncodeGPU::compressDownstream(
       workspace,
@@ -172,11 +172,11 @@ void compressAsyncTestRandom(const size_t n)
       numInDevice,
       maxNum,
       stream);
-  CUDA_RT_CALL(cudaEventRecord(stop, stream));
+  CUDA_RT_CALL(hipEventRecord(stop, stream));
 
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
   float time;
-  CUDA_RT_CALL(cudaEventElapsedTime(&time, start, stop));
+  CUDA_RT_CALL(hipEventElapsedTime(&time, start, stop));
 
   size_t numOut;
   CUDA_RT_CALL(cudaMemcpy(
@@ -185,7 +185,7 @@ void compressAsyncTestRandom(const size_t n)
   fromGPU(outputValuesHost, outputValues, numOut, stream);
   fromGPU(outputCountsHost, outputCounts, numOut, stream);
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
-  CUDA_RT_CALL(cudaStreamDestroy(stream));
+  CUDA_RT_CALL(hipStreamDestroy(stream));
 
   CUDA_RT_CALL(cudaFree(outputValues));
   CUDA_RT_CALL(cudaFree(outputCounts));
@@ -253,7 +253,7 @@ TEST_CASE("compress_10Million_Test", "[small]")
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
   cudaStream_t stream;
-  CUDA_RT_CALL(cudaStreamCreate(&stream));
+  CUDA_RT_CALL(hipStreamCreate(&stream));
 
   std::srand(0);
 
@@ -285,11 +285,11 @@ TEST_CASE("compress_10Million_Test", "[small]")
       = RunLengthEncodeGPU::requiredWorkspaceSize(n, TypeOf<T>(), TypeOf<V>());
   CUDA_RT_CALL(cudaMalloc((void**)&workspace, workspaceSize));
 
-  cudaEvent_t start, stop;
+  hipEvent_t start, stop;
 
-  CUDA_RT_CALL(cudaEventCreate(&start));
-  CUDA_RT_CALL(cudaEventCreate(&stop));
-  CUDA_RT_CALL(cudaEventRecord(start, stream));
+  CUDA_RT_CALL(hipEventCreate(&start));
+  CUDA_RT_CALL(hipEventCreate(&stop));
+  CUDA_RT_CALL(hipEventRecord(start, stream));
 
   size_t numOut = 0;
   RunLengthEncodeGPU::compress(
@@ -303,19 +303,19 @@ TEST_CASE("compress_10Million_Test", "[small]")
       input,
       n,
       stream);
-  CUDA_RT_CALL(cudaEventRecord(stop, stream));
+  CUDA_RT_CALL(hipEventRecord(stop, stream));
 
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
   CUDA_RT_CALL(cudaMemcpy(
       &numOut, numOutDevice, sizeof(numOut), cudaMemcpyDeviceToHost));
 
   float time;
-  CUDA_RT_CALL(cudaEventElapsedTime(&time, start, stop));
+  CUDA_RT_CALL(hipEventElapsedTime(&time, start, stop));
 
   fromGPU(outputValuesHost, outputValues, numOut, stream);
   fromGPU(outputCountsHost, outputCounts, numOut, stream);
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
-  CUDA_RT_CALL(cudaStreamDestroy(stream));
+  CUDA_RT_CALL(hipStreamDestroy(stream));
 
   CUDA_RT_CALL(cudaFree(outputValues));
   CUDA_RT_CALL(cudaFree(outputCounts));
@@ -365,7 +365,7 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
   cudaStream_t stream;
-  CUDA_RT_CALL(cudaStreamCreate(&stream));
+  CUDA_RT_CALL(hipStreamCreate(&stream));
 
   T last = 37;
   for (size_t i = 0; i < n; ++i) {
@@ -413,11 +413,11 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
       sizeof(outputCounts),
       cudaMemcpyHostToDevice));
 
-  cudaEvent_t start, stop;
+  hipEvent_t start, stop;
 
-  CUDA_RT_CALL(cudaEventCreate(&start));
-  CUDA_RT_CALL(cudaEventCreate(&stop));
-  CUDA_RT_CALL(cudaEventRecord(start, stream));
+  CUDA_RT_CALL(hipEventCreate(&start));
+  CUDA_RT_CALL(hipEventCreate(&stop));
+  CUDA_RT_CALL(hipEventRecord(start, stream));
 
   RunLengthEncodeGPU::compressDownstream(
       workspace,
@@ -431,11 +431,11 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
       numInDevice,
       maxNum,
       stream);
-  CUDA_RT_CALL(cudaEventRecord(stop, stream));
+  CUDA_RT_CALL(hipEventRecord(stop, stream));
 
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
   float time;
-  CUDA_RT_CALL(cudaEventElapsedTime(&time, start, stop));
+  CUDA_RT_CALL(hipEventElapsedTime(&time, start, stop));
 
   size_t numOut;
   CUDA_RT_CALL(cudaMemcpy(
@@ -444,7 +444,7 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
   fromGPU(outputValuesHost, outputValues, numOut, stream);
   fromGPU(outputCountsHost, outputCounts, numOut, stream);
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
-  CUDA_RT_CALL(cudaStreamDestroy(stream));
+  CUDA_RT_CALL(hipStreamDestroy(stream));
 
   CUDA_RT_CALL(cudaFree(outputValues));
   CUDA_RT_CALL(cudaFree(outputCounts));

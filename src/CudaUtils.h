@@ -38,7 +38,7 @@ namespace hipcomp
 enum CopyDirection {
   HOST_TO_DEVICE = cudaMemcpyHostToDevice,
   DEVICE_TO_HOST = cudaMemcpyDeviceToHost,
-  DEVICE_TO_DEVICE = cudaMemcpyDeviceToDevice
+  DEVICE_TO_DEVICE = hipMemcpyDeviceToDevice
 };
 
 class CudaUtils
@@ -76,8 +76,8 @@ public:
       cudaStream_t stream)
   {
     check(
-        cudaMemcpyAsync(dst, src, sizeof(T) * count,
-          static_cast<cudaMemcpyKind>(kind), stream),
+        hipMemcpyAsync(dst, src, sizeof(T) * count,
+          static_cast<hipMemcpyKind>(kind), stream),
         "CudaUtils::copy_async(dst, src, count, kind, stream)");
   }
 
@@ -98,7 +98,7 @@ public:
       const CopyDirection kind)
   {
     check(
-        cudaMemcpy(dst, src, sizeof(T) * count, static_cast<cudaMemcpyKind>(kind)),
+        hipMemcpy(dst, src, sizeof(T) * count, static_cast<hipMemcpyKind>(kind)),
         "CudaUtils::copy(dst, src, count, kind)");
   }
 

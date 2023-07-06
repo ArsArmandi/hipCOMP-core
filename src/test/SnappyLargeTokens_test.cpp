@@ -195,7 +195,7 @@ void compress_single_batch_snappy(
   const int num_chunks = 1;
 
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  CUDA_CHECK(hipStreamCreate(&stream));
 
   hipcomp::gpu_snap(
       d_in_data,
@@ -296,7 +296,7 @@ void decompress_single_batch_snappy(
   const int num_chunks = 1;
 
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  CUDA_CHECK(hipStreamCreate(&stream));
 
   hipcomp::gpu_unsnap(
       d_in_data,

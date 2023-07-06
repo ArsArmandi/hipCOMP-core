@@ -469,11 +469,11 @@ void CascadedMetadataOnGPU::setCompressedSizeFromGPU(
   COMP_BYTES_TYPE* const compBytesDevice = reinterpret_cast<COMP_BYTES_TYPE*>(
       static_cast<char*>(m_ptr) + OFFSET_COMP_BYTES);
 
-  cudaError_t err = cudaMemcpyAsync(
+  hipError_t err = hipMemcpyAsync(
       compBytesDevice,
       sizeOnDevice,
       sizeof(COMP_BYTES_TYPE),
-      cudaMemcpyDeviceToDevice,
+      hipMemcpyDeviceToDevice,
       stream);
 
   if (err != cudaSuccess) {

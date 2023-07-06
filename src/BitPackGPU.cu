@@ -432,7 +432,7 @@ void bitPackConfigLaunch(
   // make sure the result will fit in a single block for the finalize kernel
   bitPackConfigScanKernel<<<grid, block, 0, stream>>>(
       minValueScratch, maxValueScratch, in, numDevice);
-  err = cudaGetLastError();
+  err = hipGetLastError();
   if (err != cudaSuccess) {
     throw std::runtime_error(
         "Failed to launch bitPackConfigScanKernel "
@@ -443,7 +443,7 @@ void bitPackConfigLaunch(
   // determine numBits and convert min value
   bitPackConfigFinalizeKernel<<<dim3(1), block, 0, stream>>>(
       minValueScratch, maxValueScratch, numBitsPtr, minValOutPtr, numDevice);
-  err = cudaGetLastError();
+  err = hipGetLastError();
   if (err != cudaSuccess) {
     throw std::runtime_error(
         "Failed to launch bitPackConfigFinalizeKernel "
@@ -472,7 +472,7 @@ void bitPackLaunch(
 
   bitPackKernel<<<grid, block, 0, stream>>>(
       numBitsDevicePtr, minValueDevicePtr, outPtr, in, numDevice);
-  cudaError_t err = cudaGetLastError();
+  hipError_t err = hipGetLastError();
   if (err != cudaSuccess) {
     throw std::runtime_error(
         "Failed to launch bitPackKernel kernel: " + std::to_string(err));

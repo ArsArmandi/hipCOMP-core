@@ -124,13 +124,13 @@ size_t LZ4Compressor::calculate_workspace_size(
 
   size_t prefix_bytes;
   CudaUtils::check(
-      cub::DeviceScan::InclusiveSum(
+      hipcub::DeviceScan::InclusiveSum(
           nullptr,
           prefix_bytes,
           static_cast<const size_t*>(nullptr),
           static_cast<size_t*>(nullptr),
           num_chunks),
-      "cub::DeviceScan::InclusiveSum()");
+      "hipcub::DeviceScan::InclusiveSum()");
 
   return staging_bytes + pointer_bytes + size_bytes + prefix_bytes
          + buffer_bytes;
@@ -285,26 +285,26 @@ void LZ4Compressor::compress_async(cudaStream_t stream)
   // perform prefixsum on sizes
   size_t prefix_temp_size;
   CudaUtils::check(
-      cub::DeviceScan::InclusiveSum(
+      hipcub::DeviceScan::InclusiveSum(
           nullptr,
           prefix_temp_size,
           out_sizes_device,
           m_output_offsets + 1,
           m_num_chunks,
           stream),
-      "cub::DeviceScan::InclusiveSum()");
+      "hipcub::DeviceScan::InclusiveSum()");
   void* prefix_temp;
   temp.reserve(&prefix_temp, prefix_temp_size);
 
   CudaUtils::check(
-      cub::DeviceScan::InclusiveSum(
+      hipcub::DeviceScan::InclusiveSum(
           prefix_temp,
           prefix_temp_size,
           out_sizes_device,
           m_output_offsets + 1,
           m_num_chunks,
           stream),
-      "cub::DeviceScan::InclusiveSum()");
+      "hipcub::DeviceScan::InclusiveSum()");
 
   {
     const dim3 grid(m_num_chunks);

@@ -82,7 +82,7 @@ void test_bitcomp(const std::vector<T>& input)
       cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
 
   void* d_comp_out;
   void* const d_comp_temp = nullptr;
@@ -125,7 +125,7 @@ void test_bitcomp(const std::vector<T>& input)
   // Test to make sure copying the compressed file is ok
   void* copied = 0;
   CUDA_CHECK(cudaMalloc(&copied, comp_out_bytes));
-  CUDA_CHECK(cudaMemcpy(copied, d_comp_out, comp_out_bytes, cudaMemcpyDeviceToDevice));
+  CUDA_CHECK(hipMemcpy(copied, d_comp_out, comp_out_bytes, hipMemcpyDeviceToDevice));
   cudaFree(d_comp_out);
   d_comp_out = copied;
 

@@ -60,7 +60,7 @@
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
-          cudaGetErrorString(cudaStatus),                                      \
+          hipGetErrorString(hipStatus),                                      \
           cudaStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
@@ -164,7 +164,7 @@ TEST_CASE("SelectorSelectConfig_C", "[small]")
   CUDA_RT_CALL(cudaMalloc(&d_temp, temp_bytes));
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
   hipcompCascadedFormatOpts opts;
   double est_ratio;
   bool threw_exception = false;

@@ -52,7 +52,14 @@ namespace hipcomp
 namespace
 {
 constexpr const size_t ALIGN_OFFSET = 256;
+#ifdef _​_HIP_​PLATFORM_​AMD_​_
+constexpr const int WARP_SIZE = 64;
+#else
+#  ifdef __CUDACC_VER_MAJOR__ >= 9
+#    define INDEPENDENT_THREAD_SCHEDULING
+#  endif
 constexpr const int WARP_SIZE = 32;
+#endif
 constexpr const int GLOBAL_TILE_SIZE = 1024;
 } // namespace
 
@@ -63,19 +70,47 @@ constexpr const int GLOBAL_TILE_SIZE = 1024;
 namespace
 {
 
+/** \brief Compute a sum across the threads in a warp.
+ * 
+ * Due to the used shuffle down instruction, the
+ * result is available on all threads of the warp.
+ *  
+ * \param[in] initVal initial value of the current thread.
+ * \note __shfl_down_sync implementation not available on AMD GPUs (ROCm 5.6.0).
+ *       Hence the AMD GPU implementation, always assumes that NUM_THREADS == WARP_SIZE.
+ * \return the result of this operation per thread. All threads of a warp carry the correct result.
+ */
 template <typename T, int NUM_THREADS>
 __device__ T warpSum(T const initVal)
 {
+  T val = initVal;
+  #ifndef INDEPENDENT_THREAD_SCHEDULING
+  assert(NUM_THREADS == WARP_SIZE);
+  #else
   constexpr const uint32_t mask
       = NUM_THREADS < WARP_SIZE ? (1u << NUM_THREADS) - 1 : 0xffffffff;
-  T val = initVal;
+  #endif
   for (int d = NUM_THREADS / 2; d > 0; d /= 2) {
-    val += __shfl_down_sync(mask, val, d, NUM_THREADS);
+    #ifndef INDEPENDENT_THREAD_SCHEDULING
+    val += __shfl_down(val, d, WARP_SIZE);
+    #else
+    val += __shfl_down_sync(mask,val, d, NUM_THREADS);
+    #endif
   }
 
   return val;
 }
 
+/** \brief Compute a sum across a threadblock.
+ *  
+ * \param[in] initVal initial value of the current thread.
+ * \param[in] buffer for storing intermediate results per warp.
+ * \see ::warpSum
+ * \note As AMD GPUs do not support masking with shfl instructions on ROCm 5.6.0, we run an reduction
+ *       across the full warp but supply 0 as initVal for masked out threads if
+ *       _​_HIP_​PLATFORM_​AMD_​_ is defined.
+ * \return the result of this operation per thread. Threads 0 ... WARP_SIZE of a block carry the correct result.
+ */
 template <typename T, int BLOCK_SIZE>
 __device__ T cooperativeSum(T const initVal, T* const buffer)
 {
@@ -89,9 +124,13 @@ __device__ T cooperativeSum(T const initVal, T* const buffer)
   }
   __syncthreads();
 
+  #ifndef INDEPENDENT_THREAD_SCHEDULING
+  val = warpSum<T, WARP_SIZE>( ( threadIdx.x < (BLOCK_SIZE / WARP_SIZE) ) ? buffer[threadIdx.x] : 0 );
+  #else
   if (threadIdx.x < (BLOCK_SIZE / WARP_SIZE)) {
     val = warpSum<T, BLOCK_SIZE / WARP_SIZE>(buffer[threadIdx.x]);
   }
+  #endif
 
   return val;
 }
@@ -102,15 +141,15 @@ __device__ T cooperativeSum(T const initVal, T* const buffer)
  *
  * @tparam VALUE The value type.
  * @tparam RUN The run count type.
- * @param in The input data.
- * @param num The size of the input data.
- * @param blockSize The location to write the block sizes (output).
+ * @param[in] in The input data.
+ * @param[in] num The size of the input data.
+ * @param[out] blockSizes The location to write the block sizes (output).
  */
 template <typename VALUE, typename RUN, int BLOCK_SIZE, int TILE_SIZE>
 __global__ void rleInitKernel(
     const VALUE* const in,
     const size_t* const numInDevice,
-    RUN* const blockSize)
+    RUN* const  blockSizes)
 {
   constexpr const int ITEMS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
   // the algorithm here is to keep reducing "chunks" to a start and end marker
@@ -150,14 +189,14 @@ __global__ void rleInitKernel(
 
     sum = cooperativeSum<RUN, BLOCK_SIZE>(sum, buffer);
     if (threadIdx.x == 0) {
-      blockSize[blockIdx.x] = sum;
+       blockSizes[blockIdx.x] = sum;
     }
   } else if (threadIdx.x == 0) {
-    blockSize[blockIdx.x] = 0;
+     blockSizes[blockIdx.x] = 0;
   }
 
   if (blockIdx.x == gridDim.x - 1 && threadIdx.x == 0) {
-    blockSize[gridDim.x] = 0;
+     blockSizes[gridDim.x] = 0;
   }
 }
 
@@ -217,7 +256,7 @@ __global__ void rleReduceKernel(
 
     // prefixsum bit mask
     {
-      typedef cub::BlockScan<RUN, BLOCK_SIZE> BlockScan;
+      typedef hipcub::BlockScan<RUN, BLOCK_SIZE> BlockScan;
       __shared__ typename BlockScan::TempStorage temp_storage;
 
       BlockScan(temp_storage).ExclusiveSum(sum, sum);
@@ -362,7 +401,7 @@ size_t requiredWorkspaceSizeTyped(const size_t num)
 
   size_t workspaceSize = 0;
   CudaUtils::check(
-      cub::DeviceRunLengthEncode::Encode(
+      hipcub::DeviceRunLengthEncode::Encode(
           nullptr,
           workspaceSize,
           inPtr,
@@ -371,7 +410,7 @@ size_t requiredWorkspaceSizeTyped(const size_t num)
           numPtr,
           static_cast<int>(num),
           0),
-      "cub::DeviceRunLengthEncode::Encode() failed");
+      "hipcub::DeviceRunLengthEncode::Encode() failed");
 
   workspaceSize = std::max(workspaceSize, downstreamWorkspaceSize<U>(num));
 
@@ -406,7 +445,7 @@ void compressInternal(
       = workspaceSize - relativeEndOffset(workspace, alignedWorkspace);
 
   CudaUtils::check(
-      cub::DeviceRunLengthEncode::Encode(
+      hipcub::DeviceRunLengthEncode::Encode(
           alignedWorkspace,
           alignedWorkspaceSize,
           inTyped,
@@ -415,7 +454,7 @@ void compressInternal(
           numOutDevice,
           static_cast<int>(num),
           stream),
-      "cub::DeviceRunLengthEncode::Encode() failed");
+      "hipcub::DeviceRunLengthEncode::Encode() failed");
 }
 
 template <typename VALUE, typename COUNT>
@@ -468,9 +507,9 @@ void compressDownstreamInternal(
   // get output locations
   size_t requiredSpace;
   CudaUtils::check(
-      cub::DeviceScan::ExclusiveSum(
+      hipcub::DeviceScan::ExclusiveSum(
           nullptr, requiredSpace, blockSizes, blockPrefix, grid.x + 1, stream),
-      "cub::DeviceScan::Exclusive() failed");
+      "hipcub::DeviceScan::Exclusive() failed");
 
   size_t scanWorkspaceSize
       = std::max(1024 * sizeof(COUNT), maxNum * sizeof(COUNT));
@@ -480,14 +519,14 @@ void compressDownstreamInternal(
         + std::to_string(requiredSpace));
   }
   CudaUtils::check(
-      cub::DeviceScan::ExclusiveSum(
+      hipcub::DeviceScan::ExclusiveSum(
           scanWorkspace,
           scanWorkspaceSize,
           blockSizes,
           blockPrefix,
           grid.x + 1,
           stream),
-      "cub::DeviceScanExclusiveSum() failed");
+      "hipcub::DeviceScanExclusiveSum() failed");
 
   // do actual compaction
   rleReduceKernel<VALUE, COUNT, BLOCK_SIZE, GLOBAL_TILE_SIZE>

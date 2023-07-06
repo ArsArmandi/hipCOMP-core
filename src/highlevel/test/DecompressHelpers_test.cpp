@@ -53,7 +53,7 @@
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
-          cudaGetErrorString(cudaStatus),                                      \
+          hipGetErrorString(hipStatus),                                      \
           cudaStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
@@ -77,7 +77,7 @@ __global__ void toGPU(
     size_t const num,
     cudaStream_t stream)
 {
-  CUDA_RT_CALL(cudaMemcpyAsync(
+  CUDA_RT_CALL(hipMemcpyAsync(
       output, input, num * sizeof(T), cudaMemcpyHostToDevice, stream));
 }
 
@@ -88,7 +88,7 @@ __global__ void fromGPU(
     size_t const num,
     cudaStream_t stream)
 {
-  CUDA_RT_CALL(cudaMemcpyAsync(
+  CUDA_RT_CALL(hipMemcpyAsync(
       output, input, num * sizeof(T), cudaMemcpyDeviceToHost, stream));
 }
 
@@ -122,7 +122,7 @@ TEST_CASE("Metadata-fcns", "[small]")
   short version_num = 1;
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
 
   // get size of serialized metadata
   size_t serialized_metadata_bytes

@@ -200,7 +200,7 @@ __global__ void expandRLEDelta(
 
   // perform inclusive scan
   // 0 0 0 0 1 1 1 2 2 2 2 2
-  typedef cub::BlockScan<int, threadBlock> BlockScan;
+  typedef hipcub::BlockScan<int, threadBlock> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
   int thread_data[elemsPerThread];
 #pragma unroll
@@ -219,7 +219,7 @@ __global__ void expandRLEDelta(
   if (delta) {
     // now perform the delta expand - simply another scan
     // A 2A 3A 3A+B 3A+2B 3A+3B 3A+3B+C 3A+3B+2C ...
-    typedef cub::BlockScan<inputT, threadBlock> BlockScanT;
+    typedef hipcub::BlockScan<inputT, threadBlock> BlockScanT;
     __shared__ typename BlockScanT::TempStorage temp_storage_t;
     inputT thread_data_t[elemsPerThread];
 #pragma unroll

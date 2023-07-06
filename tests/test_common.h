@@ -125,7 +125,7 @@ void test(
     comp_opts.use_bp = bitPacking;
 
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStreamCreate(&stream);
 
     hipcompStatus_t status;
 
@@ -162,7 +162,7 @@ void test(
 
     cudaFree(d_comp_temp);
     cudaFree(d_in_data);
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
 
     std::cout << "comp_size: " << comp_out_bytes
               << ", compressed ratio: " << std::fixed << std::setprecision(2)
@@ -175,7 +175,7 @@ void test(
     // between compression and decopmression
 
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStreamCreate(&stream);
 
     // get metadata from compressed data
     void* metadata = NULL;
@@ -229,7 +229,7 @@ void test(
 
     hipcompCascadedDestroyMetadata(metadata);
 
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
     cudaFree(d_decomp_temp);
     cudaFree(d_comp_out);
 

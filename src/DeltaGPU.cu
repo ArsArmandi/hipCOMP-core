@@ -118,7 +118,7 @@ void deltaLaunch(
   const dim3 grid(roundUpDiv(maxNum, BLOCK_SIZE));
   deltaKernel<<<grid, block, 0, stream>>>(
       outTypedPtr, inTyped, numDevice, maxNum);
-  cudaError_t err = cudaGetLastError();
+  hipError_t err = hipGetLastError();
   if (err != cudaSuccess) {
     throw std::runtime_error(
         "Failed to launch deltaKernel kernel: " + std::to_string(err));

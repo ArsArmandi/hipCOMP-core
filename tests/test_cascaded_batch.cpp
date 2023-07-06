@@ -396,7 +396,7 @@ void test_predefined_cases(int use_bp)
       cudaMemcpyHostToDevice));
 
   CUDA_CHECK(
-      cudaMemset(decompressed_bytes_device, 0, sizeof(size_t) * batch_size));
+      hipMemset(decompressed_bytes_device, 0, sizeof(size_t) * batch_size));
 
   // Launch decompression
 
@@ -621,7 +621,7 @@ void test_fallback_path()
       cudaMemcpyHostToDevice));
 
   CUDA_CHECK(
-      cudaMemset(decompressed_bytes_device, 0, sizeof(size_t) * batch_size));
+      hipMemset(decompressed_bytes_device, 0, sizeof(size_t) * batch_size));
 
   // Launch decompression
 

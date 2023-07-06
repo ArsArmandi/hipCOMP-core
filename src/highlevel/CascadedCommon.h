@@ -200,7 +200,7 @@ hipcompStatus_t hipcompCreateHandleAsync(
 /* Reconfigures the workspace. This will try to adjust the allocation policy to
  * fit the specified memory budget of workspaceBytes. On success the handle
  * will release the previous temporary storage and use the new memory space,
- * otherwise cudaErrorNotSupported will be returned and no changes to the
+ * otherwise hipErrorNotSupported will be returned and no changes to the
  * workspace will be made. */
 hipcompStatus_t hipcompSetWorkspace(
     hipcompHandle_t handle, void* workspaceStorage, size_t workspaceBytes);

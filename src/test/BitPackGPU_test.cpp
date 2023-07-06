@@ -54,7 +54,7 @@
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
-          cudaGetErrorString(cudaStatus),                                      \
+          hipGetErrorString(hipStatus),                                      \
           cudaStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
@@ -118,7 +118,7 @@ void runBitPackingOnGPU(
   CUDA_RT_CALL(cudaMalloc(&outputPtr, sizeof(*outputPtr)));
   CUDA_RT_CALL(
       cudaMemcpy(outputPtr, &output, sizeof(output), cudaMemcpyHostToDevice));
-  CUDA_RT_CALL(cudaMemset(output, 0, packedSize));
+  CUDA_RT_CALL(hipMemset(output, 0, packedSize));
 
   T* minValueDevice;
   CUDA_RT_CALL(cudaMalloc((void**)&minValueDevice, sizeof(*minValueDevice)));
@@ -149,7 +149,7 @@ void runBitPackingOnGPU(
   const hipcompType_t inType = TypeOf<T>();
 
   cudaStream_t stream;
-  CUDA_RT_CALL(cudaStreamCreate(&stream));
+  CUDA_RT_CALL(hipStreamCreate(&stream));
 
   BitPackGPU::compress(
       workspace,
@@ -164,7 +164,7 @@ void runBitPackingOnGPU(
       stream);
 
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
-  CUDA_RT_CALL(cudaStreamDestroy(stream));
+  CUDA_RT_CALL(hipStreamDestroy(stream));
 
   fromGPU(minValOut, minValueDevice, 1);
 

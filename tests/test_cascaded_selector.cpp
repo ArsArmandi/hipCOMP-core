@@ -92,7 +92,7 @@ double test_selector_c(const std::vector<T>& input, size_t sample_size, size_t n
   CUDA_CHECK( cudaMalloc(&d_temp, temp_bytes) );
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
   double est_ratio;
 
   err = hipcompCascadedSelectorRun(
@@ -136,7 +136,7 @@ double test_selector_default_c(const std::vector<T>& input, hipcompCascadedForma
   CUDA_CHECK( cudaMalloc(&d_temp, temp_bytes) );
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
   double est_ratio;
 
   err = hipcompCascadedSelectorRun(
@@ -189,7 +189,7 @@ hipcompCascadedFormatOpts* opts)
   CUDA_CHECK( cudaMalloc(&d_temp, temp_bytes) );
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
   double est_ratio;
 
   *opts = selector.select_config(d_temp, temp_bytes, &est_ratio, stream);

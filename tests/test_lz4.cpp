@@ -80,7 +80,7 @@ void test_lz4(const std::vector<T>& input, hipcompType_t data_type, const size_t
       cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
 
   size_t comp_temp_bytes = 0;
   size_t comp_out_bytes = 0;
@@ -124,7 +124,7 @@ void test_lz4(const std::vector<T>& input, hipcompType_t data_type, const size_t
   void* copied = 0;
   CUDA_CHECK(cudaMalloc(&copied, comp_out_bytes));
   CUDA_CHECK(
-      cudaMemcpy(copied, d_comp_out, comp_out_bytes, cudaMemcpyDeviceToDevice));
+      hipMemcpy(copied, d_comp_out, comp_out_bytes, hipMemcpyDeviceToDevice));
   cudaFree(d_comp_out);
   d_comp_out = copied;
 
@@ -147,7 +147,7 @@ void test_lz4(const std::vector<T>& input, hipcompType_t data_type, const size_t
 
   // make sure the data won't match input if not written to, so we can verify
   // correctness
-  cudaMemset(out_ptr, 0, decomp_out_bytes);
+  hipMemset(out_ptr, 0, decomp_out_bytes);
 
   decompressor.decompress_async(
       d_comp_out,

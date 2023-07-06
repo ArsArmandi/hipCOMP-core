@@ -308,7 +308,7 @@ int test_generic_batch_compression_and_decompression(
       sizeof(*device_comp_out_bytes) * batch_size));
 
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  CUDA_CHECK(hipStreamCreate(&stream));
 
   status = compressAsync(
       (const void* const*)device_in_pointers,
@@ -419,8 +419,8 @@ int test_generic_batch_compression_and_decompression(
       stream);
   REQUIRE(status == hipcompSuccess);
 
-  CUDA_CHECK(cudaDeviceSynchronize());
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  CUDA_CHECK(hipDeviceSynchronize());
+  CUDA_CHECK(hipStreamDestroy(stream));
 
   // check statuses
   hipcompStatus_t* host_statuses = malloc(sizeof(*device_statuses) * batch_size);
@@ -559,7 +559,7 @@ int test_generic_batch_decompression_errors(
       cudaMemcpyHostToDevice));
 
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  CUDA_CHECK(hipStreamCreate(&stream));
 
   hipcompStatus_t status;
 
@@ -569,7 +569,7 @@ int test_generic_batch_decompression_errors(
       (void**)&device_decomp_out_bytes,
       sizeof(*device_decomp_out_bytes) * batch_size));
   // initially set all sizes to -1
-  CUDA_CHECK(cudaMemset(
+  CUDA_CHECK(hipMemset(
       device_decomp_out_bytes,
       -1,
       sizeof(*device_decomp_out_bytes) * batch_size));
@@ -654,9 +654,9 @@ int test_generic_batch_decompression_errors(
       stream);
   REQUIRE(status == hipcompSuccess);
 
-  CUDA_CHECK(cudaDeviceSynchronize());
+  CUDA_CHECK(hipDeviceSynchronize());
 
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  CUDA_CHECK(hipStreamDestroy(stream));
 
   // clean up inputs
   for (size_t i = 0; i < batch_size; ++i) {

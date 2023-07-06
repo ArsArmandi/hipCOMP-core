@@ -90,7 +90,7 @@ __device__ void deviceRLEKernel(
   // prefixsum bit mask
 
   {
-    typedef cub::BlockScan<COUNT, BLOCK_SIZE> BlockScan;
+    typedef hipcub::BlockScan<COUNT, BLOCK_SIZE> BlockScan;
     __shared__ typename BlockScan::TempStorage temp_storage;
 
     BlockScan(temp_storage).InclusiveSum(sum, sum);
@@ -179,18 +179,18 @@ __device__ void deviceFindMinMax(
   __syncthreads();
 
   {
-    typedef cub::BlockScan<COUNT, BLOCK_SIZE> BlockScan;
+    typedef hipcub::BlockScan<COUNT, BLOCK_SIZE> BlockScan;
     __shared__ typename BlockScan::TempStorage temp_storage;
-    BlockScan(temp_storage).InclusiveScan(cur_run_min, cur_run_min, cub::Min());
-    BlockScan(temp_storage).InclusiveScan(cur_run_max, cur_run_max, cub::Max());
+    BlockScan(temp_storage).InclusiveScan(cur_run_min, cur_run_min, hipcub::Min());
+    BlockScan(temp_storage).InclusiveScan(cur_run_max, cur_run_max, hipcub::Max());
   }
 
   __syncthreads();
   {
-    typedef cub::BlockScan<VALUE, BLOCK_SIZE> BlockScan;
+    typedef hipcub::BlockScan<VALUE, BLOCK_SIZE> BlockScan;
     __shared__ typename BlockScan::TempStorage temp_storage;
-    BlockScan(temp_storage).InclusiveScan(cur_val_min, cur_val_min, cub::Min());
-    BlockScan(temp_storage).InclusiveScan(cur_val_max, cur_val_max, cub::Max());
+    BlockScan(temp_storage).InclusiveScan(cur_val_min, cur_val_min, hipcub::Min());
+    BlockScan(temp_storage).InclusiveScan(cur_val_max, cur_val_max, hipcub::Max());
   }
 
   __syncthreads();
@@ -493,21 +493,21 @@ void SampleFusedInternal(
   TempSpaceBroker tempSpace(workspace, workspaceSize);
   tempSpace.reserve(&d_sizeBuffer, NUM_SCHEMES);
 
-  cudaMemsetAsync(d_sizeBuffer, 0, sizeof(*d_sizeBuffer) * NUM_SCHEMES, stream);
+  hipMemsetAsync(d_sizeBuffer, 0, sizeof(*d_sizeBuffer) * NUM_SCHEMES, stream);
 
   const VALUE* const inTyped = static_cast<const VALUE*>(in);
 
   SampleFusedKernel<VALUE, COUNT, BLOCK_SIZE, SAMPLE_TILE_SIZE>
       <<<grid, block, 0, stream>>>(inTyped, sample_ptrs, maxNum, d_sizeBuffer);
 
-  cudaError_t err = cudaGetLastError();
+  hipError_t err = hipGetLastError();
   if (err != cudaSuccess) {
     throw std::runtime_error(
         "Fail to launch SampleFusedKernel: " + std::to_string(err));
   }
 
   std::vector<unsigned long long int> size_buffer(NUM_SCHEMES);
-  err = cudaMemcpyAsync(
+  err = hipMemcpyAsync(
       size_buffer.data(),
       d_sizeBuffer,
       sizeof(unsigned long long int) * NUM_SCHEMES,

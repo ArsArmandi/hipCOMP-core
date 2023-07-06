@@ -101,17 +101,17 @@ if(NOT DEFINED CUB_DIR AND DEFINED ENV{CUB_DIR})
   set(CUB_DIR ENV{CUB_DIR})
 endif()
 
-message(STATUS "Finding CUB")
+message(STATUS "Finding HIPCUB")
 if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "11" AND NOT DEFINED CUB_DIR)
   message(FATAL_ERROR "When using a CUDA prior to CUDA 11, you must specify "
-      "the path of cub via the 'CUB_DIR' variable (e.g., "
-      "'cmake -DCUB_DIR=...' or 'export CUB_DIR=...'). You can download cub "
-      "from 'https://github.com/thrust/cub'.")
+      "the path of hipcub via the 'HIPCUB_DIR' variable (e.g., "
+      "'cmake -DHIPCUB_DIR=...' or 'export HIPCUB_DIR=...'). You can download hipcub "
+      "from 'https://github.com/ROCmSoftwarePlatform/hipCUB'.")
 endif()
-find_path(CUB_HEADER NAMES "cub/cub.cuh" PATHS "${CUB_DIR}" "${CUDAToolkit_INCLUDE_DIRS}")
+find_path(HIPCUB_HEADER NAMES "hipcub/hipcub.hpp" PATHS "${HIPCUB_DIR}" "${CUDAToolkit_INCLUDE_DIRS}")
 if(NOT CUB_HEADER)
-  message(FATAL_ERROR "Unable to locate 'cub/cub.cuh'. Please specify a path "
-      "to cub via 'CUB_DIR'")
+  message(FATAL_ERROR "Unable to locate 'hipcub/hipcub.hpp'. Please specify a path "
+      "to hipcub via 'HIPCUB_DIR'")
 endif()
 
 if(NOT DEFINED HIPCOMP_EXTS_ROOT AND DEFINED ENV{HIPCOMP_EXTS_ROOT})

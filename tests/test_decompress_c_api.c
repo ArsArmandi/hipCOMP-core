@@ -145,7 +145,7 @@ int test_cascaded(void)
   comp_opts.use_bp = packing;
 
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  CUDA_CHECK(hipStreamCreate(&stream));
 
   hipcompStatus_t status;
 
@@ -221,7 +221,7 @@ int test_lz4(void)
   opts.chunk_size = 1 << 16;
 
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  CUDA_CHECK(hipStreamCreate(&stream));
 
   hipcompStatus_t status;
 

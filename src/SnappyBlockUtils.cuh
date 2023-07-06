@@ -18,24 +18,31 @@
 #pragma once
 #include <stdint.h>
 
-#if (__CUDACC_VER_MAJOR__ >= 9)
-#define SHFL0(v)        __shfl_sync(~0, v, 0)
-#define SHFL(v, t)      __shfl_sync(~0, v, t)
-#define SHFL_XOR(v, m)  __shfl_xor_sync(~0, v, m)
-#define SYNCWARP()      __syncwarp()
-#define BALLOT(v)       __ballot_sync(~0, v)
+__CUDACC_VER_MAJOR__
+
+
+#if (__CUDACC_VER_MAJOR__ >= 9) or defined(_​_HIP_​PLATFORM_​AMD_​_)
+#  define INDEPENDENT_THREAD_SCHEDULING
+#endif
+#ifdef INDEPENDENT_THREAD_SCHEDULING
+#  define SHFL0(v)        __shfl_sync(~0, v, 0)
+#  define SHFL(v, t)      __shfl_sync(~0, v, t)
+#  define SHFL_XOR(v, m)  __shfl_xor_sync(~0, v, m)
+#  define SYNCWARP()      __syncwarp()
+#  define BALLOT(v)       __ballot_sync(~0, v)
 #else
-#define SHFL0(v)        __shfl(v, 0)
-#define SHFL(v, t)      __shfl(v, t)
-#define SHFL_XOR(v, m)  __shfl_xor(v, m)
-#define SYNCWARP()
-#define BALLOT(v)       __ballot(v)
+#  define SHFL0(v)        __shfl(v, 0)
+#  define SHFL(v, t)      __shfl(v, t)
+#  define SHFL_XOR(v, m)  __shfl_xor(v, m)
+#  define SYNCWARP()
+#  define BALLOT(v)       __ballot(v)
 #endif
 
 #if (__CUDA_ARCH__ >= 700)
-#define NANOSLEEP(d)  __nanosleep(d)
+#  define NANOSLEEP(d)  __nanosleep(d)
 #else
-#define NANOSLEEP(d)  clock()
+// includes the _​_HIP_​PLATFORM_​AMD_​_ case
+#  define NANOSLEEP(d)  clock()
 #endif
 
 // Warp reduction helpers

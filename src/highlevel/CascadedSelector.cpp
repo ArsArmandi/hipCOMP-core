@@ -121,7 +121,7 @@ hipcompCascadedFormatOpts internal_select(
   TempSpaceBroker tempSpace(d_temp_comp, workspace_size);
   tempSpace.reserve(&d_sample_ptrs, num_samples);
 
-  cudaMemcpyAsync(
+  hipMemcpyAsync(
       d_sample_ptrs,
       sample_ptrs.data(),
       sizeof(size_t) * num_samples,

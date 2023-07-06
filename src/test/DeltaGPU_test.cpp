@@ -50,7 +50,7 @@
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
-          cudaGetErrorString(cudaStatus),                                      \
+          hipGetErrorString(hipStatus),                                      \
           cudaStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
@@ -73,7 +73,7 @@ __global__ void toGPU(
     size_t const num,
     cudaStream_t stream)
 {
-  CUDA_RT_CALL(cudaMemcpyAsync(
+  CUDA_RT_CALL(hipMemcpyAsync(
       output, input, num * sizeof(T), cudaMemcpyHostToDevice, stream));
 }
 
@@ -84,7 +84,7 @@ __global__ void fromGPU(
     size_t const num,
     cudaStream_t stream)
 {
-  CUDA_RT_CALL(cudaMemcpyAsync(
+  CUDA_RT_CALL(hipMemcpyAsync(
       output, input, num * sizeof(T), cudaMemcpyDeviceToHost, stream));
 }
 
@@ -110,7 +110,7 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
   cudaStream_t stream;
-  CUDA_RT_CALL(cudaStreamCreate(&stream));
+  CUDA_RT_CALL(hipStreamCreate(&stream));
 
   std::srand(0);
 
@@ -143,11 +143,11 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
   size_t const workspaceSize = DeltaGPU::requiredWorkspaceSize(n, TypeOf<T>());
   CUDA_RT_CALL(cudaMalloc((void**)&workspace, workspaceSize));
 
-  cudaEvent_t start, stop;
+  hipEvent_t start, stop;
 
-  CUDA_RT_CALL(cudaEventCreate(&start));
-  CUDA_RT_CALL(cudaEventCreate(&stop));
-  CUDA_RT_CALL(cudaEventRecord(start, stream));
+  CUDA_RT_CALL(hipEventCreate(&start));
+  CUDA_RT_CALL(hipEventCreate(&stop));
+  CUDA_RT_CALL(hipEventRecord(start, stream));
 
   DeltaGPU::compress(
       workspace,
@@ -158,15 +158,15 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
       inputSizePtr,
       2 * n,
       stream);
-  CUDA_RT_CALL(cudaEventRecord(stop, stream));
+  CUDA_RT_CALL(hipEventRecord(stop, stream));
 
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
   float time;
-  CUDA_RT_CALL(cudaEventElapsedTime(&time, start, stop));
+  CUDA_RT_CALL(hipEventElapsedTime(&time, start, stop));
 
   fromGPU(outputHost, output, n, stream);
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
-  CUDA_RT_CALL(cudaStreamDestroy(stream));
+  CUDA_RT_CALL(hipStreamDestroy(stream));
 
   CUDA_RT_CALL(cudaFree(output));
   CUDA_RT_CALL(cudaFree(outputPtr));

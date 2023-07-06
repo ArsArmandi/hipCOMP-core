@@ -46,7 +46,7 @@
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
-          cudaGetErrorString(cudaStatus),                                      \
+          hipGetErrorString(hipStatus),                                      \
           cudaStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
@@ -69,7 +69,7 @@ TEST_CASE("IsDevicePointerTest", "[small]")
 
   // check a uvm pointer - false
   size_t* managed_ptr;
-  CUDA_RT_CALL(cudaMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
+  CUDA_RT_CALL(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
   REQUIRE(!CudaUtils::is_device_pointer(managed_ptr));
   CUDA_RT_CALL(cudaFree(managed_ptr));
 
@@ -97,16 +97,16 @@ TEST_CASE("DevicePointerTest", "[small]")
 
   // check a uvm pointer - should succeed and return a device pointer
   size_t* managed_ptr;
-  CUDA_RT_CALL(cudaMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
+  CUDA_RT_CALL(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
   size_t* managed_dev_ptr = CudaUtils::device_pointer(managed_ptr);
-  CUDA_RT_CALL(cudaMemset(managed_dev_ptr, 0, sizeof(*managed_dev_ptr)));
+  CUDA_RT_CALL(hipMemset(managed_dev_ptr, 0, sizeof(*managed_dev_ptr)));
   CUDA_RT_CALL(cudaFree(managed_ptr));
 
   // check a pinned pointer - should succeed and return a device pointer
   size_t* pinned_ptr;
   CUDA_RT_CALL(cudaMallocHost((void**)&pinned_ptr, sizeof(*pinned_ptr)));
   size_t* pinned_dev_ptr = CudaUtils::device_pointer(pinned_ptr);
-  CUDA_RT_CALL(cudaMemset(pinned_dev_ptr, 0, sizeof(*pinned_dev_ptr)));
+  CUDA_RT_CALL(hipMemset(pinned_dev_ptr, 0, sizeof(*pinned_dev_ptr)));
   CUDA_RT_CALL(cudaFreeHost(pinned_ptr));
 
   // check an unregistered pointer - should throw an exception

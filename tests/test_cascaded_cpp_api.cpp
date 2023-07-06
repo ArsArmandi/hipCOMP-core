@@ -66,7 +66,7 @@ TEST_CASE("comp/decomp RLE-Delta", "[hipcomp]")
       cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
 
   size_t comp_temp_bytes = 0;
   size_t comp_out_bytes = 0;
@@ -169,7 +169,7 @@ TEST_CASE("comp/decomp RLE-Delta-BP", "[hipcomp]")
       cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
 
   size_t comp_temp_bytes = 0;
   size_t comp_out_bytes = 0;
@@ -263,7 +263,7 @@ TEST_CASE("max_size_test", "[hipcomp]")
       cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
 
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStreamCreate(&stream);
 
   size_t comp_temp_bytes = 0;
   size_t comp_out_bytes = 0;

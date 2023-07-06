@@ -72,7 +72,7 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
         cudaMemcpy(d_in_data, data.data(), in_bytes, cudaMemcpyHostToDevice));
 
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStreamCreate(&stream);
 
     hipcompStatus_t status;
 
@@ -102,7 +102,7 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
 
     cudaFree(d_comp_temp);
     cudaFree(d_in_data);
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
 
     std::cout << "comp_size: " << comp_out_bytes
               << ", compressed ratio: " << std::fixed << std::setprecision(2)
@@ -116,7 +116,7 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
     //
 
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStreamCreate(&stream);
 
     LZ4Decompressor decompressor;
     size_t temp_bytes;
@@ -147,7 +147,7 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
     std::cout << "throughput (GB/s): " << gbs(start, end, decomp_out_bytes)
               << std::endl;
 
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
     cudaFree(d_comp_out);
     cudaFree(temp_ptr);
 

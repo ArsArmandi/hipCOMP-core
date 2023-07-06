@@ -165,7 +165,7 @@ struct hipcompIntHandle_t
   void* temp_delta = nullptr;  // temp Delta expansions
   void* temp_output = nullptr; // temp Delta expansions
 
-  // cub scan memory
+  // hipcub scan memory
   size_t temp_scan_bytes = 0;
   void* temp_scan = nullptr;
 
@@ -235,9 +235,9 @@ void cubDeviceScanTempSpace(size_t& temp_scan_bytes, const size_t max_input_len)
   T* temp_run = nullptr;
 
   CudaUtils::check(
-      cub::DeviceScan::InclusiveSum(
+      hipcub::DeviceScan::InclusiveSum(
           temp_scan, temp_scan_bytes, temp_run, temp_run, max_input_len),
-      "cub::DeviceScan::InclusiveSum failed");
+      "hipcub::DeviceScan::InclusiveSum failed");
 }
 
 void checkCompressSize(const size_t numBytes)
@@ -659,7 +659,7 @@ hipcompStatus_t hipcompIntHandle_t::allocateAsync()
     ptr += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
   }
 
-  // allocate temp storage for cub scan using the largest size_t
+  // allocate temp storage for hipcub scan using the largest size_t
   // this temp storage will be reused by delta and runs scans of different types
   temp_scan = ptr;
 
@@ -1016,9 +1016,9 @@ hipcompStatus_t hipcompIntHandle_t::decompGPU(
   if (layer->scheme == HIPCOMP_SCHEME_DELTA) {
     assert(out_ptr != d_vals);
     CudaUtils::check(
-        cub::DeviceScan::InclusiveSum(
+        hipcub::DeviceScan::InclusiveSum(
             temp_scan, temp_scan_bytes, d_vals, out_ptr, input_size, stream),
-        "cub::DeviceScan::InclusiveSum failed");
+        "hipcub::DeviceScan::InclusiveSum failed");
   } else {
     // must be RLE of some form
     runT* d_runs = (runT*)layer->runs->ptr;
@@ -1034,22 +1034,22 @@ hipcompStatus_t hipcompIntHandle_t::decompGPU(
 
       // inclusive scan to compute Delta sums
       CudaUtils::check(
-          cub::DeviceScan::InclusiveSum(
+          hipcub::DeviceScan::InclusiveSum(
               temp_scan,
               temp_scan_bytes,
               localDelta,
               localDelta,
               input_size,
               stream),
-          "cub::DeviceScan::InclusiveSum");
+          "hipcub::DeviceScan::InclusiveSum");
     }
 
     // inclusive scan to compute RLE offsets
     // TODO: could be merged with the unpack kernel?
     CudaUtils::check(
-        cub::DeviceScan::InclusiveSum(
+        hipcub::DeviceScan::InclusiveSum(
             temp_scan, temp_scan_bytes, d_runs, d_runs, input_size, stream),
-        "cub::DeviceScan::InclusiveSum");
+        "hipcub::DeviceScan::InclusiveSum");
 
     const size_t output_length = node->length;
 
