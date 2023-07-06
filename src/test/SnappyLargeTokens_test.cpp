@@ -31,22 +31,22 @@
 
 #include <random>
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include "tests/catch.hpp"
 
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "SnappyKernels.h"
 
-#define CUDA_CHECK(func)                                                       \
+#define HIP_CHECK(func)                                                       \
   {                                                                            \
-    cudaError_t rt = (func);                                                   \
-    if (rt != cudaSuccess) {                                                   \
+    hipError_t rt = (func);                                                   \
+    if (rt != hipSuccess) {                                                   \
       printf(                                                                  \
           "API call failure \"" #func "\" with %d at " __FILE__ ":%d\n",       \
           (int)rt,                                                             \
           __LINE__);                                                           \
-      REQUIRE(rt == cudaSuccess);                                              \
+      REQUIRE(rt == hipSuccess);                                              \
     }                                                                          \
   }
 
@@ -147,55 +147,55 @@ void compress_single_batch_snappy(
 {
   // prepare gpu buffers
   void* device_chunk_input_data;
-  CUDA_CHECK(cudaMalloc(&device_chunk_input_data, uncomp_data_size));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&device_chunk_input_data, uncomp_data_size));
+  HIP_CHECK(hipMemcpy(
       device_chunk_input_data,
       h_uncomp_data,
       uncomp_data_size,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   void* device_chunk_comp_data;
-  CUDA_CHECK(cudaMalloc(&device_chunk_comp_data, avail_comp_size));
+  HIP_CHECK(hipMalloc(&device_chunk_comp_data, avail_comp_size));
 
   void** d_in_data;
-  CUDA_CHECK(cudaMalloc((void**)(&d_in_data), sizeof(size_t)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc((void**)(&d_in_data), sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(
       d_in_data,
       &device_chunk_input_data,
       sizeof(size_t),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   void** d_out_data;
-  CUDA_CHECK(cudaMalloc((void**)(&d_out_data), sizeof(size_t)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc((void**)(&d_out_data), sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(
       d_out_data,
       &device_chunk_comp_data,
       sizeof(size_t),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   size_t* d_in_bytes;
-  CUDA_CHECK(cudaMalloc(&d_in_bytes, sizeof(size_t)));
-  CUDA_CHECK(cudaMemcpy(
-      d_in_bytes, &uncomp_data_size, sizeof(size_t), cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc(&d_in_bytes, sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(
+      d_in_bytes, &uncomp_data_size, sizeof(size_t), hipMemcpyHostToDevice));
 
   size_t* d_out_bytes;
-  CUDA_CHECK(cudaMalloc(&d_out_bytes, sizeof(size_t)));
+  HIP_CHECK(hipMalloc(&d_out_bytes, sizeof(size_t)));
 
   size_t* d_out_avail_bytes;
-  CUDA_CHECK(cudaMalloc(&d_out_avail_bytes, sizeof(size_t)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&d_out_avail_bytes, sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(
       d_out_avail_bytes,
       &avail_comp_size,
       sizeof(size_t),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   hipcomp::gpu_snappy_status_s* d_out_status;
-  CUDA_CHECK(cudaMalloc(&d_out_status, sizeof(hipcomp::gpu_snappy_status_s)));
+  HIP_CHECK(hipMalloc(&d_out_status, sizeof(hipcomp::gpu_snappy_status_s)));
 
   const int num_chunks = 1;
 
-  cudaStream_t stream;
-  CUDA_CHECK(hipStreamCreate(&stream));
+  hipStream_t stream;
+  HIP_CHECK(hipStreamCreate(&stream));
 
   hipcomp::gpu_snap(
       d_in_data,
@@ -207,37 +207,37 @@ void compress_single_batch_snappy(
       num_chunks,
       stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
 
   hipcomp::gpu_snappy_status_s final_status;
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       &final_status,
       d_out_status,
       sizeof(hipcomp::gpu_snappy_status_s),
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
   REQUIRE(final_status.status == 0);
 
   size_t gpu_compressed_size;
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       &gpu_compressed_size,
       d_out_bytes,
       sizeof(size_t),
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       h_comp_data,
       device_chunk_comp_data,
       gpu_compressed_size,
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
-  CUDA_CHECK(cudaFree(device_chunk_comp_data));
-  CUDA_CHECK(cudaFree(device_chunk_input_data));
-  CUDA_CHECK(cudaFree(d_in_data));
-  CUDA_CHECK(cudaFree(d_out_data));
-  CUDA_CHECK(cudaFree(d_in_bytes));
-  CUDA_CHECK(cudaFree(d_out_bytes));
-  CUDA_CHECK(cudaFree(d_out_avail_bytes));
-  CUDA_CHECK(cudaFree(d_out_status));
+  HIP_CHECK(hipFree(device_chunk_comp_data));
+  HIP_CHECK(hipFree(device_chunk_input_data));
+  HIP_CHECK(hipFree(d_in_data));
+  HIP_CHECK(hipFree(d_out_data));
+  HIP_CHECK(hipFree(d_in_bytes));
+  HIP_CHECK(hipFree(d_out_bytes));
+  HIP_CHECK(hipFree(d_out_avail_bytes));
+  HIP_CHECK(hipFree(d_out_status));
 }
 
 void decompress_single_batch_snappy(
@@ -248,55 +248,55 @@ void decompress_single_batch_snappy(
 {
   // prepare gpu buffers
   void* device_chunk_comp_data;
-  CUDA_CHECK(cudaMalloc(&device_chunk_comp_data, comp_data_size));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&device_chunk_comp_data, comp_data_size));
+  HIP_CHECK(hipMemcpy(
       device_chunk_comp_data,
       h_comp_data,
       comp_data_size,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   void* device_chunk_decomp_data;
-  CUDA_CHECK(cudaMalloc(&device_chunk_decomp_data, decomp_data_size));
+  HIP_CHECK(hipMalloc(&device_chunk_decomp_data, decomp_data_size));
 
   void** d_in_data;
-  CUDA_CHECK(cudaMalloc((void**)(&d_in_data), sizeof(size_t)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc((void**)(&d_in_data), sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(
       d_in_data,
       &device_chunk_comp_data,
       sizeof(size_t),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   void** d_out_data;
-  CUDA_CHECK(cudaMalloc((void**)(&d_out_data), sizeof(size_t)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc((void**)(&d_out_data), sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(
       d_out_data,
       &device_chunk_decomp_data,
       sizeof(size_t),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   size_t* d_in_bytes;
-  CUDA_CHECK(cudaMalloc(&d_in_bytes, sizeof(size_t)));
-  CUDA_CHECK(cudaMemcpy(
-      d_in_bytes, &comp_data_size, sizeof(size_t), cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc(&d_in_bytes, sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(
+      d_in_bytes, &comp_data_size, sizeof(size_t), hipMemcpyHostToDevice));
 
   size_t* d_out_bytes;
-  CUDA_CHECK(cudaMalloc(&d_out_bytes, sizeof(size_t)));
+  HIP_CHECK(hipMalloc(&d_out_bytes, sizeof(size_t)));
 
   size_t* d_out_avail_bytes;
-  CUDA_CHECK(cudaMalloc(&d_out_avail_bytes, sizeof(size_t)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&d_out_avail_bytes, sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(
       d_out_avail_bytes,
       &decomp_data_size,
       sizeof(size_t),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   hipcompStatus_t* d_out_status;
-  CUDA_CHECK(cudaMalloc(&d_out_status, sizeof(hipcompStatus_t)));
+  HIP_CHECK(hipMalloc(&d_out_status, sizeof(hipcompStatus_t)));
 
   const int num_chunks = 1;
 
-  cudaStream_t stream;
-  CUDA_CHECK(hipStreamCreate(&stream));
+  hipStream_t stream;
+  HIP_CHECK(hipStreamCreate(&stream));
 
   hipcomp::gpu_unsnap(
       d_in_data,
@@ -308,31 +308,31 @@ void decompress_single_batch_snappy(
       num_chunks,
       stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
 
   hipcompStatus_t final_status;
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       &final_status,
       d_out_status,
       sizeof(hipcompStatus_t),
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
   REQUIRE(final_status == hipcompSuccess);
 
   size_t gpu_decompressed_size;
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       &gpu_decompressed_size,
       d_out_bytes,
       sizeof(size_t),
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
   REQUIRE(gpu_decompressed_size == decomp_data_size);
 
   // Get the number of bytes back
   uint8_t* h_decomp_check_buffer = (uint8_t*)malloc(decomp_data_size);
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       h_decomp_check_buffer,
       device_chunk_decomp_data,
       decomp_data_size,
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
   for (size_t ix = 0; ix < decomp_data_size; ++ix) {
     if (h_decomp_check_buffer[ix] != h_decomp_data[ix]) {
@@ -344,14 +344,14 @@ void decompress_single_batch_snappy(
   }
 
   free(h_decomp_check_buffer);
-  CUDA_CHECK(cudaFree(device_chunk_comp_data));
-  CUDA_CHECK(cudaFree(device_chunk_decomp_data));
-  CUDA_CHECK(cudaFree(d_in_data));
-  CUDA_CHECK(cudaFree(d_out_data));
-  CUDA_CHECK(cudaFree(d_in_bytes));
-  CUDA_CHECK(cudaFree(d_out_bytes));
-  CUDA_CHECK(cudaFree(d_out_avail_bytes));
-  CUDA_CHECK(cudaFree(d_out_status));
+  HIP_CHECK(hipFree(device_chunk_comp_data));
+  HIP_CHECK(hipFree(device_chunk_decomp_data));
+  HIP_CHECK(hipFree(d_in_data));
+  HIP_CHECK(hipFree(d_out_data));
+  HIP_CHECK(hipFree(d_in_bytes));
+  HIP_CHECK(hipFree(d_out_bytes));
+  HIP_CHECK(hipFree(d_out_avail_bytes));
+  HIP_CHECK(hipFree(d_out_status));
 }
 
 // Just testing that the compressed data generator works.

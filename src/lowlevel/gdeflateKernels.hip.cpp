@@ -30,7 +30,7 @@
 #include "hipcomp/gdeflate.h"
 
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "common.h"
 #include "hipcomp.h"
 #include "hipcomp.hpp"
@@ -64,7 +64,7 @@ __global__ void convertGdeflateOutputStatusesKernel(hipcompStatus_t *statuses, s
 void convertGdeflateOutputStatuses(
     hipcompStatus_t *statuses,
     size_t batch_size,
-    cudaStream_t stream) {
+    hipStream_t stream) {
     const int threads = 512;
     int blocks = (batch_size - 1) / threads + 1;
     convertGdeflateOutputStatusesKernel<<<blocks,threads,0,stream>>>(statuses, batch_size);

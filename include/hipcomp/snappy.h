@@ -32,7 +32,7 @@
 
 #include "hipcomp.h"
 
-#include <cuda_runtime.h>
+#include <hip_runtime.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -66,7 +66,7 @@ hipcompStatus_t hipcompBatchedSnappyDecompressGetTempSize(
  * @param device_compressed_bytes The size of each compressed chunk on the GPU.
  * @param device_uncompressed_bytes The actual size of each uncompressed chunk.
  * @param batch_size The number of chunks in the batch.
- * @param stream The CUDA stream to operate on.
+ * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -75,7 +75,7 @@ hipcompStatus_t hipcompBatchedSnappyGetDecompressSizeAsync(
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Perform decompression.
@@ -91,7 +91,7 @@ hipcompStatus_t hipcompBatchedSnappyGetDecompressSizeAsync(
  * @param device_uncompressed_ptr The pointers on the GPU, to where to uncompress each chunk (output).
  * @param device_statuses The pointers on the GPU, to where to uncompress each chunk (output).
  * Can be nullptr if desired, in which case error status is not reported.
- * @param stream The CUDA stream to operate on.
+ * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -105,7 +105,7 @@ hipcompStatus_t hipcompBatchedSnappyDecompressAsync(
     const size_t temp_bytes,
     void* const* device_uncompressed_ptr,
     hipcompStatus_t* device_statuses,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Get temporary space required for compression.
@@ -156,7 +156,7 @@ hipcompStatus_t hipcompBatchedSnappyCompressGetMaxOutputChunkSize(
  * @param device_compressed_ptr The pointers on the GPU, to the output location for each compressed batch item (output).
  * @param device_compressed_bytes The compressed size of each chunk on the GPU (output).
  * @param format_ops Snappy compression options.
- * @param stream The CUDA stream to operate on.
+ * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successfully launched, and an error code otherwise.
  */
@@ -170,7 +170,7 @@ hipcompStatus_t hipcompBatchedSnappyCompressAsync(
     void* const* device_compressed_ptr,
     size_t* device_compressed_bytes,
     hipcompBatchedSnappyOpts_t format_ops,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 #ifdef __cplusplus
 }

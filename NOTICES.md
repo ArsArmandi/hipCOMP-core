@@ -15,7 +15,7 @@ This project contains work derived from NVIDIA nvCOMP v2.1 that is licensed unde
   * scripts/build_dev_debug.sh
   * scripts/build_dev_release.sh
   * src/CMakeLists.txt
-  * src/RunLengthEncodeGPU.cu
+  * src/RunLengthEncodeGPU.hip.cpp
   * src/RunLengthEncodeGPU.h
   * src/SnappyBatch.cpp
   * src/SnappyKernels.h
@@ -23,16 +23,16 @@ This project contains work derived from NVIDIA nvCOMP v2.1 that is licensed unde
   * src/TempSpaceBroker.h
   * src/highlevel/CascadedSelector.cpp
   * src/highlevel/CascadedSelector.h
-  * src/highlevel/CascadedSelectorKernels.cu
+  * src/highlevel/CascadedSelectorKernels.hip.cpp
   * src/highlevel/CascadedSelectorKernels.h
   * src/highlevel/HighLevelLZ4API.cpp
-  * src/highlevel/LZ4Compressor.cu
+  * src/highlevel/LZ4Compressor.hip.cpp
   * src/highlevel/LZ4Compressor.h
-  * src/highlevel/LZ4Decompressor.cu
+  * src/highlevel/LZ4Decompressor.hip.cpp
   * src/highlevel/LZ4Decompressor.h
   * src/highlevel/LZ4Metadata.cpp
   * src/highlevel/LZ4Metadata.h
-  * src/highlevel/LZ4MetadataOnGPU.cu
+  * src/highlevel/LZ4MetadataOnGPU.hip.cpp
   * src/highlevel/LZ4MetadataOnGPU.h
   * src/highlevel/Metadata.cpp
   * src/highlevel/Metadata.h
@@ -43,20 +43,20 @@ This project contains work derived from NVIDIA nvCOMP v2.1 that is licensed unde
   * src/highlevel/test/CascadedMetadata_test.cpp
   * src/highlevel/test/CascadedSelector_test.cpp
   * src/highlevel/test/DecompressHelpers_test.cpp
-  * src/lowlevel/BitcompBatch.cu
-  * src/lowlevel/CascadedBatch.cu
+  * src/lowlevel/BitcompBatch.hip.cpp
+  * src/lowlevel/CascadedBatch.hip.cpp
   * src/lowlevel/LZ4Batch.cpp
-  * src/lowlevel/LZ4CompressionKernels.cu
+  * src/lowlevel/LZ4CompressionKernels.hip.cpp
   * src/lowlevel/LZ4CompressionKernels.h
   * src/lowlevel/gdeflateBatch.cpp
-  * src/lowlevel/gdeflateKernels.cu
+  * src/lowlevel/gdeflateKernels.hip.cpp
   * src/lowlevel/gdeflateKernels.h
   * src/lowlevel/test/CMakeLists.txt
   * src/nvcomp_api.cpp
-  * src/nvcomp_cub.cuh
+  * src/nvcomp_cub.hip.cpph
   * src/test/BitPackGPU_test.cpp
   * src/test/CMakeLists.txt
-  * src/test/CudaUtils_test.cpp
+  * src/test/HipUtils_test.cpp
   * src/test/DeltaGPU_test.cpp
   * src/test/RunLengthEncodeGPU_test.cpp
   * src/test/SnappyLargeTokens_test.cpp
@@ -106,8 +106,8 @@ This project contains work derived from NVIDIA nvCOMP v2.1 that is licensed unde
 
 * FILES:
   * cmake/nvcomp-config.cmake.in
-  * src/SnappyBlockUtils.cuh
-  * src/SnappyKernels.cu
+  * src/SnappyBlockUtils.hip.cpph
+  * src/SnappyKernels.hip.cpp
 
 ## Files Subject to the Boost Software Lincese, Version 1.0
 

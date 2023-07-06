@@ -25,7 +25,7 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "CudaUtils.h"
+#include "HipUtils.h"
 
 #include <sstream>
 #include <stdexcept>
@@ -43,11 +43,11 @@ std::string to_string(const void* const ptr)
 }
 } // namespace
 
-void CudaUtils::check(const cudaError_t err, const std::string& msg)
+void HipUtils::check(const hipError_t err, const std::string& msg)
 {
-  if (err != cudaSuccess) {
+  if (err != hipSuccess) {
     std::string errorStr(
-        "Encountered Cuda Error: " + std::to_string(err) + ": '"
+        "Encountered Hip Error: " + std::to_string(err) + ": '"
         + std::string(hipGetErrorString(err)) + "'");
     if (!msg.empty()) {
       errorStr += ": " + msg;
@@ -58,17 +58,17 @@ void CudaUtils::check(const cudaError_t err, const std::string& msg)
   }
 }
 
-void CudaUtils::sync(cudaStream_t stream)
+void HipUtils::sync(hipStream_t stream)
 {
-  check(cudaStreamSynchronize(stream), "Failed to sync with stream");
+  check(hipStreamSynchronize(stream), "Failed to sync with stream");
 }
 
-void CudaUtils::check_last_error(const std::string& msg)
+void HipUtils::check_last_error(const std::string& msg)
 {
   check(hipGetLastError(), msg);
 }
 
-const void* CudaUtils::void_device_pointer(const void* const ptr)
+const void* HipUtils::void_device_pointer(const void* const ptr)
 {
   hipPointerAttributes attr;
   check(
@@ -87,20 +87,20 @@ const void* CudaUtils::void_device_pointer(const void* const ptr)
   return attr.devicePointer;
 }
 
-bool CudaUtils::is_device_pointer(const void* const ptr)
+bool HipUtils::is_device_pointer(const void* const ptr)
 {
   hipPointerAttributes attr;
 
   hipError_t err = hipPointerGetAttributes(&attr, ptr);
 
   if (err == hipErrorInvalidValue) {
-    int cuda_version;
+    int hip_version;
     check(
         hipRuntimeGetVersion(&hip_version),
         "Failed to get runtime "
         "verison.");
 
-    if (cuda_version < 11000) {
+    if (hip_version < 11000) {
       // error is normal for non-device memory -- clear the error and return
       // false
       (void)hipGetLastError();
@@ -118,10 +118,10 @@ bool CudaUtils::is_device_pointer(const void* const ptr)
   return attr.type == hipMemoryTypeDevice;
 }
 
-void* CudaUtils::void_device_pointer(void* const ptr)
+void* HipUtils::void_device_pointer(void* const ptr)
 {
   hipPointerAttributes attr;
-  // we don't need to worry about the difference between cuda 10 and cuda 11
+  // we don't need to worry about the difference between hip 10 and hip 11
   // here, as if it's not a device pointer, we want throw an exception either
   // way.
   check(

@@ -35,7 +35,7 @@
 
 #include "test_common.h"
 
-#include <cuda_profiler_api.h>
+#include <hip_profiler_api.h>
 #include <iomanip>
 #include <random>
 #include <thread>
@@ -72,11 +72,11 @@ void test_auto_c(const std::vector<T>& data)
     // create GPU only input buffer
     void* d_in_data;
     const size_t in_bytes = sizeof(T) * data.size();
-    CUDA_CHECK(cudaMalloc(&d_in_data, in_bytes));
-    CUDA_CHECK(
-        cudaMemcpy(d_in_data, data.data(), in_bytes, cudaMemcpyHostToDevice));
+    HIP_CHECK(hipMalloc(&d_in_data, in_bytes));
+    HIP_CHECK(
+        hipMemcpy(d_in_data, data.data(), in_bytes, hipMemcpyHostToDevice));
 
-    cudaStream_t stream;
+    hipStream_t stream;
     hipStreamCreate(&stream);
 
     hipcompStatus_t status;
@@ -94,8 +94,8 @@ void test_auto_c(const std::vector<T>& data)
         &comp_out_bytes);
 
     void* d_comp_temp;
-    CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
-    CUDA_CHECK(cudaMalloc(&d_comp_out, comp_out_bytes));
+    HIP_CHECK(hipMalloc(&d_comp_temp, comp_temp_bytes));
+    HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
 
     status = hipcompCascadedCompressAsync(
         NULL,
@@ -108,10 +108,10 @@ void test_auto_c(const std::vector<T>& data)
         &comp_out_bytes,
         stream);
     REQUIRE(status == hipcompSuccess);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    HIP_CHECK(hipStreamSynchronize(stream));
 
-    cudaFree(d_comp_temp);
-    cudaFree(d_in_data);
+    hipFree(d_comp_temp);
+    hipFree(d_in_data);
     hipStreamDestroy(stream);
 
     std::cout << "comp_size: " << comp_out_bytes
@@ -124,7 +124,7 @@ void test_auto_c(const std::vector<T>& data)
     // serialized metadata and compressed data, are the only things passed
     // between compression and decopmression
 
-    cudaStream_t stream;
+    hipStream_t stream;
     hipStreamCreate(&stream);
 
     // get metadata from compressed data
@@ -145,12 +145,12 @@ void test_auto_c(const std::vector<T>& data)
 
     // allocate temp buffer
     void* d_decomp_temp;
-    CUDA_CHECK(cudaMalloc(
+    HIP_CHECK(hipMalloc(
         &d_decomp_temp, decomp_temp_bytes)); // also can use RMM_ALLOC instead
 
     // allocate output buffer
     void* decomp_out_ptr;
-    CUDA_CHECK(cudaMalloc(
+    HIP_CHECK(hipMalloc(
         &decomp_out_ptr, decomp_out_bytes)); // also can use RMM_ALLOC instead
 
     auto start = std::chrono::steady_clock::now();
@@ -168,7 +168,7 @@ void test_auto_c(const std::vector<T>& data)
         stream);
     REQUIRE(err == hipcompSuccess);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    HIP_CHECK(hipStreamSynchronize(stream));
 
     // stop timing and the profiler
     auto end = std::chrono::steady_clock::now();
@@ -178,12 +178,12 @@ void test_auto_c(const std::vector<T>& data)
     hipcompCascadedDestroyMetadata(metadata);
 
     hipStreamDestroy(stream);
-    cudaFree(d_decomp_temp);
-    cudaFree(d_comp_out);
+    hipFree(d_decomp_temp);
+    hipFree(d_comp_out);
 
     std::vector<T> res(decomp_out_bytes / sizeof(T));
-    cudaMemcpy(
-        &res[0], decomp_out_ptr, decomp_out_bytes, cudaMemcpyDeviceToHost);
+    hipMemcpy(
+        &res[0], decomp_out_ptr, decomp_out_bytes, hipMemcpyDeviceToHost);
 
 #if VERBOSE > 1
     // dump output data
@@ -231,11 +231,11 @@ void test_auto_cpp(const std::vector<T>& data)
     void* d_in_data;
     const size_t in_bytes = sizeof(T) * data.size();
 
-    CUDA_CHECK(cudaMalloc(&d_in_data, in_bytes));
-    CUDA_CHECK(
-        cudaMemcpy(d_in_data, data.data(), in_bytes, cudaMemcpyHostToDevice));
+    HIP_CHECK(hipMalloc(&d_in_data, in_bytes));
+    HIP_CHECK(
+        hipMemcpy(d_in_data, data.data(), in_bytes, hipMemcpyHostToDevice));
 
-    cudaStream_t stream;
+    hipStream_t stream;
     hipStreamCreate(&stream);
 
     CascadedCompressor compressor(hipcomp::TypeOf<T>());
@@ -245,10 +245,10 @@ void test_auto_cpp(const std::vector<T>& data)
 
     // Allocate temp storage
     void* d_comp_temp;
-    CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
+    HIP_CHECK(hipMalloc(&d_comp_temp, comp_temp_bytes));
 
     // Allocate output space
-    CUDA_CHECK(cudaMalloc(&d_comp_out, comp_out_bytes));
+    HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
 
     compressor.compress_async(
         d_in_data,
@@ -258,10 +258,10 @@ void test_auto_cpp(const std::vector<T>& data)
         d_comp_out,
         &comp_out_bytes,
         stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    HIP_CHECK(hipStreamSynchronize(stream));
 
-    cudaFree(d_comp_temp);
-    cudaFree(d_in_data);
+    hipFree(d_comp_temp);
+    hipFree(d_in_data);
     hipStreamDestroy(stream);
 
     std::cout << "comp_size: " << comp_out_bytes
@@ -274,7 +274,7 @@ void test_auto_cpp(const std::vector<T>& data)
     // serialized metadata and compressed data, are the only things passed
     // between compression and decopmression
 
-    cudaStream_t stream;
+    hipStream_t stream;
     hipStreamCreate(&stream);
 
     size_t decomp_temp_bytes;
@@ -293,12 +293,12 @@ void test_auto_cpp(const std::vector<T>& data)
 
     // allocate temp buffer
     void* d_decomp_temp;
-    CUDA_CHECK(cudaMalloc(
+    HIP_CHECK(hipMalloc(
         &d_decomp_temp, decomp_temp_bytes)); // also can use RMM_ALLOC instead
 
     // allocate output buffer
     T* decomp_out_ptr;
-    CUDA_CHECK(cudaMalloc(
+    HIP_CHECK(hipMalloc(
         &decomp_out_ptr, decomp_out_bytes)); // also can use RMM_ALLOC instead
 
     auto start = std::chrono::steady_clock::now();
@@ -307,7 +307,7 @@ void test_auto_cpp(const std::vector<T>& data)
     decompressor.decompress_async(
         d_comp_out, comp_out_bytes, d_decomp_temp, decomp_temp_bytes, decomp_out_ptr, decomp_out_bytes, stream);
     
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    HIP_CHECK(hipStreamSynchronize(stream));
 
     // stop timing and the profiler
     auto end = std::chrono::steady_clock::now();
@@ -315,13 +315,13 @@ void test_auto_cpp(const std::vector<T>& data)
               << std::endl;
 
     hipStreamDestroy(stream);
-    cudaFree(d_decomp_temp);
-    cudaFree(d_comp_out);
+    hipFree(d_decomp_temp);
+    hipFree(d_comp_out);
 
     //  int* res = (int*)malloc(decomp_bytes);
     std::vector<T> res(decomp_out_bytes / sizeof(T));
-    cudaMemcpy(
-        &res[0], decomp_out_ptr, decomp_out_bytes, cudaMemcpyDeviceToHost);
+    hipMemcpy(
+        &res[0], decomp_out_ptr, decomp_out_bytes, hipMemcpyDeviceToHost);
 
 #if VERBOSE > 1
     // dump output data

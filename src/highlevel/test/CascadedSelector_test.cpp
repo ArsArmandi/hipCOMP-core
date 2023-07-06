@@ -45,23 +45,23 @@
 #include <assert.h>
 #include <cstdlib>
 #include <cstring>
-#include <cuda_runtime.h>
+#include <hip_runtime.h>
 #include <vector>
 
-#ifndef CUDA_RT_CALL
-#define CUDA_RT_CALL(call)                                                     \
+#ifndef HIP_RT_CALL
+#define HIP_RT_CALL(call)                                                     \
   {                                                                            \
-    cudaError_t cudaStatus = call;                                             \
-    if (cudaSuccess != cudaStatus) {                                           \
+    hipError_t hipStatus = call;                                             \
+    if (hipSuccess != hipStatus) {                                           \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: CUDA RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
           "(%d).\n",                                                           \
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
           hipGetErrorString(hipStatus),                                      \
-          cudaStatus);                                                         \
+          hipStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
   }
@@ -83,7 +83,7 @@ TEST_CASE("Selector_CPP_constructor_getSize", "[small]")
   const size_t numBytes = n * sizeof(T);
   size_t temp_bytes;
 
-  CUDA_RT_CALL(cudaMalloc(&d_input, numBytes));
+  HIP_RT_CALL(hipMalloc(&d_input, numBytes));
 
   bool threw_exception = false;
   hipcompCascadedSelectorOpts selector_opts;
@@ -91,7 +91,7 @@ TEST_CASE("Selector_CPP_constructor_getSize", "[small]")
   selector_opts.num_samples = 10;
   selector_opts.seed = 1;
 
-  CUDA_RT_CALL(cudaMalloc(&d_input, numBytes));
+  HIP_RT_CALL(hipMalloc(&d_input, numBytes));
 
   CascadedSelector<T> selector(d_input, numBytes, selector_opts);
 
@@ -109,7 +109,7 @@ TEST_CASE("SelectorGetTempSize_C", "[small]")
   T* d_input;
   const size_t numBytes = n * sizeof(T);
 
-  CUDA_RT_CALL(cudaMalloc(&d_input, numBytes));
+  HIP_RT_CALL(hipMalloc(&d_input, numBytes));
 
   size_t temp_bytes = 0;
 
@@ -138,7 +138,7 @@ TEST_CASE("SelectorGetTempSize_C", "[small]")
   REQUIRE(err == hipcompSuccess);
   REQUIRE(temp_bytes == 8040);
 
-  cudaFree(d_input);
+  hipFree(d_input);
 }
 
 TEST_CASE("SelectorSelectConfig_C", "[small]")
@@ -156,14 +156,14 @@ TEST_CASE("SelectorSelectConfig_C", "[small]")
   }
   const size_t numBytes = n * sizeof(T);
 
-  CUDA_RT_CALL(cudaMalloc(&d_input, numBytes));
-  CUDA_RT_CALL(
-      cudaMemcpy(d_input, inputHost, numBytes, cudaMemcpyHostToDevice));
+  HIP_RT_CALL(hipMalloc(&d_input, numBytes));
+  HIP_RT_CALL(
+      hipMemcpy(d_input, inputHost, numBytes, hipMemcpyHostToDevice));
 
   size_t temp_bytes = 840;
-  CUDA_RT_CALL(cudaMalloc(&d_temp, temp_bytes));
+  HIP_RT_CALL(hipMalloc(&d_temp, temp_bytes));
 
-  cudaStream_t stream;
+  hipStream_t stream;
   hipStreamCreate(&stream);
   hipcompCascadedFormatOpts opts;
   double est_ratio;
@@ -188,7 +188,7 @@ TEST_CASE("SelectorSelectConfig_C", "[small]")
         &est_ratio,
         stream);
 
-    cudaStreamSynchronize(stream);
+    hipStreamSynchronize(stream);
   } catch (const std::runtime_error& e) {
     threw_exception = true;
   }
@@ -207,7 +207,7 @@ TEST_CASE("SelectorSelectConfig_C", "[small]")
       &est_ratio,
       stream);
 
-  cudaStreamSynchronize(stream);
+  hipStreamSynchronize(stream);
 
   REQUIRE(opts.num_RLEs == 2);
   REQUIRE(opts.num_deltas == 1);

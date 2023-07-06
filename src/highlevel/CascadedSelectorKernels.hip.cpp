@@ -473,7 +473,7 @@ void SampleFusedInternal(
     size_t* const outsizeBuffer,
     size_t const numSamples,
     const int NUM_SCHEMES,
-    cudaStream_t stream)
+    hipStream_t stream)
 
 {
 
@@ -501,7 +501,7 @@ void SampleFusedInternal(
       <<<grid, block, 0, stream>>>(inTyped, sample_ptrs, maxNum, d_sizeBuffer);
 
   hipError_t err = hipGetLastError();
-  if (err != cudaSuccess) {
+  if (err != hipSuccess) {
     throw std::runtime_error(
         "Fail to launch SampleFusedKernel: " + std::to_string(err));
   }
@@ -511,12 +511,12 @@ void SampleFusedInternal(
       size_buffer.data(),
       d_sizeBuffer,
       sizeof(unsigned long long int) * NUM_SCHEMES,
-      cudaMemcpyDeviceToHost,
+      hipMemcpyDeviceToHost,
       stream);
-  err = cudaStreamSynchronize(stream);
+  err = hipStreamSynchronize(stream);
 
-  if (err != cudaSuccess) {
-    throw std::runtime_error("size buffer cuda memcpy failed\n");
+  if (err != hipSuccess) {
+    throw std::runtime_error("size buffer hip memcpy failed\n");
   }
 
   for (int i = 0; i < NUM_SCHEMES; i++) {
@@ -547,7 +547,7 @@ void SampleFusedOption_internal(
     size_t* outsize,
     size_t const numSamples,
     const int num_schemes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 
   const size_t maxNum = in_bytes / sizeof(valT);
@@ -576,7 +576,7 @@ void SamplingFastOption(
     const size_t workspaceSize,
     size_t* outsizeBuffer,
     int num_schemes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 
   const hipcompType_t countType

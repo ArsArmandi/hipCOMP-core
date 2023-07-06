@@ -27,12 +27,12 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "LZ4CompressionKernels.h"
 #include "TempSpaceBroker.h"
 #include "common.h"
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 #include "hipcomp_cub.cuh"
 
 #include <cassert>
@@ -160,7 +160,7 @@ inline __device__ int warpBallot(int vote)
 template <typename T>
 inline __device__ int warpMatchAny(const int participants, T val)
 {
-#if __CUDA_ARCH__ >= 700
+#if __HIP_ARCH__ >= 700
   return __match_any_sync(participants, val);
 #else
   int mask = 0;
@@ -1124,7 +1124,7 @@ void lz4BatchCompress(
     uint8_t* const* const comp_data_device,
     size_t* const comp_sizes_device,
     hipcompType_t data_type,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 
   position_type HT_size = lz4GetHashTableSize(max_chunk_size);
@@ -1177,7 +1177,7 @@ void lz4BatchCompress(
       throw std::invalid_argument("Unsupported input data type");
   }
 
-  CudaUtils::check_last_error();
+  HipUtils::check_last_error();
 }
 
 void lz4BatchDecompress(
@@ -1190,7 +1190,7 @@ void lz4BatchDecompress(
     uint8_t* const* const device_out_ptrs,
     size_t* device_actual_uncompressed_bytes,
     hipcompStatus_t* device_status_ptrs,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   const dim3 grid(roundUpDiv(batch_size, DECOMP_CHUNKS_PER_BLOCK));
   const dim3 block(DECOMP_THREADS_PER_CHUNK, DECOMP_CHUNKS_PER_BLOCK);
@@ -1204,7 +1204,7 @@ void lz4BatchDecompress(
       device_actual_uncompressed_bytes,
       device_status_ptrs,
       true);
-  CudaUtils::check_last_error("lz4DecompressBatchKernel()");
+  HipUtils::check_last_error("lz4DecompressBatchKernel()");
 }
 
 void lz4BatchGetDecompressSizes(
@@ -1212,7 +1212,7 @@ void lz4BatchGetDecompressSizes(
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   const dim3 grid(roundUpDiv(batch_size, DECOMP_CHUNKS_PER_BLOCK));
   const dim3 block(DECOMP_THREADS_PER_CHUNK, DECOMP_CHUNKS_PER_BLOCK);
@@ -1226,7 +1226,7 @@ void lz4BatchGetDecompressSizes(
       device_uncompressed_bytes,
       nullptr,
       false);
-  CudaUtils::check_last_error("lz4DecompressBatchKernel()");
+  HipUtils::check_last_error("lz4DecompressBatchKernel()");
 }
 
 size_t lz4ComputeChunksInBatch(

@@ -32,7 +32,7 @@
 
 #include "hipcomp.h"
 
-#include <cuda_runtime.h>
+#include <hip_runtime.h>
 #include <stdint.h>
 
 #ifdef ENABLE_BITCOMP
@@ -94,7 +94,7 @@ hipcompStatus_t hipcompBitcompCompressConfigure(
  * (output).
  * @param compressed_bytes The size of the compressed data (output). This must
  * be GPU accessible.
- * @param stream The cuda stream to operate on.
+ * @param stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -107,7 +107,7 @@ hipcompStatus_t hipcompBitcompCompressAsync(
     size_t temp_bytes,
     void* compressed_ptr,
     size_t* compressed_bytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Extracts the metadata from the input in_ptr on the device and copies
@@ -132,7 +132,7 @@ hipcompStatus_t hipcompBitcompDecompressConfigure(
     size_t* metadata_bytes,
     size_t* temp_bytes,
     size_t* uncompressed_bytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Destroys the metadata object and frees the associated memory.
@@ -153,7 +153,7 @@ void hipcompBitcompDestroyMetadata(void* metadata_ptr);
  * @param temp_bytes The size of the temporary workspace. Not used.
  * @param uncompressed_ptr The output location on the device.
  * @param uncompressed_bytes The size of the output location.
- * @param stream The cuda stream to operate on.
+ * @param stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -166,7 +166,7 @@ hipcompStatus_t hipcompBitcompDecompressAsync(
     size_t temp_bytes,
     void* uncompressed_ptr,
     size_t uncompressed_bytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Checks if the compressed data was compressed with bitcomp.
@@ -245,7 +245,7 @@ hipcompStatus_t hipcompBatchedBitcompCompressGetMaxOutputChunkSize(
  * partitions. The buffer should be preallocated in device-accessible memory.
  * @param[in] format_opts The bitcomp format options. The format must be valid.
  * @param[in] type The data type of the uncompressed data.
- * @param[in] stream The cuda stream to operate on.
+ * @param[in] stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -259,7 +259,7 @@ hipcompStatus_t hipcompBatchedBitcompCompressAsync(
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
     const hipcompBatchedBitcompFormatOpts format_opts,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Perform batched asynchronous decompression.
@@ -296,7 +296,7 @@ hipcompStatus_t hipcompBatchedBitcompCompressAsync(
  * `hipcompSuccess`. If the decompression is not successful, for example due to
  * the corrupted input or out-of-bound errors, the status will be set to
  * `hipcompErrorCannotDecompress`.
- * @param[in] stream The cuda stream to operate on.
+ * @param[in] stream The hip stream to operate on.
  */
 hipcompStatus_t hipcompBatchedBitcompDecompressAsync(
     const void* const* device_compressed_ptrs,
@@ -308,7 +308,7 @@ hipcompStatus_t hipcompBatchedBitcompDecompressAsync(
     size_t temp_bytes,           // not used
     void* const* device_uncompressed_ptrs,
     hipcompStatus_t* device_statuses,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Asynchronously get the number of bytes of the uncompressed data in
@@ -322,14 +322,14 @@ hipcompStatus_t hipcompBatchedBitcompDecompressAsync(
  * uncompressed size of that partition will be set to 0. This argument needs to
  * be prealloated in device-accessible memory.
  * @param[in] batch_size Number of partitions to check sizes.
- * @param[in] stream The cuda stream to operate on.
+ * @param[in] stream The hip stream to operate on.
  */
 hipcompStatus_t hipcompBatchedBitcompGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Return the temp size needed for Bitcomp compression.

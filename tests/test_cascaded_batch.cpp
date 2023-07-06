@@ -33,7 +33,7 @@
 #include "catch.hpp"
 #include "hipcomp.hpp"
 #include "hipcomp/cascaded.hpp"
-#include <cuda_runtime.h>
+#include <hip_runtime.h>
 
 #include <cstdint>
 #include <random>
@@ -42,10 +42,10 @@
 using run_type = uint16_t;
 using hipcomp::roundUpToAlignment;
 
-#define CUDA_CHECK(cond)                                                       \
+#define HIP_CHECK(cond)                                                       \
   do {                                                                         \
-    cudaError_t err = cond;                                                    \
-    REQUIRE(err == cudaSuccess);                                               \
+    hipError_t err = cond;                                                    \
+    REQUIRE(err == hipSuccess);                                               \
   } while (false)
 
 template <typename data_type>
@@ -79,11 +79,11 @@ void verify_compression_output(
 {
   // Copy the compressed buffer to the host memory
   std::vector<uint32_t> compressed_data_host(compressed_bytes / 4);
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       compressed_data_host.data(),
       compressed_data,
       compressed_bytes,
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
   // Check the partition header stores 2 RLE layers, 1 Delta layer, no
   // bitpacking, and the input datatype
@@ -139,11 +139,11 @@ void verify_decompressed_sizes(
     const std::vector<size_t>& uncompressed_bytes_host)
 {
   std::vector<size_t> decompressed_bytes_host(batch_size);
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       decompressed_bytes_host.data(),
       decompressed_bytes_device,
       sizeof(size_t) * batch_size,
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
   for (size_t partition_idx = 0; partition_idx < batch_size; partition_idx++) {
     REQUIRE(
@@ -168,11 +168,11 @@ void verify_decompressed_output(
         = uncompressed_bytes_host[partition_idx] / sizeof(data_type);
 
     std::vector<data_type> decompressed_data_host(num_elements);
-    CUDA_CHECK(cudaMemcpy(
+    HIP_CHECK(hipMemcpy(
         decompressed_data_host.data(),
         decompressed_ptrs_host[partition_idx],
         uncompressed_bytes_host[partition_idx],
-        cudaMemcpyDeviceToHost));
+        hipMemcpyDeviceToHost));
 
     for (size_t element_idx = 0; element_idx < num_elements; element_idx++) {
       REQUIRE(
@@ -203,22 +203,22 @@ void test_predefined_cases(int use_bp)
       std::vector<size_t>{10, 6, 15, 1, 13, 9});
 
   void* input0_device;
-  CUDA_CHECK(
-      cudaMalloc(&input0_device, input0_host.size() * sizeof(data_type)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(
+      hipMalloc(&input0_device, input0_host.size() * sizeof(data_type)));
+  HIP_CHECK(hipMemcpy(
       input0_device,
       input0_host.data(),
       input0_host.size() * sizeof(data_type),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   void* input1_device;
-  CUDA_CHECK(
-      cudaMalloc(&input1_device, input1_host.size() * sizeof(data_type)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(
+      hipMalloc(&input1_device, input1_host.size() * sizeof(data_type)));
+  HIP_CHECK(hipMemcpy(
       input1_device,
       input1_host.data(),
       input1_host.size() * sizeof(data_type),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   // Copy uncompressed pointers and sizes to device memory
 
@@ -231,43 +231,43 @@ void test_predefined_cases(int use_bp)
   const size_t batch_size = uncompressed_ptrs_host.size();
 
   void** uncompressed_ptrs_device;
-  CUDA_CHECK(cudaMalloc(&uncompressed_ptrs_device, sizeof(void*) * batch_size));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&uncompressed_ptrs_device, sizeof(void*) * batch_size));
+  HIP_CHECK(hipMemcpy(
       uncompressed_ptrs_device,
       uncompressed_ptrs_host.data(),
       sizeof(void*) * batch_size,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   size_t* uncompressed_bytes_device;
-  CUDA_CHECK(
-      cudaMalloc(&uncompressed_bytes_device, sizeof(size_t) * batch_size));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(
+      hipMalloc(&uncompressed_bytes_device, sizeof(size_t) * batch_size));
+  HIP_CHECK(hipMemcpy(
       uncompressed_bytes_device,
       uncompressed_bytes_host.data(),
       sizeof(size_t) * batch_size,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   // Allocate compressed buffers and sizes
 
   std::vector<void*> compressed_ptrs_host;
   for (size_t partition_idx = 0; partition_idx < batch_size; partition_idx++) {
     void* compressed_ptr;
-    CUDA_CHECK(cudaMalloc(
+    HIP_CHECK(hipMalloc(
         &compressed_ptr,
         max_compressed_size(uncompressed_bytes_host[partition_idx])));
     compressed_ptrs_host.push_back(compressed_ptr);
   }
 
   void** compressed_ptrs_device;
-  CUDA_CHECK(cudaMalloc(&compressed_ptrs_device, sizeof(void*) * batch_size));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&compressed_ptrs_device, sizeof(void*) * batch_size));
+  HIP_CHECK(hipMemcpy(
       compressed_ptrs_device,
       compressed_ptrs_host.data(),
       sizeof(void*) * batch_size,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   size_t* compressed_bytes_device;
-  CUDA_CHECK(cudaMalloc(&compressed_bytes_device, sizeof(size_t) * batch_size));
+  HIP_CHECK(hipMalloc(&compressed_bytes_device, sizeof(size_t) * batch_size));
 
   // Launch batched compression
 
@@ -287,16 +287,16 @@ void test_predefined_cases(int use_bp)
       0);
 
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  HIP_CHECK(hipStreamSynchronize(0));
 
   // Verify compressed bytes alignment
 
   std::vector<size_t> compressed_bytes_host(batch_size);
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       compressed_bytes_host.data(),
       compressed_bytes_device,
       sizeof(size_t) * batch_size,
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
   for (auto const& compressed_bytes_partition : compressed_bytes_host) {
     REQUIRE(compressed_bytes_partition % 4 == 0);
@@ -361,8 +361,8 @@ void test_predefined_cases(int use_bp)
   // Check uncompressed bytes stored in the compressed buffer
 
   size_t* decompressed_bytes_device;
-  CUDA_CHECK(
-      cudaMalloc(&decompressed_bytes_device, sizeof(size_t) * batch_size));
+  HIP_CHECK(
+      hipMalloc(&decompressed_bytes_device, sizeof(size_t) * batch_size));
 
   status = hipcompBatchedCascadedGetDecompressSizeAsync(
       compressed_ptrs_device,
@@ -372,7 +372,7 @@ void test_predefined_cases(int use_bp)
       0);
 
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  HIP_CHECK(hipStreamSynchronize(0));
 
   verify_decompressed_sizes(
       batch_size, decompressed_bytes_device, uncompressed_bytes_host);
@@ -382,26 +382,26 @@ void test_predefined_cases(int use_bp)
   std::vector<void*> decompressed_ptrs_host;
   for (size_t partition_idx = 0; partition_idx < batch_size; partition_idx++) {
     void* decompressed_ptr;
-    CUDA_CHECK(
-        cudaMalloc(&decompressed_ptr, uncompressed_bytes_host[partition_idx]));
+    HIP_CHECK(
+        hipMalloc(&decompressed_ptr, uncompressed_bytes_host[partition_idx]));
     decompressed_ptrs_host.push_back(decompressed_ptr);
   }
 
   void** decompressed_ptrs_device;
-  CUDA_CHECK(cudaMalloc(&decompressed_ptrs_device, sizeof(void*) * batch_size));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&decompressed_ptrs_device, sizeof(void*) * batch_size));
+  HIP_CHECK(hipMemcpy(
       decompressed_ptrs_device,
       decompressed_ptrs_host.data(),
       sizeof(void*) * batch_size,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
-  CUDA_CHECK(
+  HIP_CHECK(
       hipMemset(decompressed_bytes_device, 0, sizeof(size_t) * batch_size));
 
   // Launch decompression
 
   hipcompStatus_t* compression_statuses_device;
-  CUDA_CHECK(cudaMalloc(
+  HIP_CHECK(hipMalloc(
       &compression_statuses_device, sizeof(hipcompStatus_t) * batch_size));
 
   status = hipcompBatchedCascadedDecompressAsync(
@@ -417,14 +417,14 @@ void test_predefined_cases(int use_bp)
       0);
 
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  HIP_CHECK(hipStreamSynchronize(0));
 
   std::vector<hipcompStatus_t> compression_statuses_host(batch_size);
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       compression_statuses_host.data(),
       compression_statuses_device,
       sizeof(hipcompStatus_t) * batch_size,
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
   for (auto const& compression_status : compression_statuses_host)
     REQUIRE(compression_status == hipcompSuccess);
@@ -445,19 +445,19 @@ void test_predefined_cases(int use_bp)
 
   // Cleanup
 
-  CUDA_CHECK(cudaFree(input0_device));
-  CUDA_CHECK(cudaFree(input1_device));
-  CUDA_CHECK(cudaFree(uncompressed_ptrs_device));
-  CUDA_CHECK(cudaFree(uncompressed_bytes_device));
+  HIP_CHECK(hipFree(input0_device));
+  HIP_CHECK(hipFree(input1_device));
+  HIP_CHECK(hipFree(uncompressed_ptrs_device));
+  HIP_CHECK(hipFree(uncompressed_bytes_device));
   for (void* const& ptr : compressed_ptrs_host)
-    CUDA_CHECK(cudaFree(ptr));
-  CUDA_CHECK(cudaFree(compressed_ptrs_device));
-  CUDA_CHECK(cudaFree(compressed_bytes_device));
+    HIP_CHECK(hipFree(ptr));
+  HIP_CHECK(hipFree(compressed_ptrs_device));
+  HIP_CHECK(hipFree(compressed_bytes_device));
   for (void* const& ptr : decompressed_ptrs_host)
-    CUDA_CHECK(cudaFree(ptr));
-  CUDA_CHECK(cudaFree(decompressed_bytes_device));
-  CUDA_CHECK(cudaFree(decompressed_ptrs_device));
-  CUDA_CHECK(cudaFree(compression_statuses_device));
+    HIP_CHECK(hipFree(ptr));
+  HIP_CHECK(hipFree(decompressed_bytes_device));
+  HIP_CHECK(hipFree(decompressed_ptrs_device));
+  HIP_CHECK(hipFree(compression_statuses_device));
 }
 
 /*
@@ -498,57 +498,57 @@ void test_fallback_path()
     uncompressed_bytes_host.push_back(
         uncompressed_num_elements[input_idx] * sizeof(data_type));
   }
-  CUDA_CHECK(
-      cudaMalloc(&uncompressed_bytes_device, sizeof(size_t) * batch_size));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(
+      hipMalloc(&uncompressed_bytes_device, sizeof(size_t) * batch_size));
+  HIP_CHECK(hipMemcpy(
       uncompressed_bytes_device,
       uncompressed_bytes_host.data(),
       sizeof(size_t) * batch_size,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   std::vector<void*> uncompressed_ptrs_host;
   for (size_t input_idx = 0; input_idx < batch_size; input_idx++) {
     void* allocated_buffer;
-    CUDA_CHECK(cudaMalloc(
+    HIP_CHECK(hipMalloc(
         &allocated_buffer,
         sizeof(data_type) * uncompressed_num_elements[input_idx]));
-    CUDA_CHECK(cudaMemcpy(
+    HIP_CHECK(hipMemcpy(
         allocated_buffer,
         inputs_data[input_idx].data(),
         uncompressed_bytes_host[input_idx],
-        cudaMemcpyHostToDevice));
+        hipMemcpyHostToDevice));
     uncompressed_ptrs_host.push_back(allocated_buffer);
   }
 
   void** uncompressed_ptrs_device;
-  CUDA_CHECK(cudaMalloc(&uncompressed_ptrs_device, sizeof(void*) * batch_size));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&uncompressed_ptrs_device, sizeof(void*) * batch_size));
+  HIP_CHECK(hipMemcpy(
       uncompressed_ptrs_device,
       uncompressed_ptrs_host.data(),
       sizeof(void*) * batch_size,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   // Allocate compressed buffer
 
   std::vector<void*> compressed_ptrs_host;
   for (size_t partition_idx = 0; partition_idx < batch_size; partition_idx++) {
     void* allocated_compressed_ptr;
-    CUDA_CHECK(cudaMalloc(
+    HIP_CHECK(hipMalloc(
         &allocated_compressed_ptr,
         max_compressed_size(uncompressed_bytes_host[partition_idx])));
     compressed_ptrs_host.push_back(allocated_compressed_ptr);
   }
 
   void** compressed_ptrs_device;
-  CUDA_CHECK(cudaMalloc(&compressed_ptrs_device, sizeof(void*) * batch_size));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&compressed_ptrs_device, sizeof(void*) * batch_size));
+  HIP_CHECK(hipMemcpy(
       compressed_ptrs_device,
       compressed_ptrs_host.data(),
       sizeof(void*) * batch_size,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   size_t* compressed_bytes_device;
-  CUDA_CHECK(cudaMalloc(&compressed_bytes_device, sizeof(size_t) * batch_size));
+  HIP_CHECK(hipMalloc(&compressed_bytes_device, sizeof(size_t) * batch_size));
 
   // Launch batched cascaded compression
 
@@ -568,17 +568,17 @@ void test_fallback_path()
       0);
 
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  HIP_CHECK(hipStreamSynchronize(0));
 
   // Check the metadata in the compressed buffers. It should indicate no
   // compression is used
   for (size_t partition_idx = 0; partition_idx < batch_size; partition_idx++) {
     uint32_t metadata;
-    CUDA_CHECK(cudaMemcpy(
+    HIP_CHECK(hipMemcpy(
         &metadata,
         compressed_ptrs_host[partition_idx],
         sizeof(uint32_t),
-        cudaMemcpyDeviceToHost));
+        hipMemcpyDeviceToHost));
     REQUIRE(
         metadata == (static_cast<uint32_t>(hipcomp::TypeOf<data_type>()) << 24));
   }
@@ -586,8 +586,8 @@ void test_fallback_path()
   // Check uncompressed bytes stored in the compressed buffer
 
   size_t* decompressed_bytes_device;
-  CUDA_CHECK(
-      cudaMalloc(&decompressed_bytes_device, sizeof(size_t) * batch_size));
+  HIP_CHECK(
+      hipMalloc(&decompressed_bytes_device, sizeof(size_t) * batch_size));
 
   status = hipcompBatchedCascadedGetDecompressSizeAsync(
       compressed_ptrs_device,
@@ -597,7 +597,7 @@ void test_fallback_path()
       0);
 
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  HIP_CHECK(hipStreamSynchronize(0));
 
   verify_decompressed_sizes(
       batch_size, decompressed_bytes_device, uncompressed_bytes_host);
@@ -607,26 +607,26 @@ void test_fallback_path()
   std::vector<void*> decompressed_ptrs_host;
   for (size_t partition_idx = 0; partition_idx < batch_size; partition_idx++) {
     void* allocated_ptr;
-    CUDA_CHECK(
-        cudaMalloc(&allocated_ptr, uncompressed_bytes_host[partition_idx]));
+    HIP_CHECK(
+        hipMalloc(&allocated_ptr, uncompressed_bytes_host[partition_idx]));
     decompressed_ptrs_host.push_back(allocated_ptr);
   }
 
   void** decompressed_ptrs_device;
-  CUDA_CHECK(cudaMalloc(&decompressed_ptrs_device, sizeof(void*) * batch_size));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&decompressed_ptrs_device, sizeof(void*) * batch_size));
+  HIP_CHECK(hipMemcpy(
       decompressed_ptrs_device,
       decompressed_ptrs_host.data(),
       sizeof(void*) * batch_size,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
-  CUDA_CHECK(
+  HIP_CHECK(
       hipMemset(decompressed_bytes_device, 0, sizeof(size_t) * batch_size));
 
   // Launch decompression
 
   hipcompStatus_t* compression_statuses_device;
-  CUDA_CHECK(cudaMalloc(
+  HIP_CHECK(hipMalloc(
       &compression_statuses_device, sizeof(hipcompStatus_t) * batch_size));
 
   status = hipcompBatchedCascadedDecompressAsync(
@@ -642,14 +642,14 @@ void test_fallback_path()
       0);
 
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  HIP_CHECK(hipStreamSynchronize(0));
 
   std::vector<hipcompStatus_t> compression_statuses_host(batch_size);
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       compression_statuses_host.data(),
       compression_statuses_device,
       sizeof(hipcompStatus_t) * batch_size,
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
   for (auto const& compression_status : compression_statuses_host)
     REQUIRE(compression_status == hipcompSuccess);
@@ -672,19 +672,19 @@ void test_fallback_path()
 
   // Cleanup
 
-  CUDA_CHECK(cudaFree(uncompressed_bytes_device));
+  HIP_CHECK(hipFree(uncompressed_bytes_device));
   for (void* const& ptr : uncompressed_ptrs_host)
-    CUDA_CHECK(cudaFree(ptr));
-  CUDA_CHECK(cudaFree(uncompressed_ptrs_device));
+    HIP_CHECK(hipFree(ptr));
+  HIP_CHECK(hipFree(uncompressed_ptrs_device));
   for (void* const& ptr : compressed_ptrs_host)
-    CUDA_CHECK(cudaFree(ptr));
-  CUDA_CHECK(cudaFree(compressed_ptrs_device));
-  CUDA_CHECK(cudaFree(compressed_bytes_device));
+    HIP_CHECK(hipFree(ptr));
+  HIP_CHECK(hipFree(compressed_ptrs_device));
+  HIP_CHECK(hipFree(compressed_bytes_device));
   for (void* const& ptr : decompressed_ptrs_host)
-    CUDA_CHECK(cudaFree(ptr));
-  CUDA_CHECK(cudaFree(decompressed_ptrs_device));
-  CUDA_CHECK(cudaFree(decompressed_bytes_device));
-  CUDA_CHECK(cudaFree(compression_statuses_device));
+    HIP_CHECK(hipFree(ptr));
+  HIP_CHECK(hipFree(decompressed_ptrs_device));
+  HIP_CHECK(hipFree(decompressed_bytes_device));
+  HIP_CHECK(hipFree(compression_statuses_device));
 }
 
 template <typename data_type>
@@ -697,43 +697,43 @@ void test_out_of_bound(int use_bp)
   const size_t batch_size = input_host.size();
 
   void* uncompressed_data;
-  CUDA_CHECK(cudaMalloc(&uncompressed_data, uncompressed_byte));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&uncompressed_data, uncompressed_byte));
+  HIP_CHECK(hipMemcpy(
       uncompressed_data,
       input_host.data(),
       uncompressed_byte,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   void** uncompressed_ptrs_device;
-  CUDA_CHECK(cudaMalloc(&uncompressed_ptrs_device, sizeof(void*)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&uncompressed_ptrs_device, sizeof(void*)));
+  HIP_CHECK(hipMemcpy(
       uncompressed_ptrs_device,
       &uncompressed_data,
       sizeof(void*),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   size_t* uncompressed_bytes_device;
-  CUDA_CHECK(cudaMalloc(&uncompressed_bytes_device, sizeof(size_t)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&uncompressed_bytes_device, sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(
       uncompressed_bytes_device,
       &uncompressed_byte,
       sizeof(size_t),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   void* compressed_data;
-  CUDA_CHECK(
-      cudaMalloc(&compressed_data, max_compressed_size(uncompressed_byte)));
+  HIP_CHECK(
+      hipMalloc(&compressed_data, max_compressed_size(uncompressed_byte)));
 
   void** compressed_ptrs_device;
-  CUDA_CHECK(cudaMalloc(&compressed_ptrs_device, sizeof(void*)));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMalloc(&compressed_ptrs_device, sizeof(void*)));
+  HIP_CHECK(hipMemcpy(
       compressed_ptrs_device,
       &compressed_data,
       sizeof(void*),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   size_t* compressed_bytes_device;
-  CUDA_CHECK(cudaMalloc(&compressed_bytes_device, sizeof(size_t)));
+  HIP_CHECK(hipMalloc(&compressed_bytes_device, sizeof(size_t)));
 
   hipcompBatchedCascadedOpts_t comp_opts
       = {batch_size, hipcomp::TypeOf<data_type>(), 2, 1, use_bp};
@@ -751,14 +751,14 @@ void test_out_of_bound(int use_bp)
       0);
 
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  HIP_CHECK(hipStreamSynchronize(0));
 
   size_t compressed_byte;
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       &compressed_byte,
       compressed_bytes_device,
       sizeof(size_t),
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
   std::vector<size_t> test_compressed_bytes_host;
   std::vector<size_t> test_decompressed_bytes_host;
@@ -794,54 +794,54 @@ void test_out_of_bound(int use_bp)
     test_compressed_ptrs_host.push_back(compressed_data);
 
     void* decompressed_ptr;
-    CUDA_CHECK(cudaMalloc(
+    HIP_CHECK(hipMalloc(
         &decompressed_ptr, test_decompressed_bytes_host[partition_idx]));
     test_decompressed_ptrs_host.push_back(decompressed_ptr);
   }
 
   void** test_compressed_ptrs_device;
-  CUDA_CHECK(
-      cudaMalloc(&test_compressed_ptrs_device, sizeof(void*) * num_cases));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(
+      hipMalloc(&test_compressed_ptrs_device, sizeof(void*) * num_cases));
+  HIP_CHECK(hipMemcpy(
       test_compressed_ptrs_device,
       test_compressed_ptrs_host.data(),
       sizeof(void*) * num_cases,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   size_t* test_compressed_bytes_device;
-  CUDA_CHECK(
-      cudaMalloc(&test_compressed_bytes_device, sizeof(size_t) * num_cases));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(
+      hipMalloc(&test_compressed_bytes_device, sizeof(size_t) * num_cases));
+  HIP_CHECK(hipMemcpy(
       test_compressed_bytes_device,
       test_compressed_bytes_host.data(),
       sizeof(size_t) * num_cases,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   void** test_decompressed_ptrs_device;
-  CUDA_CHECK(
-      cudaMalloc(&test_decompressed_ptrs_device, sizeof(void*) * num_cases));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(
+      hipMalloc(&test_decompressed_ptrs_device, sizeof(void*) * num_cases));
+  HIP_CHECK(hipMemcpy(
       test_decompressed_ptrs_device,
       test_decompressed_ptrs_host.data(),
       sizeof(void*) * num_cases,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   size_t* test_decompressed_bytes_device;
-  CUDA_CHECK(
-      cudaMalloc(&test_decompressed_bytes_device, sizeof(size_t) * num_cases));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(
+      hipMalloc(&test_decompressed_bytes_device, sizeof(size_t) * num_cases));
+  HIP_CHECK(hipMemcpy(
       test_decompressed_bytes_device,
       test_decompressed_bytes_host.data(),
       sizeof(size_t) * num_cases,
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   size_t* actual_decompressed_bytes;
-  CUDA_CHECK(
-      cudaMalloc(&actual_decompressed_bytes, sizeof(size_t) * num_cases));
+  HIP_CHECK(
+      hipMalloc(&actual_decompressed_bytes, sizeof(size_t) * num_cases));
 
   hipcompStatus_t* decompression_statuses;
-  CUDA_CHECK(
-      cudaMalloc(&decompression_statuses, sizeof(hipcompStatus_t) * num_cases));
+  HIP_CHECK(
+      hipMalloc(&decompression_statuses, sizeof(hipcompStatus_t) * num_cases));
 
   status = hipcompBatchedCascadedDecompressAsync(
       test_compressed_ptrs_device,
@@ -856,14 +856,14 @@ void test_out_of_bound(int use_bp)
       0);
 
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  HIP_CHECK(hipStreamSynchronize(0));
 
   std::vector<hipcompStatus_t> decompression_statuses_host(num_cases);
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       decompression_statuses_host.data(),
       decompression_statuses,
       sizeof(hipcompStatus_t) * num_cases,
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
   for (size_t partition_idx = 0; partition_idx < num_cases; partition_idx++) {
     REQUIRE(
@@ -873,20 +873,20 @@ void test_out_of_bound(int use_bp)
 
   // Cleanup
 
-  CUDA_CHECK(cudaFree(uncompressed_data));
-  CUDA_CHECK(cudaFree(uncompressed_ptrs_device));
-  CUDA_CHECK(cudaFree(uncompressed_bytes_device));
-  CUDA_CHECK(cudaFree(compressed_data));
-  CUDA_CHECK(cudaFree(compressed_ptrs_device));
-  CUDA_CHECK(cudaFree(compressed_bytes_device));
+  HIP_CHECK(hipFree(uncompressed_data));
+  HIP_CHECK(hipFree(uncompressed_ptrs_device));
+  HIP_CHECK(hipFree(uncompressed_bytes_device));
+  HIP_CHECK(hipFree(compressed_data));
+  HIP_CHECK(hipFree(compressed_ptrs_device));
+  HIP_CHECK(hipFree(compressed_bytes_device));
   for (void* const& ptr : test_decompressed_ptrs_host)
-    CUDA_CHECK(cudaFree(ptr));
-  CUDA_CHECK(cudaFree(test_compressed_ptrs_device));
-  CUDA_CHECK(cudaFree(test_compressed_bytes_device));
-  CUDA_CHECK(cudaFree(test_decompressed_ptrs_device));
-  CUDA_CHECK(cudaFree(test_decompressed_bytes_device));
-  CUDA_CHECK(cudaFree(actual_decompressed_bytes));
-  CUDA_CHECK(cudaFree(decompression_statuses));
+    HIP_CHECK(hipFree(ptr));
+  HIP_CHECK(hipFree(test_compressed_ptrs_device));
+  HIP_CHECK(hipFree(test_compressed_bytes_device));
+  HIP_CHECK(hipFree(test_decompressed_ptrs_device));
+  HIP_CHECK(hipFree(test_decompressed_bytes_device));
+  HIP_CHECK(hipFree(actual_decompressed_bytes));
+  HIP_CHECK(hipFree(decompression_statuses));
 }
 
 TEST_CASE("BatchedCascadedCompressor predefined-cases", "[hipcomp]")
@@ -934,32 +934,32 @@ TEST_CASE("BatchedCascadedCompressor invalid-decompressed-size", "[hipcomp]")
   // access.
   size_t uncompressed_byte_host = 1;
 
-  CUDA_CHECK(cudaMalloc(&compressed_buffer, compressed_byte_host));
-  CUDA_CHECK(cudaMalloc(&compressed_bytes, sizeof(size_t)));
-  CUDA_CHECK(cudaMalloc(&uncompressed_bytes, sizeof(size_t)));
+  HIP_CHECK(hipMalloc(&compressed_buffer, compressed_byte_host));
+  HIP_CHECK(hipMalloc(&compressed_bytes, sizeof(size_t)));
+  HIP_CHECK(hipMalloc(&uncompressed_bytes, sizeof(size_t)));
 
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       compressed_bytes,
       &compressed_byte_host,
       sizeof(size_t),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   auto status = hipcompBatchedCascadedGetDecompressSizeAsync(
       &compressed_buffer, compressed_bytes, uncompressed_bytes, 1, 0);
 
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  HIP_CHECK(hipStreamSynchronize(0));
 
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipMemcpy(
       &uncompressed_byte_host,
       uncompressed_bytes,
       sizeof(size_t),
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
   REQUIRE(uncompressed_byte_host == 0);
 
-  CUDA_CHECK(cudaFree(compressed_buffer));
-  CUDA_CHECK(cudaFree(compressed_bytes));
-  CUDA_CHECK(cudaFree(uncompressed_bytes));
+  HIP_CHECK(hipFree(compressed_buffer));
+  HIP_CHECK(hipFree(compressed_bytes));
+  HIP_CHECK(hipFree(uncompressed_bytes));
 }
 
 TEST_CASE("BatchedCascadedCompressor out-of-bound", "[hipcomp]")

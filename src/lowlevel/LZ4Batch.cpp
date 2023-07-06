@@ -30,7 +30,7 @@
 #include "hipcomp/lz4.h"
 
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "LZ4CompressionKernels.h"
 #include "common.h"
 #include "hipcomp.h"
@@ -76,7 +76,7 @@ hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
     size_t temp_bytes,
     void* const* device_uncompressed_ptrs,
     hipcompStatus_t* device_statuses,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   // NOTE: if we start using `max_uncompressed_chunk_bytes`, we need to check
   // to make sure it is not zero, as we have notified users to supply zero if
@@ -84,17 +84,17 @@ hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
 
   try {
     lz4BatchDecompress(
-        CudaUtils::device_pointer(
+        HipUtils::device_pointer(
             reinterpret_cast<const uint8_t* const*>(device_compressed_ptrs)),
-        CudaUtils::device_pointer(device_compressed_bytes),
-        CudaUtils::device_pointer(device_uncompressed_bytes),
+        HipUtils::device_pointer(device_compressed_bytes),
+        HipUtils::device_pointer(device_uncompressed_bytes),
         batch_size,
-        CudaUtils::device_pointer(device_temp_ptr),
+        HipUtils::device_pointer(device_temp_ptr),
         temp_bytes,
-        CudaUtils::device_pointer(
+        HipUtils::device_pointer(
             reinterpret_cast<uint8_t* const*>(device_uncompressed_ptrs)),
-        device_actual_uncompressed_bytes ? CudaUtils::device_pointer(device_actual_uncompressed_bytes) : nullptr,
-        device_statuses ? CudaUtils::device_pointer(device_statuses) : nullptr,
+        device_actual_uncompressed_bytes ? HipUtils::device_pointer(device_actual_uncompressed_bytes) : nullptr,
+        device_statuses ? HipUtils::device_pointer(device_statuses) : nullptr,
         stream);
 
   } catch (const std::exception& e) {
@@ -109,7 +109,7 @@ hipcompStatus_t hipcompBatchedLZ4GetDecompressSizeAsync(
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   CHECK_NOT_NULL(device_compressed_ptrs);
   CHECK_NOT_NULL(device_compressed_bytes);
@@ -117,10 +117,10 @@ hipcompStatus_t hipcompBatchedLZ4GetDecompressSizeAsync(
 
   try {
     lz4BatchGetDecompressSizes(
-        CudaUtils::device_pointer(
+        HipUtils::device_pointer(
             reinterpret_cast<const uint8_t* const*>(device_compressed_ptrs)),
-        CudaUtils::device_pointer(device_compressed_bytes),
-        CudaUtils::device_pointer(device_uncompressed_bytes),
+        HipUtils::device_pointer(device_compressed_bytes),
+        HipUtils::device_pointer(device_uncompressed_bytes),
         batch_size,
         stream);
   } catch (const std::exception& e) {
@@ -176,7 +176,7 @@ hipcompStatus_t hipcompBatchedLZ4CompressAsync(
     void* const* const device_compressed_ptrs,
     size_t* const device_compressed_bytes,
     const hipcompBatchedLZ4Opts_t format_opts,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   // NOTE: if we start using `max_uncompressed_chunk_bytes`, we need to check
   // to make sure it is not zero, as we have notified users to supply zero if
@@ -184,16 +184,16 @@ hipcompStatus_t hipcompBatchedLZ4CompressAsync(
 
   try {
     lz4BatchCompress(
-        CudaUtils::device_pointer(
+        HipUtils::device_pointer(
             reinterpret_cast<const uint8_t* const*>(device_uncompressed_ptrs)),
-        CudaUtils::device_pointer(device_uncompressed_bytes),
+        HipUtils::device_pointer(device_uncompressed_bytes),
         max_uncompressed_chunk_size,
         batch_size,
         device_temp_ptr,
         temp_bytes,
-        CudaUtils::device_pointer(
+        HipUtils::device_pointer(
             reinterpret_cast<uint8_t* const*>(device_compressed_ptrs)),
-        CudaUtils::device_pointer(device_compressed_bytes),
+        HipUtils::device_pointer(device_compressed_bytes),
         format_opts.data_type,
         stream);
   } catch (const std::exception& e) {

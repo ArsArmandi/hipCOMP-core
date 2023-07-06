@@ -32,7 +32,7 @@
 
 #include "hipcomp.h"
 
-#include <cuda_runtime.h>
+#include <hip_runtime.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -98,7 +98,7 @@ hipcompStatus_t hipcompCascadedCompressConfigure(
  *
  * @param format_opts The cascaded format options. If set to NULL, the format
  * is automatically selected using the CascadedSelector.  In this case,
- * the function runs synchronously on the CUDA stream.
+ * the function runs synchronously on the HIP stream.
  * @param type The data type of the uncompressed data.
  * @param uncompressed_ptr The uncompressed data on the device.
  * @param uncompressed_bytes The size of the uncompressed data in bytes.
@@ -108,7 +108,7 @@ hipcompStatus_t hipcompCascadedCompressConfigure(
  * @param compressed_bytes The size of the output location on input, and the
  * size of the compressed data on output. This pointer must be preallocated and
  * directly accessible by the GPU.
- * @param stream The cuda stream to operate on.
+ * @param stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -121,12 +121,12 @@ hipcompStatus_t hipcompCascadedCompressAsync(
     size_t temp_bytes,
     void* compressed_ptr,
     size_t* compressed_bytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Configure the decompression and get the output and temp sizes
  * needed to perform the decompression. This function allocates host-side
- * memory, synchronizes the provided CUDA stream, and blocks CPU execution until
+ * memory, synchronizes the provided HIP stream, and blocks CPU execution until
  * the metadata is extracted and copied from the `compressed_ptr`.
  *
  * NOTE: Currently, cascaded compression is limited to 2^31-1 bytes. To
@@ -141,7 +141,7 @@ hipcompStatus_t hipcompCascadedCompressAsync(
  * @param temp_bytes The size of the temporary workspace in bytes.
  * @param uncompressed_bytes The required size of the output location in bytes
  * (output).
- * @param stream The cuda stream to operate on.
+ * @param stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -152,7 +152,7 @@ hipcompStatus_t hipcompCascadedDecompressConfigure(
     size_t* metadata_bytes,
     size_t* temp_bytes,
     size_t* uncompressed_bytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Perform the asynchronous decompression.
@@ -166,7 +166,7 @@ hipcompStatus_t hipcompCascadedDecompressConfigure(
  * @param uncompressed_ptr The output location on the device (output).
  * @param uncompressed_bytes The size of the uncompressed data as returned by
  * `hipcompLZ4DecompressConfigure()`.
- * @param stream The cuda stream to operate on.
+ * @param stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -179,7 +179,7 @@ hipcompStatus_t hipcompCascadedDecompressAsync(
     size_t temp_bytes,
     void* uncompressed_ptr,
     size_t uncompressed_bytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Destroys the metadata object and frees the associated memory.  Must be
@@ -253,7 +253,7 @@ hipcompStatus_t hipcompCascadedSelectorConfigure(
  * @param format_opts The best cascaded compression configuration (output)
  * @param est_ratio The estimated compression ratio using the configuration
  * (output)
- * @param stream The cuda stream to operate on.
+ * @param stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -266,7 +266,7 @@ hipcompStatus_t hipcompCascadedSelectorRun(
     size_t temp_bytes,
     hipcompCascadedFormatOpts* format_opts,
     double* est_ratio,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /******************************************************************************
  * Batched compression/decompression interface
@@ -382,7 +382,7 @@ hipcompStatus_t hipcompBatchedCascadedCompressGetMaxOutputChunkSize(
  * @param[out] device_compressed_bytes Number of bytes decompressed of all
  * partitions. The buffer should be preallocated in device-accessible memory.
  * @param[in] format_opts The cascaded format options. The format must be valid.
- * @param[in] stream The cuda stream to operate on.
+ * @param[in] stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -396,7 +396,7 @@ hipcompStatus_t hipcompBatchedCascadedCompressAsync(
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
     const hipcompBatchedCascadedOpts_t format_opts,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Get the amount of temp space required on the GPU for decompression.
@@ -446,7 +446,7 @@ hipcompStatus_t hipcompBatchedCascadedDecompressGetTempSize(
  * `hipcompSuccess`. If the decompression is not successful, for example due to
  * the corrupted input or out-of-bound errors, the status will be set to
  * `hipcompErrorCannotDecompress`.
- * @param[in] stream The cuda stream to operate on.
+ * @param[in] stream The hip stream to operate on.
  */
 hipcompStatus_t hipcompBatchedCascadedDecompressAsync(
     const void* const* device_compressed_ptrs,
@@ -458,7 +458,7 @@ hipcompStatus_t hipcompBatchedCascadedDecompressAsync(
     size_t temp_bytes,           // not used
     void* const* device_uncompressed_ptrs,
     hipcompStatus_t* device_statuses,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Asynchronously get the number of bytes of the uncompressed data in
@@ -473,14 +473,14 @@ hipcompStatus_t hipcompBatchedCascadedDecompressAsync(
  * uncompressed size of that partition will be set to 0. This argument needs to
  * be prealloated in device-accessible memory.
  * @param[in] batch_size Number of partitions to check sizes.
- * @param[in] stream The cuda stream to operate on.
+ * @param[in] stream The hip stream to operate on.
  */
 hipcompStatus_t hipcompBatchedCascadedGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 #ifdef __cplusplus
 }

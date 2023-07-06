@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -72,7 +72,7 @@ public:
 
   void configure_output(uint8_t* out_ptr, size_t out_size);
 
-  void decompress_async(cudaStream_t stream);
+  void decompress_async(hipStream_t stream);
 
 private:
   size_t m_input_size;

@@ -45,10 +45,10 @@
 using namespace std;
 using namespace hipcomp;
 
-#define CUDA_CHECK(cond)                                                       \
+#define HIP_CHECK(cond)                                                       \
   do {                                                                         \
-    cudaError_t err = cond;                                                    \
-    REQUIRE(err == cudaSuccess);                                               \
+    hipError_t err = cond;                                                    \
+    REQUIRE(err == hipSuccess);                                               \
   } while (false)
 
 /******************************************************************************
@@ -77,11 +77,11 @@ void test_bitcomp(const std::vector<T>& input)
   // create GPU only input buffer
   T* d_in_data;
   const size_t in_bytes = sizeof(T) * input.size();
-  CUDA_CHECK(cudaMalloc((void**)&d_in_data, in_bytes));
-  CUDA_CHECK(
-      cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc((void**)&d_in_data, in_bytes));
+  HIP_CHECK(
+      hipMemcpy(d_in_data, input.data(), in_bytes, hipMemcpyHostToDevice));
 
-  cudaStream_t stream;
+  hipStream_t stream;
   hipStreamCreate(&stream);
 
   void* d_comp_out;
@@ -97,10 +97,10 @@ void test_bitcomp(const std::vector<T>& input)
   REQUIRE(comp_out_bytes > input.size() * sizeof(T));
 
   // Allocate output buffer
-  CUDA_CHECK(cudaMalloc(&d_comp_out, comp_out_bytes));
+  HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
   size_t* comp_out_bytes_ptr;
-  CUDA_CHECK(
-      cudaMalloc((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr)));
+  HIP_CHECK(
+      hipMalloc((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr)));
 
   compressor.compress_async(
       d_in_data,
@@ -111,22 +111,22 @@ void test_bitcomp(const std::vector<T>& input)
       comp_out_bytes_ptr,
       stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipMemcpy(
       &comp_out_bytes,
       comp_out_bytes_ptr,
       sizeof(comp_out_bytes),
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
-  cudaFree(d_in_data);
+  hipFree(d_in_data);
 
   T* out_ptr;
 
   // Test to make sure copying the compressed file is ok
   void* copied = 0;
-  CUDA_CHECK(cudaMalloc(&copied, comp_out_bytes));
-  CUDA_CHECK(hipMemcpy(copied, d_comp_out, comp_out_bytes, hipMemcpyDeviceToDevice));
-  cudaFree(d_comp_out);
+  HIP_CHECK(hipMalloc(&copied, comp_out_bytes));
+  HIP_CHECK(hipMemcpy(copied, d_comp_out, comp_out_bytes, hipMemcpyDeviceToDevice));
+  hipFree(d_comp_out);
   d_comp_out = copied;
 
   BitcompDecompressor decompressor;
@@ -143,7 +143,7 @@ void test_bitcomp(const std::vector<T>& input)
   REQUIRE(decomp_temp_bytes == 0);
   void* const d_decomp_temp = nullptr;
 
-  CUDA_CHECK(cudaMalloc(&out_ptr, decomp_out_bytes));
+  HIP_CHECK(hipMalloc(&out_ptr, decomp_out_bytes));
 
   decompressor.decompress_async(
       d_comp_out,
@@ -154,18 +154,18 @@ void test_bitcomp(const std::vector<T>& input)
       decomp_out_bytes,
       stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
 
   // Copy result back to host
   std::vector<T> res(input.size());
-  cudaMemcpy(
-      &res[0], out_ptr, input.size() * sizeof(T), cudaMemcpyDeviceToHost);
+  hipMemcpy(
+      &res[0], out_ptr, input.size() * sizeof(T), hipMemcpyDeviceToHost);
 
   // Verify correctness
   REQUIRE(res == input);
 
-  cudaFree(d_comp_out);
-  cudaFree(out_ptr);
+  hipFree(d_comp_out);
+  hipFree(out_ptr);
 }
 
 } // namespace

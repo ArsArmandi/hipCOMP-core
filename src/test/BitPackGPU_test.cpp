@@ -37,25 +37,25 @@
 
 #include "highlevel/CascadedCommon.h"
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include <cstdlib>
 #include <limits>
 
-#ifndef CUDA_RT_CALL
-#define CUDA_RT_CALL(call)                                                     \
+#ifndef HIP_RT_CALL
+#define HIP_RT_CALL(call)                                                     \
   {                                                                            \
-    cudaError_t cudaStatus = call;                                             \
-    if (cudaSuccess != cudaStatus) {                                           \
+    hipError_t hipStatus = call;                                             \
+    if (hipSuccess != hipStatus) {                                           \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: CUDA RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
           "(%d).\n",                                                           \
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
           hipGetErrorString(hipStatus),                                      \
-          cudaStatus);                                                         \
+          hipStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
   }
@@ -73,22 +73,22 @@ namespace
 template <typename T>
 __global__ void toGPU(T* const output, T const* const input, size_t const num)
 {
-  CUDA_RT_CALL(
-      cudaMemcpy(output, input, num * sizeof(T), cudaMemcpyHostToDevice));
+  HIP_RT_CALL(
+      hipMemcpy(output, input, num * sizeof(T), hipMemcpyHostToDevice));
 }
 
 template <typename T>
 __global__ void fromGPU(T* const output, T const* const input, size_t const num)
 {
-  CUDA_RT_CALL(
-      cudaMemcpy(output, input, num * sizeof(T), cudaMemcpyDeviceToHost));
+  HIP_RT_CALL(
+      hipMemcpy(output, input, num * sizeof(T), hipMemcpyDeviceToHost));
 }
 
 template <>
 __global__ void
 fromGPU<void>(void* const output, void const* const input, size_t const num)
 {
-  CUDA_RT_CALL(cudaMemcpy(output, input, num, cudaMemcpyDeviceToHost));
+  HIP_RT_CALL(hipMemcpy(output, input, num, hipMemcpyDeviceToHost));
 }
 
 template <typename T>
@@ -102,7 +102,7 @@ void runBitPackingOnGPU(
 {
   T* input;
 
-  CUDA_RT_CALL(cudaMalloc((void**)&input, n * sizeof(*input)));
+  HIP_RT_CALL(hipMalloc((void**)&input, n * sizeof(*input)));
   toGPU(input, inputHost, n);
 
   void* output;
@@ -110,46 +110,46 @@ void runBitPackingOnGPU(
   size_t const packedSize = (((numBitsMax * n) / 64U) + 1U) * 8U;
 
   size_t* numDevice;
-  CUDA_RT_CALL(cudaMalloc((void**)&numDevice, sizeof(numDevice)));
-  CUDA_RT_CALL(
-      cudaMemcpy(numDevice, &n, sizeof(*numDevice), cudaMemcpyHostToDevice));
+  HIP_RT_CALL(hipMalloc((void**)&numDevice, sizeof(numDevice)));
+  HIP_RT_CALL(
+      hipMemcpy(numDevice, &n, sizeof(*numDevice), hipMemcpyHostToDevice));
 
-  CUDA_RT_CALL(cudaMalloc(&output, packedSize));
-  CUDA_RT_CALL(cudaMalloc(&outputPtr, sizeof(*outputPtr)));
-  CUDA_RT_CALL(
-      cudaMemcpy(outputPtr, &output, sizeof(output), cudaMemcpyHostToDevice));
-  CUDA_RT_CALL(hipMemset(output, 0, packedSize));
+  HIP_RT_CALL(hipMalloc(&output, packedSize));
+  HIP_RT_CALL(hipMalloc(&outputPtr, sizeof(*outputPtr)));
+  HIP_RT_CALL(
+      hipMemcpy(outputPtr, &output, sizeof(output), hipMemcpyHostToDevice));
+  HIP_RT_CALL(hipMemset(output, 0, packedSize));
 
   T* minValueDevice;
-  CUDA_RT_CALL(cudaMalloc((void**)&minValueDevice, sizeof(*minValueDevice)));
+  HIP_RT_CALL(hipMalloc((void**)&minValueDevice, sizeof(*minValueDevice)));
   unsigned char* numBitsDevice;
-  CUDA_RT_CALL(cudaMalloc((void**)&numBitsDevice, sizeof(*numBitsDevice)));
+  HIP_RT_CALL(hipMalloc((void**)&numBitsDevice, sizeof(*numBitsDevice)));
 
   T** minValueDevicePtr;
-  CUDA_RT_CALL(
-      cudaMalloc((void**)&minValueDevicePtr, sizeof(*minValueDevicePtr)));
-  CUDA_RT_CALL(cudaMemcpy(
+  HIP_RT_CALL(
+      hipMalloc((void**)&minValueDevicePtr, sizeof(*minValueDevicePtr)));
+  HIP_RT_CALL(hipMemcpy(
       minValueDevicePtr,
       &minValueDevice,
       sizeof(minValueDevice),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
   unsigned char** numBitsDevicePtr;
-  CUDA_RT_CALL(
-      cudaMalloc((void**)&numBitsDevicePtr, sizeof(*numBitsDevicePtr)));
-  CUDA_RT_CALL(cudaMemcpy(
+  HIP_RT_CALL(
+      hipMalloc((void**)&numBitsDevicePtr, sizeof(*numBitsDevicePtr)));
+  HIP_RT_CALL(hipMemcpy(
       numBitsDevicePtr,
       &numBitsDevice,
       sizeof(numBitsDevice),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   void* workspace;
   size_t workspaceBytes = BitPackGPU::requiredWorkspaceSize(n, TypeOf<T>());
-  CUDA_RT_CALL(cudaMalloc(&workspace, workspaceBytes));
+  HIP_RT_CALL(hipMalloc(&workspace, workspaceBytes));
 
   const hipcompType_t inType = TypeOf<T>();
 
-  cudaStream_t stream;
-  CUDA_RT_CALL(hipStreamCreate(&stream));
+  hipStream_t stream;
+  HIP_RT_CALL(hipStreamCreate(&stream));
 
   BitPackGPU::compress(
       workspace,
@@ -163,8 +163,8 @@ void runBitPackingOnGPU(
       numBitsDevicePtr,
       stream);
 
-  CUDA_RT_CALL(cudaStreamSynchronize(stream));
-  CUDA_RT_CALL(hipStreamDestroy(stream));
+  HIP_RT_CALL(hipStreamSynchronize(stream));
+  HIP_RT_CALL(hipStreamDestroy(stream));
 
   fromGPU(minValOut, minValueDevice, 1);
 
@@ -174,14 +174,14 @@ void runBitPackingOnGPU(
 
   fromGPU(outputHost, output, std::min(packedSize, n * sizeof(T)));
 
-  CUDA_RT_CALL(cudaFree(input));
-  CUDA_RT_CALL(cudaFree(output));
-  CUDA_RT_CALL(cudaFree(outputPtr));
-  CUDA_RT_CALL(cudaFree(workspace));
-  CUDA_RT_CALL(cudaFree(minValueDevice));
-  CUDA_RT_CALL(cudaFree(numBitsDevice));
-  CUDA_RT_CALL(cudaFree(minValueDevicePtr));
-  CUDA_RT_CALL(cudaFree(numBitsDevicePtr));
+  HIP_RT_CALL(hipFree(input));
+  HIP_RT_CALL(hipFree(output));
+  HIP_RT_CALL(hipFree(outputPtr));
+  HIP_RT_CALL(hipFree(workspace));
+  HIP_RT_CALL(hipFree(minValueDevice));
+  HIP_RT_CALL(hipFree(numBitsDevice));
+  HIP_RT_CALL(hipFree(minValueDevicePtr));
+  HIP_RT_CALL(hipFree(numBitsDevicePtr));
 }
 
 template<typename T>
@@ -200,7 +200,7 @@ void typeRangeTest()
   void* outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost.data());
-  CUDA_RT_CALL(cudaMallocHost(&outputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost(&outputHost, numBytes));
 
   T minValue;
   int numBitsAct;
@@ -221,7 +221,7 @@ void typeRangeTest()
     CHECK(unpackedHost[i] == inputHost[i]);
   }
 
-  CUDA_RT_CALL(cudaFreeHost(outputHost));
+  HIP_RT_CALL(hipFreeHost(outputHost));
 }
 
 } // namespace
@@ -250,8 +250,8 @@ TEST_CASE("compressInt16VarBitTest", "[small]")
   void* outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  CUDA_RT_CALL(cudaMallocHost((void**)&inputHost, numBytes));
-  CUDA_RT_CALL(cudaMallocHost(&outputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost((void**)&inputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost(&outputHost, numBytes));
 
   for (size_t numBits = 1; numBits < sizeof(T) * 8 - 1; ++numBits) {
     T minValue = 0;
@@ -284,8 +284,8 @@ TEST_CASE("compressInt16VarBitTest", "[small]")
     }
   }
 
-  CUDA_RT_CALL(cudaFreeHost(outputHost));
-  CUDA_RT_CALL(cudaFreeHost(inputHost));
+  HIP_RT_CALL(hipFreeHost(outputHost));
+  HIP_RT_CALL(hipFreeHost(inputHost));
 }
 
 TEST_CASE("compressUint32VarBitTest", "[small]")
@@ -306,8 +306,8 @@ TEST_CASE("compressUint32VarBitTest", "[small]")
   void* outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  CUDA_RT_CALL(cudaMallocHost((void**)&inputHost, numBytes));
-  CUDA_RT_CALL(cudaMallocHost(&outputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost((void**)&inputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost(&outputHost, numBytes));
 
   for (size_t numBits = 1; numBits < sizeof(T) * 8 - 1; ++numBits) {
     T minValue = 0;
@@ -340,8 +340,8 @@ TEST_CASE("compressUint32VarBitTest", "[small]")
     }
   }
 
-  CUDA_RT_CALL(cudaFreeHost(outputHost));
-  CUDA_RT_CALL(cudaFreeHost(inputHost));
+  HIP_RT_CALL(hipFreeHost(outputHost));
+  HIP_RT_CALL(hipFreeHost(inputHost));
 }
 
 TEST_CASE("compressInt64VarBitTest", "[small]")
@@ -362,8 +362,8 @@ TEST_CASE("compressInt64VarBitTest", "[small]")
   void* outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  CUDA_RT_CALL(cudaMallocHost((void**)&inputHost, numBytes));
-  CUDA_RT_CALL(cudaMallocHost(&outputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost((void**)&inputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost(&outputHost, numBytes));
 
   for (size_t numBits = 1; numBits < sizeof(T) * 8 - 1; ++numBits) {
     for (size_t i = 0; i < n; ++i) {
@@ -391,8 +391,8 @@ TEST_CASE("compressInt64VarBitTest", "[small]")
     }
   }
 
-  CUDA_RT_CALL(cudaFreeHost(outputHost));
-  CUDA_RT_CALL(cudaFreeHost(inputHost));
+  HIP_RT_CALL(hipFreeHost(outputHost));
+  HIP_RT_CALL(hipFreeHost(inputHost));
 }
 
 TEST_CASE("compressInt32VarSizeTest", "[large]")
@@ -416,8 +416,8 @@ TEST_CASE("compressInt32VarSizeTest", "[large]")
   void* outputHost;
 
   size_t const numBytes = sizes.back() * sizeof(*inputHost);
-  CUDA_RT_CALL(cudaMallocHost((void**)&inputHost, numBytes));
-  CUDA_RT_CALL(cudaMallocHost(&outputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost((void**)&inputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost(&outputHost, numBytes));
 
   for (size_t const n : sizes) {
     for (size_t i = 0; i < n; ++i) {
@@ -450,8 +450,8 @@ TEST_CASE("compressInt32VarSizeTest", "[large]")
     }
   }
 
-  CUDA_RT_CALL(cudaFreeHost(outputHost));
-  CUDA_RT_CALL(cudaFreeHost(inputHost));
+  HIP_RT_CALL(hipFreeHost(outputHost));
+  HIP_RT_CALL(hipFreeHost(inputHost));
 }
 
 TEST_CASE("compressInt64WideTest", "[small]")
@@ -474,8 +474,8 @@ TEST_CASE("compressInt64WideTest", "[small]")
   void* outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  CUDA_RT_CALL(cudaMallocHost((void**)&inputHost, numBytes));
-  CUDA_RT_CALL(cudaMallocHost(&outputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost((void**)&inputHost, numBytes));
+  HIP_RT_CALL(hipMallocHost(&outputHost, numBytes));
 
   memcpy(inputHost, source.data(), sizeof(*inputHost) * source.size());
 
@@ -498,8 +498,8 @@ TEST_CASE("compressInt64WideTest", "[small]")
     CHECK(unpackedHost[i] == inputHost[i]);
   }
 
-  CUDA_RT_CALL(cudaFreeHost(outputHost));
-  CUDA_RT_CALL(cudaFreeHost(inputHost));
+  HIP_RT_CALL(hipFreeHost(outputHost));
+  HIP_RT_CALL(hipFreeHost(inputHost));
 }
 
 TEST_CASE("compressTypeInt8RangeTest", "[small]")

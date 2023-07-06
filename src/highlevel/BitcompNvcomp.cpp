@@ -31,7 +31,7 @@
 #include "hipcomp/bitcomp.h"
 
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "common.h"
 #include "hipcomp.h"
 #include "hipcomp.hpp"
@@ -62,14 +62,14 @@ hipcompStatus_t hipcompBitcompDecompressConfigure(
     size_t* metadata_bytes,
     size_t* temp_bytes,
     size_t* uncompressed_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   try {
     CHECK_NOT_NULL(metadata_ptr);
 
     // as Bitcomp pulls the metadata from the default stream, sync the
     // current stream first.
-    CudaUtils::sync(stream);
+    HipUtils::sync(stream);
     *metadata_ptr = new BitcompMetadata(compressed_ptr, compressed_bytes);
     *metadata_bytes = sizeof(BitcompMetadata);
 
@@ -91,7 +91,7 @@ hipcompStatus_t hipcompBitcompDecompressAsync(
     const size_t /* temp_bytes */,
     void* const out_ptr,
     size_t out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   try {
     CHECK_NOT_NULL(in_ptr);
@@ -148,7 +148,7 @@ hipcompStatus_t hipcompBitcompCompressAsync(
     size_t /* temp_bytes */,
     void* out_ptr,
     size_t* out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   bitcompDataType_t dataType;
   switch (in_type) {

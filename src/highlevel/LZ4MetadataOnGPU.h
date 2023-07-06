@@ -94,7 +94,7 @@ public:
 
   const size_t* compressed_prefix_ptr() const;
 
-  void save_output_size(size_t* device_size, cudaStream_t stream) const;
+  void save_output_size(size_t* device_size, hipStream_t stream) const;
 
   /**
    * @brief Get a copy of the metadata on the CPU. This syncs with this stream.
@@ -103,7 +103,7 @@ public:
    *
    * @return The metadata on the CPU.
    */
-  LZ4Metadata copyToHost(cudaStream_t stream);
+  LZ4Metadata copyToHost(hipStream_t stream);
 
 protected:
   size_t max_size() const;

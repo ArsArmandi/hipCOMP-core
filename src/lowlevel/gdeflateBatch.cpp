@@ -30,7 +30,7 @@
 #include "hipcomp/gdeflate.h"
 
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "common.h"
 #include "hipcomp.h"
 #include "hipcomp.hpp"
@@ -104,7 +104,7 @@ hipcompStatus_t hipcompBatchedGdeflateDecompressAsync(
     size_t temp_bytes,
     void* const* device_uncompressed_ptrs,
     hipcompStatus_t* device_status_ptrs,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 #ifdef ENABLE_GDEFLATE
   // NOTE: if we start using `max_uncompressed_chunk_bytes`, we need to check
@@ -153,7 +153,7 @@ hipcompStatus_t hipcompBatchedGdeflateGetDecompressSizeAsync(
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream) {
+    hipStream_t stream) {
 #ifdef ENABLE_GDEFLATE
   try {
     gdeflate::getDecompressSizeAsync(device_compressed_ptrs, device_compressed_bytes,
@@ -240,7 +240,7 @@ hipcompStatus_t hipcompBatchedGdeflateCompressAsync(
     void* const* const device_out_ptrs,
     size_t* const device_out_bytes,
     hipcompBatchedGdeflateOpts_t format_opts,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 #ifdef ENABLE_GDEFLATE
   try {

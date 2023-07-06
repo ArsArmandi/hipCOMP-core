@@ -40,7 +40,7 @@
 #include "common.h"
 #include "type_macros.h"
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include <algorithm>
 #include <assert.h>
@@ -48,20 +48,20 @@
 #include <cstring>
 #include <vector>
 
-#ifndef CUDA_RT_CALL
-#define CUDA_RT_CALL(call)                                                     \
+#ifndef HIP_RT_CALL
+#define HIP_RT_CALL(call)                                                     \
   {                                                                            \
-    cudaError_t cudaStatus = call;                                             \
-    if (cudaSuccess != cudaStatus) {                                           \
+    hipError_t hipStatus = call;                                             \
+    if (hipSuccess != hipStatus) {                                           \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: CUDA RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
           "(%d).\n",                                                           \
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
           hipGetErrorString(hipStatus),                                      \
-          cudaStatus);                                                         \
+          hipStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
   }
@@ -83,7 +83,7 @@ TEST_CASE("AutoTempSize_OutputSize_C", "[small]")
   T* d_input;
   const size_t numBytes = n * sizeof(T);
 
-  CUDA_RT_CALL(cudaMalloc(&d_input, numBytes));
+  HIP_RT_CALL(hipMalloc(&d_input, numBytes));
 
   size_t metadata_bytes = 0;
   size_t temp_bytes = 0;

@@ -421,19 +421,19 @@ void bitPackConfigLaunch(
     INPUT const* const in,
     const size_t* const numDevice,
     size_t const maxNum,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   const dim3 grid(
       min(BLOCK_WIDTH, static_cast<int>(roundUpDiv(maxNum, BLOCK_SIZE))));
   const dim3 block(BLOCK_SIZE);
 
-  cudaError_t err;
+  hipError_t err;
 
   // make sure the result will fit in a single block for the finalize kernel
   bitPackConfigScanKernel<<<grid, block, 0, stream>>>(
       minValueScratch, maxValueScratch, in, numDevice);
   err = hipGetLastError();
-  if (err != cudaSuccess) {
+  if (err != hipSuccess) {
     throw std::runtime_error(
         "Failed to launch bitPackConfigScanKernel "
         "kernel: "
@@ -444,7 +444,7 @@ void bitPackConfigLaunch(
   bitPackConfigFinalizeKernel<<<dim3(1), block, 0, stream>>>(
       minValueScratch, maxValueScratch, numBitsPtr, minValOutPtr, numDevice);
   err = hipGetLastError();
-  if (err != cudaSuccess) {
+  if (err != hipSuccess) {
     throw std::runtime_error(
         "Failed to launch bitPackConfigFinalizeKernel "
         "kernel: "
@@ -460,7 +460,7 @@ void bitPackLaunch(
     INPUT const* const in,
     const size_t* const numDevice,
     const size_t maxNum,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   static_assert(
       BLOCK_SIZE % (sizeof(OUTPUT) * 8U) == 0,
@@ -473,7 +473,7 @@ void bitPackLaunch(
   bitPackKernel<<<grid, block, 0, stream>>>(
       numBitsDevicePtr, minValueDevicePtr, outPtr, in, numDevice);
   hipError_t err = hipGetLastError();
-  if (err != cudaSuccess) {
+  if (err != hipSuccess) {
     throw std::runtime_error(
         "Failed to launch bitPackKernel kernel: " + std::to_string(err));
   }
@@ -488,7 +488,7 @@ void bitPackFixedBitAndMinInternal(
     void const* const in,
     const size_t* const numDevice,
     size_t const maxNum,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   OUT* const* const outputTypedPtr = reinterpret_cast<OUT* const*>(outPtr);
   IN const* const inputTyped = static_cast<IN const*>(in);
@@ -512,7 +512,7 @@ void bitPackInternal(
     size_t const maxNum,
     void* const* const minValueDevicePtr,
     unsigned char* const* const numBitsDevicePtr,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   // cast voids to known types
   LIMIT* const maxValueTyped = static_cast<LIMIT*>(workspace);
@@ -558,7 +558,7 @@ void BitPackGPU::compress(
     const size_t maxNum,
     void* const* const minValueDevicePtr,
     unsigned char* const* const numBitsDevicePtr,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   const size_t reqWorkSize = requiredWorkspaceSize(maxNum, inType);
   if (workspaceSize < reqWorkSize) {

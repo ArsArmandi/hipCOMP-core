@@ -64,7 +64,7 @@ void SamplingFastOption(
     const size_t workspaceSize,
     size_t* outsize,
     int NUM_SCHEMES,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 } // namespace highlevel
 } // namespace hipcomp

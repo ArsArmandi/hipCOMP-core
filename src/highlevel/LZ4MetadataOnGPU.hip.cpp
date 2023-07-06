@@ -28,7 +28,7 @@
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "LZ4MetadataOnGPU.h"
 
 #include <cassert>
@@ -40,7 +40,7 @@ namespace highlevel
 {
 
 /******************************************************************************
- * CUDA KERNELS ***************************************************************
+ * HIP KERNELS ***************************************************************
  *****************************************************************************/
 
 namespace
@@ -130,16 +130,16 @@ const size_t* LZ4MetadataOnGPU::compressed_prefix_ptr() const
   return static_cast<const size_t*>(m_ptr) + LZ4Metadata::OffsetAddr;
 }
 
-LZ4Metadata LZ4MetadataOnGPU::copyToHost(cudaStream_t stream)
+LZ4Metadata LZ4MetadataOnGPU::copyToHost(hipStream_t stream)
 {
   size_t metadata_bytes;
-  CudaUtils::copy_async(
+  HipUtils::copy_async(
       &metadata_bytes,
       ((size_t*)m_ptr) + LZ4Metadata::MetadataBytes,
       1,
       DEVICE_TO_HOST,
       stream);
-  CudaUtils::sync(stream);
+  HipUtils::sync(stream);
 
   if (metadata_bytes > m_max_size) {
     throw std::runtime_error(
@@ -149,13 +149,13 @@ LZ4Metadata LZ4MetadataOnGPU::copyToHost(cudaStream_t stream)
   }
 
   std::vector<uint8_t> metadata_buffer(metadata_bytes);
-  CudaUtils::copy_async(
+  HipUtils::copy_async(
       metadata_buffer.data(),
       static_cast<const uint8_t*>(m_ptr),
       metadata_bytes,
       DEVICE_TO_HOST,
       stream);
-  CudaUtils::sync(stream);
+  HipUtils::sync(stream);
 
   set_serialized_size(metadata_bytes);
 
@@ -167,7 +167,7 @@ LZ4Metadata LZ4MetadataOnGPU::copyToHost(cudaStream_t stream)
 }
 
 void LZ4MetadataOnGPU::save_output_size(
-    size_t* const device_size, cudaStream_t stream) const
+    size_t* const device_size, hipStream_t stream) const
 {
   computeTotalSize<<<1, 1, 0, stream>>>(
       getSerializedSize(), compressed_prefix_ptr() + m_num_chunks, device_size);

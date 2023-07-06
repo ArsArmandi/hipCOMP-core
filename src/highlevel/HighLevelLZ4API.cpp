@@ -30,7 +30,7 @@
 #include "hipcomp/lz4.h"
 
 #include "../Check.h"
-#include "../CudaUtils.h"
+#include "../HipUtils.h"
 #include "../common.h"
 #include "../type_macros.h"
 #include "LZ4Compressor.h"
@@ -88,20 +88,20 @@ int hipcompLZ4IsMetadata(const void* const metadata_ptr)
   return metadata->getCompressionType() == LZ4Metadata::COMPRESSION_ID;
 }
 
-int hipcompLZ4IsData(const void* const in_ptr, size_t in_bytes, cudaStream_t stream)
+int hipcompLZ4IsData(const void* const in_ptr, size_t in_bytes, hipStream_t stream)
 {
   // Need at least 2 size_t variables to be valid.
   if (in_ptr == NULL || in_bytes < sizeof(size_t)) {
     return false;
   }
   size_t header_val;
-  CudaUtils::copy_async(
+  HipUtils::copy_async(
       &header_val,
       static_cast<const size_t*>(in_ptr),
       1,
       DEVICE_TO_HOST,
       stream);
-  CudaUtils::sync(stream);
+  HipUtils::sync(stream);
   return (header_val == LZ4_FLAG);
 }
 
@@ -159,7 +159,7 @@ hipcompStatus_t hipcompLZ4CompressAsync(
     const size_t temp_bytes,
     void* const out_ptr,
     size_t* const out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   try {
     // error check inputs
@@ -171,12 +171,12 @@ hipcompStatus_t hipcompLZ4CompressAsync(
     const size_t chunk_bytes = get_chunk_size_or_default(format_opts);
 
     LZ4Compressor compressor(
-        CudaUtils::device_pointer(static_cast<const uint8_t*>(in_ptr)),
+        HipUtils::device_pointer(static_cast<const uint8_t*>(in_ptr)),
         in_bytes,
         chunk_bytes,
         in_type);
     compressor.configure_workspace(
-        CudaUtils::device_pointer(temp_ptr), temp_bytes);
+        HipUtils::device_pointer(temp_ptr), temp_bytes);
 
     // build the metadatas and configure pointers
     LZ4Metadata metadata(HIPCOMP_TYPE_BITS, chunk_bytes, in_bytes, 0);
@@ -189,12 +189,12 @@ hipcompStatus_t hipcompLZ4CompressAsync(
     size_t* const out_prefix = metadataGPU.compressed_prefix_ptr();
 
     compressor.configure_output(
-        CudaUtils::device_pointer(static_cast<uint8_t*>(out_ptr))
+        HipUtils::device_pointer(static_cast<uint8_t*>(out_ptr))
             + metadataGPU.getSerializedSize(),
         out_prefix);
     compressor.compress_async(stream);
 
-    metadataGPU.save_output_size(CudaUtils::device_pointer(out_bytes), stream);
+    metadataGPU.save_output_size(HipUtils::device_pointer(out_bytes), stream);
   } catch (const std::exception& e) {
     return Check::exception_to_error(e, "hipcompLZ4CompressAsync()");
   }
@@ -209,7 +209,7 @@ hipcompStatus_t hipcompLZ4DecompressConfigure(
     size_t* const metadata_bytes,
     size_t* const temp_bytes,
     size_t* const out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   try {
     CHECK_NOT_NULL(metadata_ptr);
@@ -225,7 +225,7 @@ hipcompStatus_t hipcompLZ4DecompressConfigure(
     } else {
       // fetch metadata
       ptr = new LZ4Metadata(
-          LZ4MetadataOnGPU(CudaUtils::device_pointer(in_ptr), in_bytes)
+          LZ4MetadataOnGPU(HipUtils::device_pointer(in_ptr), in_bytes)
               .copyToHost(stream));
       *metadata_ptr = ptr;
       *metadata_bytes = ptr->getMetadataSize();
@@ -253,7 +253,7 @@ hipcompStatus_t hipcompLZ4DecompressAsync(
     const size_t temp_bytes,
     void* const out_ptr,
     const size_t out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   try {
     CHECK_NOT_NULL(metadata_ptr);
@@ -277,7 +277,7 @@ hipcompStatus_t hipcompLZ4DecompressAsync(
               + std::to_string(metadata->getUncompressedSize()));
     }
 
-    const void* const device_in_ptr = CudaUtils::device_pointer(in_ptr);
+    const void* const device_in_ptr = HipUtils::device_pointer(in_ptr);
 
     LZ4MetadataOnGPU metadataGPU(device_in_ptr, in_bytes);
 
@@ -293,9 +293,9 @@ hipcompStatus_t hipcompLZ4DecompressAsync(
         chunk_size,
         num_chunks);
 
-    decomp.configure_workspace(CudaUtils::device_pointer(temp_ptr), temp_bytes);
+    decomp.configure_workspace(HipUtils::device_pointer(temp_ptr), temp_bytes);
     decomp.configure_output(
-        CudaUtils::device_pointer(static_cast<uint8_t*>(out_ptr)),
+        HipUtils::device_pointer(static_cast<uint8_t*>(out_ptr)),
         metadata->getUncompressedSize());
     decomp.decompress_async(stream);
   } catch (const std::exception& e) {

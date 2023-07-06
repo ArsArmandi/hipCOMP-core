@@ -67,11 +67,11 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
     // create GPU only input buffer
     void* d_in_data;
     const size_t in_bytes = sizeof(T) * data.size();
-    CUDA_CHECK(cudaMalloc(&d_in_data, in_bytes));
-    CUDA_CHECK(
-        cudaMemcpy(d_in_data, data.data(), in_bytes, cudaMemcpyHostToDevice));
+    HIP_CHECK(hipMalloc(&d_in_data, in_bytes));
+    HIP_CHECK(
+        hipMemcpy(d_in_data, data.data(), in_bytes, hipMemcpyHostToDevice));
 
-    cudaStream_t stream;
+    hipStream_t stream;
     hipStreamCreate(&stream);
 
     hipcompStatus_t status;
@@ -81,11 +81,11 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
     compressor.configure(in_bytes, &comp_temp_bytes, &comp_out_bytes);
 
     void* d_comp_temp;
-    CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
-    CUDA_CHECK(cudaMalloc(&d_comp_out, comp_out_bytes));
+    HIP_CHECK(hipMalloc(&d_comp_temp, comp_temp_bytes));
+    HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
 
     size_t* comp_out_bytes_ptr;
-    CUDA_CHECK(cudaMallocHost(
+    HIP_CHECK(hipMallocHost(
         (void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr)));
 
     compressor.compress_async(
@@ -97,11 +97,11 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
         comp_out_bytes_ptr,
         stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    HIP_CHECK(hipStreamSynchronize(stream));
     comp_out_bytes = *comp_out_bytes_ptr;
 
-    cudaFree(d_comp_temp);
-    cudaFree(d_in_data);
+    hipFree(d_comp_temp);
+    hipFree(d_in_data);
     hipStreamDestroy(stream);
 
     std::cout << "comp_size: " << comp_out_bytes
@@ -115,7 +115,7 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
     // between compression and decopmression
     //
 
-    cudaStream_t stream;
+    hipStream_t stream;
     hipStreamCreate(&stream);
 
     LZ4Decompressor decompressor;
@@ -125,9 +125,9 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
         d_comp_out, comp_out_bytes, &temp_bytes, &decomp_out_bytes, stream);
 
     void* temp_ptr;
-    cudaMalloc(&temp_ptr, temp_bytes);
+    hipMalloc(&temp_ptr, temp_bytes);
     T* out_ptr = NULL;
-    cudaMalloc((void**)&out_ptr, decomp_out_bytes);
+    hipMalloc((void**)&out_ptr, decomp_out_bytes);
 
     auto start = std::chrono::steady_clock::now();
 
@@ -140,7 +140,7 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
         decomp_out_bytes,
         stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    HIP_CHECK(hipStreamSynchronize(stream));
 
     // stop timing and the profiler
     auto end = std::chrono::steady_clock::now();
@@ -148,11 +148,11 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
               << std::endl;
 
     hipStreamDestroy(stream);
-    cudaFree(d_comp_out);
-    cudaFree(temp_ptr);
+    hipFree(d_comp_out);
+    hipFree(temp_ptr);
 
     std::vector<T> res(decomp_out_bytes / sizeof(T));
-    cudaMemcpy(&res[0], out_ptr, decomp_out_bytes, cudaMemcpyDeviceToHost);
+    hipMemcpy(&res[0], out_ptr, decomp_out_bytes, hipMemcpyDeviceToHost);
 
 #if VERBOSE > 1
     // dump output data

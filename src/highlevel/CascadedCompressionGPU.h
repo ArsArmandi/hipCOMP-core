@@ -102,7 +102,7 @@ public:
       const size_t temp_bytes,
       void* out_ptr,
       size_t* out_bytes,
-      cudaStream_t stream);
+      hipStream_t stream);
 };
 
 } // namespace highlevel

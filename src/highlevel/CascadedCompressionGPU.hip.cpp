@@ -33,7 +33,7 @@
 #include "CascadedMetadata.h"
 #include "CascadedMetadataOnGPU.h"
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "DeltaGPU.h"
 #include "RunLengthEncodeGPU.h"
 #include "TempSpaceBroker.h"
@@ -257,10 +257,10 @@ void checkAlignmentOf(void* const ptr, const size_t alignment)
  * @param deviceValue The location to copy to.
  */
 template <typename T>
-void asyncPODCopy(const T& value, T* const destination, cudaStream_t stream)
+void asyncPODCopy(const T& value, T* const destination, hipStream_t stream)
 {
   asyncPODCopyKernel<<<dim3(1), dim3(1), 0, stream>>>(value, destination);
-  CudaUtils::check_last_error("Failed to launch asyncPODCopyKernel");
+  HipUtils::check_last_error("Failed to launch asyncPODCopyKernel");
 }
 
 /**
@@ -292,9 +292,9 @@ void packToOutput(
     const size_t maxNum,
     size_t* const offsetDPtr,
     const bool bitPacking,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
-  CudaUtils::copy_async(
+  HipUtils::copy_async(
       &(headerDPtr->length), numElementsDPtr, 1, DEVICE_TO_DEVICE, stream);
 
   if (bitPacking) {
@@ -309,7 +309,7 @@ void packToOutput(
 
     configureBitPackHeader<<<1, 1, 0, stream>>>(
         headerDPtr, reinterpret_cast<T**>(minValueDevicePtr), numBitsDevicePtr);
-    CudaUtils::check_last_error("Failed to launch configureBitPackHeader");
+    HipUtils::check_last_error("Failed to launch configureBitPackHeader");
 
     void* const packTemp = reinterpret_cast<void*>(numBitsDevicePtr + 1);
     const size_t packTempSize
@@ -329,7 +329,7 @@ void packToOutput(
         stream);
 
     increaseOffsetByBitPacking<T><<<1, 1, 0, stream>>>(offsetDPtr, headerDPtr);
-    CudaUtils::check_last_error("Failed to launch increaseOffsetByBitPacking");
+    HipUtils::check_last_error("Failed to launch increaseOffsetByBitPacking");
   } else {
     constexpr const int BLOCK_SIZE = 512;
 
@@ -338,10 +338,10 @@ void packToOutput(
 
     deferredCopy<T, BLOCK_SIZE><<<grid, block, 0, stream>>>(
         reinterpret_cast<T**>(outputDPtr), input, numElementsDPtr);
-    CudaUtils::check_last_error("Failed to launch deferredCopy");
+    HipUtils::check_last_error("Failed to launch deferredCopy");
 
     increaseOffsetByRaw<T><<<1, 1, 0, stream>>>(offsetDPtr, headerDPtr);
-    CudaUtils::check_last_error("Failed to launch increaseOffsetByRaw");
+    HipUtils::check_last_error("Failed to launch increaseOffsetByRaw");
   }
 }
 
@@ -457,7 +457,7 @@ void compressTypedAsync(
     const size_t temp_bytes,
     void* const out_ptr,
     size_t* const out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   const hipcompType_t type = TypeOf<valT>();
 
@@ -509,7 +509,7 @@ void compressTypedAsync(
   void** bit_out_ptr;
   tempSpace.reserve(&bit_out_ptr, 1);
 
-  cudaError_t* statusDevice;
+  hipError_t* statusDevice;
   tempSpace.reserve(&statusDevice, 1);
 
   configTempSpacePointers<<<1, 1, 0, stream>>>(
@@ -519,7 +519,7 @@ void compressTypedAsync(
       runs_output_ptr,
       vals_delta,
       vals_delta_ptr);
-  CudaUtils::check_last_error("Failed to launch configTempSpacePointers");
+  HipUtils::check_last_error("Failed to launch configTempSpacePointers");
 
   // Set first offset to end of metadata
   metadataOnGPU.saveOffset(vals_id, offsetDevice, stream);
@@ -570,14 +570,14 @@ void compressTypedAsync(
       // save initial offset
       CascadedMetadata::Header* const valHdr
           = metadataOnGPU.getHeaderLocation(valId);
-      CudaUtils::copy_async(
+      HipUtils::copy_async(
           &(valHdr->length), numRunsDevice, 1, DEVICE_TO_DEVICE, stream);
 
       metadataOnGPU.saveOffset(valId, offsetDevice, stream);
 
       CascadedMetadata::Header* const runHdr
           = metadataOnGPU.getHeaderLocation(runId);
-      CudaUtils::copy_async(
+      HipUtils::copy_async(
           &(runHdr->length), numRunsDevice, 1, DEVICE_TO_DEVICE, stream);
 
       // store vals (apply delta if necessary)
@@ -597,7 +597,7 @@ void compressTypedAsync(
 
         CascadedMetadata::Header* const hdr
             = metadataOnGPU.getHeaderLocation(id);
-        CudaUtils::copy_async(
+        HipUtils::copy_async(
             &(hdr->length), numRunsDevice, 1, DEVICE_TO_DEVICE, stream);
 
         metadataOnGPU.saveOffset(id, offsetDevice, stream);
@@ -609,14 +609,14 @@ void compressTypedAsync(
 
         deferredCopy<valT, COPY_BLOCK_SIZE><<<grid, block, 0, stream>>>(
             vals_delta, vals_output, numRunsDevice);
-        CudaUtils::check_last_error("Failed to launch deferredCopy");
+        HipUtils::check_last_error("Failed to launch deferredCopy");
 
         nextValId = valId;
       }
 
       offsetAndAlignPointerAsync<<<1, 1, 0, stream>>>(
           out_ptr, bit_out_ptr, offsetDevice);
-      CudaUtils::check_last_error("Failed to launch "
+      HipUtils::check_last_error("Failed to launch "
                                   "offsetAndAlignPointerAsync");
 
       metadataOnGPU.saveOffset(runId, offsetDevice, stream);
@@ -635,10 +635,10 @@ void compressTypedAsync(
           stream);
     } else {
       if (!firstLayer) {
-        CudaUtils::copy_async(
+        HipUtils::copy_async(
             numRunsDevice, outputSizePtr, 1, DEVICE_TO_DEVICE, stream);
       } else {
-        CudaUtils::copy_async(
+        HipUtils::copy_async(
             numRunsDevice, &maxNum, 1, HOST_TO_DEVICE, stream);
       }
 
@@ -662,21 +662,21 @@ void compressTypedAsync(
 
         deferredCopy<valT, COPY_BLOCK_SIZE><<<grid, block, 0, stream>>>(
             vals_delta, vals_output, numRunsDevice);
-        CudaUtils::check_last_error("Failed to launch deferredCopy");
+        HipUtils::check_last_error("Failed to launch deferredCopy");
       }
 
       const int id = ++vals_id;
       nextValId = id;
 
       CascadedMetadata::Header* const hdr = metadataOnGPU.getHeaderLocation(id);
-      CudaUtils::copy_async(
+      HipUtils::copy_async(
           &(hdr->length), numRunsDevice, 1, DEVICE_TO_DEVICE, stream);
       metadataOnGPU.saveOffset(id, offsetDevice, stream);
     }
     if (r == 0) {
       offsetAndAlignPointerAsync<<<1, 1, 0, stream>>>(
           out_ptr, bit_out_ptr, offsetDevice);
-      CudaUtils::check_last_error("Failed to launch "
+      HipUtils::check_last_error("Failed to launch "
                                   "offsetAndAlignPointerAsync");
 
       metadataOnGPU.saveOffset(nextValId, offsetDevice, stream);
@@ -695,7 +695,7 @@ void compressTypedAsync(
           stream);
     } else {
       // update current RLE size
-      CudaUtils::copy_async(
+      HipUtils::copy_async(
           outputSizePtr, numRunsDevice, 1, DEVICE_TO_DEVICE, stream);
     }
   }
@@ -705,11 +705,11 @@ void compressTypedAsync(
     const int nextValId = ++vals_id;
     const valT* const vals_input = static_cast<const valT*>(in_ptr);
 
-    CudaUtils::copy_async(numRunsDevice, &maxNum, 1, HOST_TO_DEVICE, stream);
+    HipUtils::copy_async(numRunsDevice, &maxNum, 1, HOST_TO_DEVICE, stream);
 
     offsetAndAlignPointerAsync<<<1, 1, 0, stream>>>(
         out_ptr, bit_out_ptr, offsetDevice);
-    CudaUtils::check_last_error("Failed to launch offsetAndAlignPointerAsync");
+    HipUtils::check_last_error("Failed to launch offsetAndAlignPointerAsync");
 
     metadataOnGPU.saveOffset(nextValId, offsetDevice, stream);
 
@@ -730,10 +730,10 @@ void compressTypedAsync(
   // async copy output
   metadataOnGPU.setCompressedSizeFromGPU(offsetDevice, stream);
 
-  if (CudaUtils::is_device_pointer(out_bytes)) {
-    CudaUtils::copy_async(out_bytes, offsetDevice, 1, DEVICE_TO_DEVICE, stream);
+  if (HipUtils::is_device_pointer(out_bytes)) {
+    HipUtils::copy_async(out_bytes, offsetDevice, 1, DEVICE_TO_DEVICE, stream);
   } else {
-    CudaUtils::copy_async(out_bytes, offsetDevice, 1, DEVICE_TO_HOST, stream);
+    HipUtils::copy_async(out_bytes, offsetDevice, 1, DEVICE_TO_HOST, stream);
   }
 }
 
@@ -813,7 +813,7 @@ void hipcompCascadedCompressionGPU::compressAsync(
     const size_t temp_bytes,
     void* const out_ptr,
     size_t* const out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   CHECK_NOT_NULL(in_ptr);
   CHECK_NOT_NULL(cascadedOpts);

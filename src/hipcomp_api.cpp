@@ -80,11 +80,11 @@ hipcompStatus_t hipcompDecompressGetMetadata(
     const void* const in_ptr,
     const size_t in_bytes,
     void** const metadata_ptr,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   DEPRECATED_FUNC("hipcomp*DecompressConfigure()");
 
-  cudaStreamSynchronize(stream);
+  hipStreamSynchronize(stream);
   if (hipcompLZ4IsData(in_ptr, in_bytes, stream)) {
     size_t metadata_bytes, temp_bytes, uncompressed_bytes;
     return hipcompLZ4DecompressConfigure(
@@ -240,7 +240,7 @@ hipcompStatus_t hipcompDecompressAsync(
     void* const metadata_ptr,
     void* const out_ptr,
     const size_t out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   DEPRECATED_FUNC("hipcomp*DecompressAsync()");
 

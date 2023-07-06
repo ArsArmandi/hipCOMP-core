@@ -34,24 +34,24 @@
 #include "common.h"
 #include "hipcomp.hpp"
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include <cstdlib>
 
-#ifndef CUDA_RT_CALL
-#define CUDA_RT_CALL(call)                                                     \
+#ifndef HIP_RT_CALL
+#define HIP_RT_CALL(call)                                                     \
   {                                                                            \
-    cudaError_t cudaStatus = call;                                             \
-    if (cudaSuccess != cudaStatus) {                                           \
+    hipError_t hipStatus = call;                                             \
+    if (hipSuccess != hipStatus) {                                           \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: CUDA RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
           "(%d).\n",                                                           \
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
           hipGetErrorString(hipStatus),                                      \
-          cudaStatus);                                                         \
+          hipStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
   }
@@ -71,10 +71,10 @@ __global__ void toGPU(
     T* const output,
     T const* const input,
     size_t const num,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
-  CUDA_RT_CALL(hipMemcpyAsync(
-      output, input, num * sizeof(T), cudaMemcpyHostToDevice, stream));
+  HIP_RT_CALL(hipMemcpyAsync(
+      output, input, num * sizeof(T), hipMemcpyHostToDevice, stream));
 }
 
 template <typename T>
@@ -82,10 +82,10 @@ __global__ void fromGPU(
     T* const output,
     T const* const input,
     size_t const num,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
-  CUDA_RT_CALL(hipMemcpyAsync(
-      output, input, num * sizeof(T), cudaMemcpyDeviceToHost, stream));
+  HIP_RT_CALL(hipMemcpyAsync(
+      output, input, num * sizeof(T), hipMemcpyDeviceToHost, stream));
 }
 
 template <typename T, typename V>
@@ -94,14 +94,14 @@ void compressAsyncTestRandom(const size_t n)
   T *input, *inputHost;
   size_t const numBytes = n * sizeof(*input);
 
-  CUDA_RT_CALL(cudaMalloc((void**)&input, numBytes));
+  HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
 
-  CUDA_RT_CALL(cudaMallocHost((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_RT_CALL(hipMallocHost((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
-  cudaStream_t stream;
-  CUDA_RT_CALL(hipStreamCreate(&stream));
+  hipStream_t stream;
+  HIP_RT_CALL(hipStreamCreate(&stream));
 
   std::srand(0);
 
@@ -118,47 +118,47 @@ void compressAsyncTestRandom(const size_t n)
   T *outputValues, *outputValuesHost;
   V *outputCounts, *outputCountsHost;
 
-  CUDA_RT_CALL(cudaMalloc((void**)&outputValues, sizeof(*outputValues) * n));
-  CUDA_RT_CALL(cudaMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
-  CUDA_RT_CALL(
-      cudaMallocHost((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
-  CUDA_RT_CALL(
-      cudaMallocHost((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
+  HIP_RT_CALL(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
+  HIP_RT_CALL(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
+  HIP_RT_CALL(
+      hipMallocHost((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
+  HIP_RT_CALL(
+      hipMallocHost((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
 
   void* workspace;
   const size_t maxNum = 2 * n;
   size_t const workspaceSize = RunLengthEncodeGPU::requiredWorkspaceSize(
       maxNum, TypeOf<T>(), TypeOf<V>());
-  CUDA_RT_CALL(cudaMalloc((void**)&workspace, workspaceSize));
+  HIP_RT_CALL(hipMalloc((void**)&workspace, workspaceSize));
 
   // create on device inputs
   size_t* numInDevice;
   size_t* numOutDevice;
   T** outputValuesPtr;
   V** outputCountsPtr;
-  CUDA_RT_CALL(cudaMalloc((void**)&numInDevice, sizeof(*numInDevice)));
-  CUDA_RT_CALL(cudaMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
-  CUDA_RT_CALL(cudaMalloc((void**)&outputValuesPtr, sizeof(*outputValuesPtr)));
-  CUDA_RT_CALL(cudaMalloc((void**)&outputCountsPtr, sizeof(*outputCountsPtr)));
+  HIP_RT_CALL(hipMalloc((void**)&numInDevice, sizeof(*numInDevice)));
+  HIP_RT_CALL(hipMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
+  HIP_RT_CALL(hipMalloc((void**)&outputValuesPtr, sizeof(*outputValuesPtr)));
+  HIP_RT_CALL(hipMalloc((void**)&outputCountsPtr, sizeof(*outputCountsPtr)));
 
-  CUDA_RT_CALL(cudaMemcpy(
-      numInDevice, &n, sizeof(*numInDevice), cudaMemcpyHostToDevice));
-  CUDA_RT_CALL(cudaMemcpy(
+  HIP_RT_CALL(hipMemcpy(
+      numInDevice, &n, sizeof(*numInDevice), hipMemcpyHostToDevice));
+  HIP_RT_CALL(hipMemcpy(
       outputValuesPtr,
       &outputValues,
       sizeof(outputValues),
-      cudaMemcpyHostToDevice));
-  CUDA_RT_CALL(cudaMemcpy(
+      hipMemcpyHostToDevice));
+  HIP_RT_CALL(hipMemcpy(
       outputCountsPtr,
       &outputCounts,
       sizeof(outputCounts),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   hipEvent_t start, stop;
 
-  CUDA_RT_CALL(hipEventCreate(&start));
-  CUDA_RT_CALL(hipEventCreate(&stop));
-  CUDA_RT_CALL(hipEventRecord(start, stream));
+  HIP_RT_CALL(hipEventCreate(&start));
+  HIP_RT_CALL(hipEventCreate(&stop));
+  HIP_RT_CALL(hipEventRecord(start, stream));
 
   RunLengthEncodeGPU::compressDownstream(
       workspace,
@@ -172,27 +172,27 @@ void compressAsyncTestRandom(const size_t n)
       numInDevice,
       maxNum,
       stream);
-  CUDA_RT_CALL(hipEventRecord(stop, stream));
+  HIP_RT_CALL(hipEventRecord(stop, stream));
 
-  CUDA_RT_CALL(cudaStreamSynchronize(stream));
+  HIP_RT_CALL(hipStreamSynchronize(stream));
   float time;
-  CUDA_RT_CALL(hipEventElapsedTime(&time, start, stop));
+  HIP_RT_CALL(hipEventElapsedTime(&time, start, stop));
 
   size_t numOut;
-  CUDA_RT_CALL(cudaMemcpy(
-      &numOut, numOutDevice, sizeof(numOut), cudaMemcpyDeviceToHost));
+  HIP_RT_CALL(hipMemcpy(
+      &numOut, numOutDevice, sizeof(numOut), hipMemcpyDeviceToHost));
 
   fromGPU(outputValuesHost, outputValues, numOut, stream);
   fromGPU(outputCountsHost, outputCounts, numOut, stream);
-  CUDA_RT_CALL(cudaStreamSynchronize(stream));
-  CUDA_RT_CALL(hipStreamDestroy(stream));
+  HIP_RT_CALL(hipStreamSynchronize(stream));
+  HIP_RT_CALL(hipStreamDestroy(stream));
 
-  CUDA_RT_CALL(cudaFree(outputValues));
-  CUDA_RT_CALL(cudaFree(outputCounts));
-  CUDA_RT_CALL(cudaFree(outputValuesPtr));
-  CUDA_RT_CALL(cudaFree(outputCountsPtr));
-  CUDA_RT_CALL(cudaFree(numOutDevice));
-  CUDA_RT_CALL(cudaFree(numInDevice));
+  HIP_RT_CALL(hipFree(outputValues));
+  HIP_RT_CALL(hipFree(outputCounts));
+  HIP_RT_CALL(hipFree(outputValuesPtr));
+  HIP_RT_CALL(hipFree(outputCountsPtr));
+  HIP_RT_CALL(hipFree(numOutDevice));
+  HIP_RT_CALL(hipFree(numInDevice));
 
   // compute RLE on host
   std::vector<T> expectedValues{inputHost[0]};
@@ -223,11 +223,11 @@ void compressAsyncTestRandom(const size_t n)
     CHECK(expectedCounts[i] == outputCountsHost[i]);
   }
 
-  CUDA_RT_CALL(cudaFreeHost(outputValuesHost));
-  CUDA_RT_CALL(cudaFreeHost(outputCountsHost));
+  HIP_RT_CALL(hipFreeHost(outputValuesHost));
+  HIP_RT_CALL(hipFreeHost(outputCountsHost));
 
-  CUDA_RT_CALL(cudaFree(input));
-  CUDA_RT_CALL(cudaFreeHost(inputHost));
+  HIP_RT_CALL(hipFree(input));
+  HIP_RT_CALL(hipFreeHost(inputHost));
 }
 
 } // namespace
@@ -246,14 +246,14 @@ TEST_CASE("compress_10Million_Test", "[small]")
   T *input, *inputHost;
   size_t const numBytes = n * sizeof(*input);
 
-  CUDA_RT_CALL(cudaMalloc((void**)&input, numBytes));
+  HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
 
-  CUDA_RT_CALL(cudaMallocHost((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_RT_CALL(hipMallocHost((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
-  cudaStream_t stream;
-  CUDA_RT_CALL(hipStreamCreate(&stream));
+  hipStream_t stream;
+  HIP_RT_CALL(hipStreamCreate(&stream));
 
   std::srand(0);
 
@@ -270,26 +270,26 @@ TEST_CASE("compress_10Million_Test", "[small]")
   T *outputValues, *outputValuesHost;
   V *outputCounts, *outputCountsHost;
 
-  CUDA_RT_CALL(cudaMalloc((void**)&outputValues, sizeof(*outputValues) * n));
-  CUDA_RT_CALL(cudaMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
-  CUDA_RT_CALL(
-      cudaMallocHost((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
-  CUDA_RT_CALL(
-      cudaMallocHost((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
+  HIP_RT_CALL(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
+  HIP_RT_CALL(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
+  HIP_RT_CALL(
+      hipMallocHost((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
+  HIP_RT_CALL(
+      hipMallocHost((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
 
   size_t* numOutDevice;
-  CUDA_RT_CALL(cudaMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
+  HIP_RT_CALL(hipMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
 
   void* workspace;
   size_t const workspaceSize
       = RunLengthEncodeGPU::requiredWorkspaceSize(n, TypeOf<T>(), TypeOf<V>());
-  CUDA_RT_CALL(cudaMalloc((void**)&workspace, workspaceSize));
+  HIP_RT_CALL(hipMalloc((void**)&workspace, workspaceSize));
 
   hipEvent_t start, stop;
 
-  CUDA_RT_CALL(hipEventCreate(&start));
-  CUDA_RT_CALL(hipEventCreate(&stop));
-  CUDA_RT_CALL(hipEventRecord(start, stream));
+  HIP_RT_CALL(hipEventCreate(&start));
+  HIP_RT_CALL(hipEventCreate(&stop));
+  HIP_RT_CALL(hipEventRecord(start, stream));
 
   size_t numOut = 0;
   RunLengthEncodeGPU::compress(
@@ -303,22 +303,22 @@ TEST_CASE("compress_10Million_Test", "[small]")
       input,
       n,
       stream);
-  CUDA_RT_CALL(hipEventRecord(stop, stream));
+  HIP_RT_CALL(hipEventRecord(stop, stream));
 
-  CUDA_RT_CALL(cudaStreamSynchronize(stream));
-  CUDA_RT_CALL(cudaMemcpy(
-      &numOut, numOutDevice, sizeof(numOut), cudaMemcpyDeviceToHost));
+  HIP_RT_CALL(hipStreamSynchronize(stream));
+  HIP_RT_CALL(hipMemcpy(
+      &numOut, numOutDevice, sizeof(numOut), hipMemcpyDeviceToHost));
 
   float time;
-  CUDA_RT_CALL(hipEventElapsedTime(&time, start, stop));
+  HIP_RT_CALL(hipEventElapsedTime(&time, start, stop));
 
   fromGPU(outputValuesHost, outputValues, numOut, stream);
   fromGPU(outputCountsHost, outputCounts, numOut, stream);
-  CUDA_RT_CALL(cudaStreamSynchronize(stream));
-  CUDA_RT_CALL(hipStreamDestroy(stream));
+  HIP_RT_CALL(hipStreamSynchronize(stream));
+  HIP_RT_CALL(hipStreamDestroy(stream));
 
-  CUDA_RT_CALL(cudaFree(outputValues));
-  CUDA_RT_CALL(cudaFree(outputCounts));
+  HIP_RT_CALL(hipFree(outputValues));
+  HIP_RT_CALL(hipFree(outputCounts));
 
   // compute RLE on host
   std::vector<T> expectedValues{inputHost[0]};
@@ -341,11 +341,11 @@ TEST_CASE("compress_10Million_Test", "[small]")
     CHECK(expectedCounts[i] == outputCountsHost[i]);
   }
 
-  CUDA_RT_CALL(cudaFreeHost(outputValuesHost));
-  CUDA_RT_CALL(cudaFreeHost(outputCountsHost));
+  HIP_RT_CALL(hipFreeHost(outputValuesHost));
+  HIP_RT_CALL(hipFreeHost(outputCountsHost));
 
-  CUDA_RT_CALL(cudaFree(input));
-  CUDA_RT_CALL(cudaFreeHost(inputHost));
+  HIP_RT_CALL(hipFree(input));
+  HIP_RT_CALL(hipFreeHost(inputHost));
 }
 
 TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
@@ -358,14 +358,14 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
   T *input, *inputHost;
   size_t const numBytes = n * sizeof(*input);
 
-  CUDA_RT_CALL(cudaMalloc((void**)&input, numBytes));
+  HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
 
-  CUDA_RT_CALL(cudaMallocHost((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_RT_CALL(hipMallocHost((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
-  cudaStream_t stream;
-  CUDA_RT_CALL(hipStreamCreate(&stream));
+  hipStream_t stream;
+  HIP_RT_CALL(hipStreamCreate(&stream));
 
   T last = 37;
   for (size_t i = 0; i < n; ++i) {
@@ -377,47 +377,47 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
   T *outputValues, *outputValuesHost;
   V *outputCounts, *outputCountsHost;
 
-  CUDA_RT_CALL(cudaMalloc((void**)&outputValues, sizeof(*outputValues) * n));
-  CUDA_RT_CALL(cudaMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
-  CUDA_RT_CALL(
-      cudaMallocHost((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
-  CUDA_RT_CALL(
-      cudaMallocHost((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
+  HIP_RT_CALL(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
+  HIP_RT_CALL(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
+  HIP_RT_CALL(
+      hipMallocHost((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
+  HIP_RT_CALL(
+      hipMallocHost((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
 
   void* workspace;
   const size_t maxNum = 2 * n;
   const size_t workspaceSize = RunLengthEncodeGPU::requiredWorkspaceSize(
       maxNum, TypeOf<T>(), TypeOf<V>());
-  CUDA_RT_CALL(cudaMalloc((void**)&workspace, workspaceSize));
+  HIP_RT_CALL(hipMalloc((void**)&workspace, workspaceSize));
 
   // create on device inputs
   size_t* numInDevice;
   size_t* numOutDevice;
   T** outputValuesPtr;
   V** outputCountsPtr;
-  CUDA_RT_CALL(cudaMalloc((void**)&numInDevice, sizeof(*numInDevice)));
-  CUDA_RT_CALL(cudaMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
-  CUDA_RT_CALL(cudaMalloc((void**)&outputValuesPtr, sizeof(*outputValuesPtr)));
-  CUDA_RT_CALL(cudaMalloc((void**)&outputCountsPtr, sizeof(*outputCountsPtr)));
+  HIP_RT_CALL(hipMalloc((void**)&numInDevice, sizeof(*numInDevice)));
+  HIP_RT_CALL(hipMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
+  HIP_RT_CALL(hipMalloc((void**)&outputValuesPtr, sizeof(*outputValuesPtr)));
+  HIP_RT_CALL(hipMalloc((void**)&outputCountsPtr, sizeof(*outputCountsPtr)));
 
-  CUDA_RT_CALL(cudaMemcpy(
-      numInDevice, &n, sizeof(*numInDevice), cudaMemcpyHostToDevice));
-  CUDA_RT_CALL(cudaMemcpy(
+  HIP_RT_CALL(hipMemcpy(
+      numInDevice, &n, sizeof(*numInDevice), hipMemcpyHostToDevice));
+  HIP_RT_CALL(hipMemcpy(
       outputValuesPtr,
       &outputValues,
       sizeof(outputValues),
-      cudaMemcpyHostToDevice));
-  CUDA_RT_CALL(cudaMemcpy(
+      hipMemcpyHostToDevice));
+  HIP_RT_CALL(hipMemcpy(
       outputCountsPtr,
       &outputCounts,
       sizeof(outputCounts),
-      cudaMemcpyHostToDevice));
+      hipMemcpyHostToDevice));
 
   hipEvent_t start, stop;
 
-  CUDA_RT_CALL(hipEventCreate(&start));
-  CUDA_RT_CALL(hipEventCreate(&stop));
-  CUDA_RT_CALL(hipEventRecord(start, stream));
+  HIP_RT_CALL(hipEventCreate(&start));
+  HIP_RT_CALL(hipEventCreate(&stop));
+  HIP_RT_CALL(hipEventRecord(start, stream));
 
   RunLengthEncodeGPU::compressDownstream(
       workspace,
@@ -431,27 +431,27 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
       numInDevice,
       maxNum,
       stream);
-  CUDA_RT_CALL(hipEventRecord(stop, stream));
+  HIP_RT_CALL(hipEventRecord(stop, stream));
 
-  CUDA_RT_CALL(cudaStreamSynchronize(stream));
+  HIP_RT_CALL(hipStreamSynchronize(stream));
   float time;
-  CUDA_RT_CALL(hipEventElapsedTime(&time, start, stop));
+  HIP_RT_CALL(hipEventElapsedTime(&time, start, stop));
 
   size_t numOut;
-  CUDA_RT_CALL(cudaMemcpy(
-      &numOut, numOutDevice, sizeof(numOut), cudaMemcpyDeviceToHost));
+  HIP_RT_CALL(hipMemcpy(
+      &numOut, numOutDevice, sizeof(numOut), hipMemcpyDeviceToHost));
 
   fromGPU(outputValuesHost, outputValues, numOut, stream);
   fromGPU(outputCountsHost, outputCounts, numOut, stream);
-  CUDA_RT_CALL(cudaStreamSynchronize(stream));
-  CUDA_RT_CALL(hipStreamDestroy(stream));
+  HIP_RT_CALL(hipStreamSynchronize(stream));
+  HIP_RT_CALL(hipStreamDestroy(stream));
 
-  CUDA_RT_CALL(cudaFree(outputValues));
-  CUDA_RT_CALL(cudaFree(outputCounts));
-  CUDA_RT_CALL(cudaFree(outputValuesPtr));
-  CUDA_RT_CALL(cudaFree(outputCountsPtr));
-  CUDA_RT_CALL(cudaFree(numOutDevice));
-  CUDA_RT_CALL(cudaFree(numInDevice));
+  HIP_RT_CALL(hipFree(outputValues));
+  HIP_RT_CALL(hipFree(outputCounts));
+  HIP_RT_CALL(hipFree(outputValuesPtr));
+  HIP_RT_CALL(hipFree(outputCountsPtr));
+  HIP_RT_CALL(hipFree(numOutDevice));
+  HIP_RT_CALL(hipFree(numInDevice));
 
   // compute RLE on host
   std::vector<T> expectedValues{inputHost[0]};
@@ -481,11 +481,11 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
     CHECK(expectedCounts[i] == outputCountsHost[i]);
   }
 
-  CUDA_RT_CALL(cudaFreeHost(outputValuesHost));
-  CUDA_RT_CALL(cudaFreeHost(outputCountsHost));
+  HIP_RT_CALL(hipFreeHost(outputValuesHost));
+  HIP_RT_CALL(hipFreeHost(outputCountsHost));
 
-  CUDA_RT_CALL(cudaFree(input));
-  CUDA_RT_CALL(cudaFreeHost(inputHost));
+  HIP_RT_CALL(hipFree(input));
+  HIP_RT_CALL(hipFreeHost(inputHost));
 }
 
 TEST_CASE("compressDownstream_10k_16bit_count_Test", "[small]")

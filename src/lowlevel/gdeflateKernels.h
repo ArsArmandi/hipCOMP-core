@@ -33,7 +33,7 @@
 #include "hipcomp.h"
 #include "hipcomp.hpp"
 
-#include <cuda.h>
+#include <hip.h>
 
 #ifdef ENABLE_GDEFLATE
 #include "gdeflate.h"
@@ -43,7 +43,7 @@ namespace hipcomp
   void convertGdeflateOutputStatuses(
       hipcompStatus_t *statuses,
       size_t batch_size,
-      cudaStream_t stream);
+      hipStream_t stream);
 }
 
 #endif // ENABLE_GDEFLATE

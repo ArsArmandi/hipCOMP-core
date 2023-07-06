@@ -37,24 +37,24 @@
 #include "../CascadedMetadataOnGPU.h"
 #include "common.h"
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include <cstdlib>
 
-#ifndef CUDA_RT_CALL
-#define CUDA_RT_CALL(call)                                                     \
+#ifndef HIP_RT_CALL
+#define HIP_RT_CALL(call)                                                     \
   {                                                                            \
-    cudaError_t cudaStatus = call;                                             \
-    if (cudaSuccess != cudaStatus) {                                           \
+    hipError_t hipStatus = call;                                             \
+    if (hipSuccess != hipStatus) {                                           \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: CUDA RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
           "(%d).\n",                                                           \
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
           hipGetErrorString(hipStatus),                                      \
-          cudaStatus);                                                         \
+          hipStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
   }
@@ -75,10 +75,10 @@ __global__ void toGPU(
     T* const output,
     T const* const input,
     size_t const num,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
-  CUDA_RT_CALL(hipMemcpyAsync(
-      output, input, num * sizeof(T), cudaMemcpyHostToDevice, stream));
+  HIP_RT_CALL(hipMemcpyAsync(
+      output, input, num * sizeof(T), hipMemcpyHostToDevice, stream));
 }
 
 template <typename T>
@@ -86,10 +86,10 @@ __global__ void fromGPU(
     T* const output,
     T const* const input,
     size_t const num,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
-  CUDA_RT_CALL(hipMemcpyAsync(
-      output, input, num * sizeof(T), cudaMemcpyDeviceToHost, stream));
+  HIP_RT_CALL(hipMemcpyAsync(
+      output, input, num * sizeof(T), hipMemcpyDeviceToHost, stream));
 }
 
 } // namespace
@@ -121,7 +121,7 @@ TEST_CASE("Metadata-fcns", "[small]")
 
   short version_num = 1;
 
-  cudaStream_t stream;
+  hipStream_t stream;
   hipStreamCreate(&stream);
 
   // get size of serialized metadata
@@ -130,7 +130,7 @@ TEST_CASE("Metadata-fcns", "[small]")
 
   // set serialized metadata
   void* d_meta;
-  CUDA_RT_CALL(cudaMalloc(
+  HIP_RT_CALL(hipMalloc(
       (void**)&d_meta, serialized_metadata_bytes)); // version number + metadata
 
   // Copy to GPU
@@ -187,7 +187,7 @@ TEST_CASE("Metadata-fcns", "[small]")
   CHECK(temp_bytes == 4096);
   CHECK(out_bytes == sizeof(CascadedMetadata));
 
-//  CUDA_RT_CALL(cudaFree(d_meta));
+//  HIP_RT_CALL(hipFree(d_meta));
   hipcompCascadedDestroyMetadata(meta_out);
 
 }

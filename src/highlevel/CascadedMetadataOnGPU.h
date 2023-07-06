@@ -32,7 +32,7 @@
 
 #include "CascadedMetadata.h"
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 namespace hipcomp
 {
@@ -78,7 +78,7 @@ public:
   void copyToGPU(
       const CascadedMetadata& metadata,
       size_t* serializedSizeDPtr,
-      cudaStream_t stream);
+      hipStream_t stream);
 
   /**
    * @brief Copy and serialize the given metadata object to to the GPU
@@ -87,7 +87,7 @@ public:
    * @param metadata The metadata object to serialize.
    * @param stream The stream to asynchronously execute on.
    */
-  void copyToGPU(const CascadedMetadata& metadata, cudaStream_t stream);
+  void copyToGPU(const CascadedMetadata& metadata, hipStream_t stream);
 
   /**
    * @brief Get the size of this metadata on the GPU.
@@ -104,9 +104,9 @@ public:
    *
    * @return The metadata on the CPU.
    */
-  CascadedMetadata copyToHost(cudaStream_t stream);
+  CascadedMetadata copyToHost(hipStream_t stream);
 
-  void copyToHost(void* ptr, cudaStream_t stream);
+  void copyToHost(void* ptr, hipStream_t stream);
 
   /**
    * @brief Save the offset scalar stored on the device to the serialized
@@ -116,7 +116,7 @@ public:
    * @param offsetDPtr The pointer to the offset on the device.
    * @param stream The stream to asynchronously operate on.
    */
-  void saveOffset(size_t index, const size_t* offsetDPtr, cudaStream_t stream);
+  void saveOffset(size_t index, const size_t* offsetDPtr, hipStream_t stream);
 
   /**
    * @brief Set the compressed size in the serialized metadata.
@@ -124,7 +124,7 @@ public:
    * @param sizeDPtr The pointer to the compressed size on the device.
    * @param stream The stream to asynchronously operator on.
    */
-  void setCompressedSizeFromGPU(const size_t* sizeDptr, cudaStream_t stream);
+  void setCompressedSizeFromGPU(const size_t* sizeDptr, hipStream_t stream);
 
   /**
    * @brief Get a pointer to the given header on the device.

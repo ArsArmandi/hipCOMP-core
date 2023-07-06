@@ -29,7 +29,7 @@
 
 #include "highlevel/CascadedCommon.h"
 
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "RunLengthEncodeGPU.h"
 #include "TempSpaceBroker.h"
 #include "common.h"
@@ -55,7 +55,7 @@ constexpr const size_t ALIGN_OFFSET = 256;
 #ifdef _​_HIP_​PLATFORM_​AMD_​_
 constexpr const int WARP_SIZE = 64;
 #else
-#  ifdef __CUDACC_VER_MAJOR__ >= 9
+#  ifdef __HIPCC_VER_MAJOR__ >= 9
 #    define INDEPENDENT_THREAD_SCHEDULING
 #  endif
 constexpr const int WARP_SIZE = 32;
@@ -142,7 +142,7 @@ __device__ T cooperativeSum(T const initVal, T* const buffer)
  * @tparam VALUE The value type.
  * @tparam RUN The run count type.
  * @param[in] in The input data.
- * @param[in] num The size of the input data.
+ * @param[in] numInDevice The size of the input data.
  * @param[out] blockSizes The location to write the block sizes (output).
  */
 template <typename VALUE, typename RUN, int BLOCK_SIZE, int TILE_SIZE>
@@ -200,6 +200,19 @@ __global__ void rleInitKernel(
   }
 }
 
+/**
+ * The algorithm here is to keep reducing "chunks" to a start and end marker.
+ * 
+ * @tparam VALUE The value type.
+ * @tparam RUN The run count type.
+ * @param[in] in The input data.
+ * @param[in] numInDevice The size of the input data.
+ * @param[in] blockPrefix
+ * @param[out] valsPtr Its pointee is out parameter.
+ * @param[out] runsPtr Its pointee is out parameter.
+ * @param[out] blockStart
+ * @param[out] numOutDevice
+ */
 template <typename VALUE, typename RUN, int BLOCK_SIZE, int TILE_SIZE>
 __global__ void rleReduceKernel(
     const VALUE* const in,
@@ -321,9 +334,9 @@ __global__ void rleReduceKernel(
  * fails to account for duplicates in the following block(s). This requires
  * that the first run in each block's output, not be differentiated.
  *
- * @param runs The almost finished runs.
- * @param blockPrefix The previously calculated block prefix.
- * @param num The number of entries.
+ * @param[out] runs The almost finished runs.
+ * @param[in] blockPrefix The previously calculated block prefix.
+ * @param[in] num The number of entries.
  */
 template <typename RUN, int BLOCK_SIZE, int TILE_SIZE>
 __global__ void rleFinalizeKernel(
@@ -400,7 +413,7 @@ size_t requiredWorkspaceSizeTyped(const size_t num)
   size_t* numPtr = nullptr;
 
   size_t workspaceSize = 0;
-  CudaUtils::check(
+  HipUtils::check(
       hipcub::DeviceRunLengthEncode::Encode(
           nullptr,
           workspaceSize,
@@ -426,7 +439,7 @@ void compressInternal(
     size_t* numOutDevice,
     void const* const in,
     size_t const num,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   VALUE* const outValuesTyped = static_cast<VALUE*>(outValues);
   COUNT* const outCountsTyped = static_cast<COUNT*>(outCounts);
@@ -444,7 +457,7 @@ void compressInternal(
   size_t alignedWorkspaceSize
       = workspaceSize - relativeEndOffset(workspace, alignedWorkspace);
 
-  CudaUtils::check(
+  HipUtils::check(
       hipcub::DeviceRunLengthEncode::Encode(
           alignedWorkspace,
           alignedWorkspaceSize,
@@ -467,7 +480,7 @@ void compressDownstreamInternal(
     void const* const in,
     size_t const* numInDevice,
     const size_t maxNum,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   VALUE** const outValuesTypedPtr = reinterpret_cast<VALUE**>(outValuesPtr);
   COUNT** const outCountsTypedPtr = reinterpret_cast<COUNT**>(outCountsPtr);
@@ -502,11 +515,11 @@ void compressDownstreamInternal(
   // get blocks sizes
   rleInitKernel<VALUE, COUNT, BLOCK_SIZE, GLOBAL_TILE_SIZE>
       <<<grid, block, 0, stream>>>(inTyped, numInDevice, blockSizes);
-  CudaUtils::check_last_error("Failed to launch rleInitKernel");
+  HipUtils::check_last_error("Failed to launch rleInitKernel");
 
   // get output locations
   size_t requiredSpace;
-  CudaUtils::check(
+  HipUtils::check(
       hipcub::DeviceScan::ExclusiveSum(
           nullptr, requiredSpace, blockSizes, blockPrefix, grid.x + 1, stream),
       "hipcub::DeviceScan::Exclusive() failed");
@@ -518,7 +531,7 @@ void compressDownstreamInternal(
         "Too little workspace: " + std::to_string(scanWorkspaceSize) + ", need "
         + std::to_string(requiredSpace));
   }
-  CudaUtils::check(
+  HipUtils::check(
       hipcub::DeviceScan::ExclusiveSum(
           scanWorkspace,
           scanWorkspaceSize,
@@ -538,13 +551,13 @@ void compressDownstreamInternal(
           outValuesTypedPtr,
           outCountsTypedPtr,
           numOutDevice);
-  CudaUtils::check_last_error("Failed to launch rleReduceKernel");
+  HipUtils::check_last_error("Failed to launch rleReduceKernel");
 
   // fix gaps
   rleFinalizeKernel<COUNT, BLOCK_SIZE, GLOBAL_TILE_SIZE>
       <<<dim3(roundUpDiv(grid.x, block.x)), block, 0, stream>>>(
           outCountsTypedPtr, blockStart, blockPrefix, numInDevice);
-  CudaUtils::check_last_error("Failed to launch rleFinalizeKernel");
+  HipUtils::check_last_error("Failed to launch rleFinalizeKernel");
 }
 
 } // namespace
@@ -563,7 +576,7 @@ void RunLengthEncodeGPU::compress(
     size_t* const numOutDevice,
     const void* const in,
     const size_t num,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   HIPCOMP_TYPE_TWO_SWITCH(
       valueType,
@@ -590,7 +603,7 @@ void RunLengthEncodeGPU::compressDownstream(
     const void* const in,
     const size_t* numInDevice,
     const size_t maxNum,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   HIPCOMP_TYPE_TWO_SWITCH(
       valueType,

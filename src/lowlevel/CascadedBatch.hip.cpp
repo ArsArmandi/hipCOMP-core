@@ -1556,7 +1556,7 @@ void cascaded_batched_compression_typed(
     size_t batch_size,
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   constexpr int threadblock_size = 128;
   cascaded_compression_kernel<data_type, size_t, threadblock_size>
@@ -1604,7 +1604,7 @@ hipcompStatus_t hipcompBatchedCascadedCompressAsync(
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
     const hipcompBatchedCascadedOpts_t format_opts,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   HIPCOMP_TYPE_ONE_SWITCH(
       format_opts.type,
@@ -1637,7 +1637,7 @@ hipcompStatus_t hipcompBatchedCascadedDecompressAsync(
     size_t temp_bytes,
     void* const* device_uncompressed_ptrs,
     hipcompStatus_t* device_statuses,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 
   // Just call kernel to perform compression. Macro for datatype happens within
@@ -1696,7 +1696,7 @@ hipcompStatus_t hipcompBatchedCascadedGetDecompressSizeAsync(
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   get_decompress_size_kernel<<<roundUpDiv(batch_size, 128), 128, 0, stream>>>(
       device_compressed_ptrs,

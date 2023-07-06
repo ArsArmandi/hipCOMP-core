@@ -37,7 +37,7 @@
 #include "CascadedMetadata.h"
 #include "CascadedMetadataOnGPU.h"
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "hipcomp_cub.cuh"
 #include "type_macros.h"
 #include "unpack.h"
@@ -51,7 +51,7 @@
 #include <vector>
 
 // align all temp allocations by 512B
-#define CUDA_MEM_ALIGN(size) (((size) + 0x1FF) & ~0x1FF)
+#define HIP_MEM_ALIGN(size) (((size) + 0x1FF) & ~0x1FF)
 
 #ifndef RLE_THREAD_BLOCK
 #define RLE_THREAD_BLOCK 128
@@ -128,13 +128,13 @@ struct hipcompIntConfig_t
 
 struct hipcompIntTask_t
 {
-  // TODO: add CUDA event assigned to this task
+  // TODO: add HIP event assigned to this task
 };
 
 struct hipcompIntHandle_t
 {
   std::unique_ptr<hipcompIntConfig_t> config = nullptr;
-  cudaStream_t stream = 0;
+  hipStream_t stream = 0;
 
   // main decomp functions
   template <typename outputT>
@@ -145,7 +145,7 @@ struct hipcompIntHandle_t
       hipcompDataNode_t* node,
       const void** inputData,
       const void** h_headers,
-      cudaStream_t stream = NULL);
+      hipStream_t stream = NULL);
 
   // workspace memory
   size_t workspaceBytes = 0;
@@ -234,7 +234,7 @@ void cubDeviceScanTempSpace(size_t& temp_scan_bytes, const size_t max_input_len)
   void* temp_scan = nullptr;
   T* temp_run = nullptr;
 
-  CudaUtils::check(
+  HipUtils::check(
       hipcub::DeviceScan::InclusiveSum(
           temp_scan, temp_scan_bytes, temp_run, temp_run, max_input_len),
       "hipcub::DeviceScan::InclusiveSum failed");
@@ -574,13 +574,13 @@ size_t hipcompIntConfig_t::getWorkspaceBytes()
 
   // temp vals, runs, delta, output
   if (numRLEs > 0 || numDeltas > 0) {
-    size += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+    size += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
     if (numRLEs > 0) {
-      size += CUDA_MEM_ALIGN(
+      size += HIP_MEM_ALIGN(
           max_input_len * sizeOfhipcompType(selectRunsType(maxOutputSize)));
     }
-    size += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
-    size += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+    size += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+    size += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
   }
 
   size_t temp_scan_bytes_run = 0;
@@ -594,12 +594,12 @@ size_t hipcompIntConfig_t::getWorkspaceBytes()
       outputType, cubDeviceScanTempSpace, temp_scan_bytes_delta, max_input_len);
   size_t temp_scan_bytes = std::max(temp_scan_bytes_run, temp_scan_bytes_delta);
 
-  size += CUDA_MEM_ALIGN(temp_scan_bytes);
+  size += HIP_MEM_ALIGN(temp_scan_bytes);
 
   size_t max_num_blocks
       = (max_output_len + RLE_ELEMS_PER_BLOCK - 1) / RLE_ELEMS_PER_BLOCK;
-  size += CUDA_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
-  size += CUDA_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
+  size += HIP_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
+  size += HIP_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
 
   return size;
 }
@@ -644,19 +644,19 @@ hipcompStatus_t hipcompIntHandle_t::allocateAsync()
   // re-use locations
   if (numRLEs > 0 || numDeltas > 0) {
     temp_val = ptr;
-    ptr += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+    ptr += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
     if (numRLEs > 0) {
       temp_run = ptr;
-      ptr += CUDA_MEM_ALIGN(
+      ptr += HIP_MEM_ALIGN(
           max_input_len * sizeOfhipcompType(selectRunsType(max_output_len)));
     }
     temp_delta = ptr;
-    ptr += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+    ptr += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
 
     // one additional buffer for delta expansion
     // TODO: can we get rid of this one?
     temp_output = ptr;
-    ptr += CUDA_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+    ptr += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
   }
 
   // allocate temp storage for hipcub scan using the largest size_t
@@ -673,15 +673,15 @@ hipcompStatus_t hipcompIntHandle_t::allocateAsync()
   HIPCOMP_TYPE_ONE_SWITCH(
       outputType, cubDeviceScanTempSpace, temp_scan_bytes_delta, max_input_len);
   temp_scan_bytes = std::max(temp_scan_bytes_run, temp_scan_bytes_delta);
-  ptr += CUDA_MEM_ALIGN(temp_scan_bytes);
+  ptr += HIP_MEM_ALIGN(temp_scan_bytes);
 
   // block indices/offsets
   max_num_blocks
       = (max_output_len + RLE_ELEMS_PER_BLOCK - 1) / RLE_ELEMS_PER_BLOCK;
   start_ind = (size_t*)ptr;
-  ptr += CUDA_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
+  ptr += HIP_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
   start_off = (size_t*)ptr;
-  ptr += CUDA_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
+  ptr += HIP_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
 
   return hipcompSuccess;
 }
@@ -724,14 +724,14 @@ hipcompGetWorkspaceSize(hipcompHandle_t handle, size_t* workspaceBytes)
   return hipcompSuccess;
 }
 
-hipcompStatus_t hipcompSetStream(hipcompHandle_t handle, cudaStream_t streamId)
+hipcompStatus_t hipcompSetStream(hipcompHandle_t handle, hipStream_t streamId)
 {
   handles[handle].stream = streamId;
 
   return hipcompSuccess;
 }
 
-hipcompStatus_t hipcompGetStream(hipcompHandle_t handle, cudaStream_t* streamId)
+hipcompStatus_t hipcompGetStream(hipcompHandle_t handle, hipStream_t* streamId)
 {
   *streamId = handles[handle].stream;
 
@@ -778,10 +778,10 @@ void unpackGpu(
     hipcompDataNode_t* node,
     const void* data,
     const void* h_hdr,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   // prepare input data
-  const void* const d_input = CudaUtils::device_pointer(data);
+  const void* const d_input = HipUtils::device_pointer(data);
 
   // Get length of run from the host-side header
   size_t length = static_cast<const CascadedMetadata::Header*>(h_hdr)->length;
@@ -798,11 +798,11 @@ void unpackGpu(
   if (node->packing) {
     unpackBytesKernel<<<grid, block, 0, stream>>>(
         d_input, d_output, numBits, minValue, length);
-    CudaUtils::check_last_error("unpacKBytesKernel failed to launch");
+    HipUtils::check_last_error("unpacKBytesKernel failed to launch");
   } else {
     convertKernel<<<grid, block, 0, stream>>>(
         static_cast<const inputT*>(d_input), d_output, length);
-    CudaUtils::check_last_error("convertKernel failed to launch");
+    HipUtils::check_last_error("convertKernel failed to launch");
   }
 }
 
@@ -812,7 +812,7 @@ void unpackGpu(
     hipcompDataNode_t* node,
     const void* data,
     const void* h_hdr,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   HIPCOMP_TYPE_TWO_SWITCH_FIRST_ONLY(
       node->type, outputT, unpackGpu, d_output, node, data, h_hdr, stream);
@@ -942,7 +942,7 @@ hipcompStatus_t hipcompIntHandle_t::decompGPU(
     hipcompDataNode_t* node,
     const void** inputData,
     const void** h_headers,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   // get typed copies of pointers to avoid casting
   outputT* const localOutput = static_cast<outputT*>(temp_output);
@@ -950,7 +950,7 @@ hipcompStatus_t hipcompIntHandle_t::decompGPU(
   runT* const localRun = static_cast<runT*>(temp_run);
 
   outputT* out_ptr
-      = CudaUtils::device_pointer(static_cast<outputT*>(node->ptr));
+      = HipUtils::device_pointer(static_cast<outputT*>(node->ptr));
 
   hipcompLayer_t* layer = node->parentLayer;
   if (layer->scheme == HIPCOMP_SCHEME_BP) {
@@ -1015,7 +1015,7 @@ hipcompStatus_t hipcompIntHandle_t::decompGPU(
 
   if (layer->scheme == HIPCOMP_SCHEME_DELTA) {
     assert(out_ptr != d_vals);
-    CudaUtils::check(
+    HipUtils::check(
         hipcub::DeviceScan::InclusiveSum(
             temp_scan, temp_scan_bytes, d_vals, out_ptr, input_size, stream),
         "hipcub::DeviceScan::InclusiveSum failed");
@@ -1030,10 +1030,10 @@ hipcompStatus_t hipcompIntHandle_t::decompGPU(
       const dim3 grid(roundUpDiv(input_size, block.x));
       vecMultKernel<<<grid, block, 0, stream>>>(
           d_vals, d_runs, localDelta, input_size);
-      CudaUtils::check_last_error("vecMultKernel failed to launch");
+      HipUtils::check_last_error("vecMultKernel failed to launch");
 
       // inclusive scan to compute Delta sums
-      CudaUtils::check(
+      HipUtils::check(
           hipcub::DeviceScan::InclusiveSum(
               temp_scan,
               temp_scan_bytes,
@@ -1046,14 +1046,14 @@ hipcompStatus_t hipcompIntHandle_t::decompGPU(
 
     // inclusive scan to compute RLE offsets
     // TODO: could be merged with the unpack kernel?
-    CudaUtils::check(
+    HipUtils::check(
         hipcub::DeviceScan::InclusiveSum(
             temp_scan, temp_scan_bytes, d_runs, d_runs, input_size, stream),
         "hipcub::DeviceScan::InclusiveSum");
 
     const size_t output_length = node->length;
 
-    // precompute start/end boundaries for each CUDA block
+    // precompute start/end boundaries for each HIP block
     size_t output_grid
         = (output_length + RLE_ELEMS_PER_BLOCK - 1) / RLE_ELEMS_PER_BLOCK;
     size_t output_grid_block
@@ -1061,7 +1061,7 @@ hipcompStatus_t hipcompIntHandle_t::decompGPU(
     searchBlockBoundaries<runT, RLE_THREAD_BLOCK, RLE_ELEMS_PER_THREAD>
         <<<output_grid_block, RLE_THREAD_BLOCK, 0, stream>>>(
             start_ind, start_off, output_grid, input_size, d_runs);
-    CudaUtils::check_last_error("searchBlockBoundariesKernel failed to launch");
+    HipUtils::check_last_error("searchBlockBoundariesKernel failed to launch");
 
     // expand RLE and apply Delta: buf[r] -> buf[r+1]
     // TODO: implement macro to look nicer?
@@ -1081,7 +1081,7 @@ hipcompStatus_t hipcompIntHandle_t::decompGPU(
           localDelta,
           start_ind,
           start_off);
-      CudaUtils::check_last_error("expandRLEDelta failed to launch");
+      HipUtils::check_last_error("expandRLEDelta failed to launch");
       break;
     case HIPCOMP_SCHEME_RLE:
       expandRLEDelta<
@@ -1098,7 +1098,7 @@ hipcompStatus_t hipcompIntHandle_t::decompGPU(
           localDelta,
           start_ind,
           start_off);
-      CudaUtils::check_last_error("expandRLEDelta failed to launch");
+      HipUtils::check_last_error("expandRLEDelta failed to launch");
       break;
     default:
       throw std::runtime_error(
@@ -1202,7 +1202,7 @@ hipcompStatus_t hipcompCreateHandleAsync(
     std::unique_ptr<hipcompIntConfig_t> config,
     void* workspaceStorage,
     const size_t workspaceBytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 
   std::lock_guard<std::mutex> guard(handle_mutex);
@@ -1261,7 +1261,7 @@ hipcompStatus_t hipcompCascadedDecompressConfigure(
     size_t* metadata_bytes,
     size_t* temp_bytes,
     size_t* uncompressed_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   try {
     CHECK_NOT_NULL(compressed_ptr);
@@ -1300,7 +1300,7 @@ hipcompStatus_t hipcompCascadedDecompressAsync(
     const size_t temp_bytes,
     void* const out_ptr,
     const size_t out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   hipcompHandle_t handle = -1;
   try {
@@ -1423,7 +1423,7 @@ hipcompStatus_t hipcompCascadedCompressAsync(
     const size_t temp_bytes,
     void* const out_ptr,
     size_t* const out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   try {
     checkCompressSize(in_bytes);

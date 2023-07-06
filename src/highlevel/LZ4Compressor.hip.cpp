@@ -28,7 +28,7 @@
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "../Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "LZ4Compressor.h"
 #include "TempSpaceBroker.h"
 #include "common.h"
@@ -123,7 +123,7 @@ size_t LZ4Compressor::calculate_workspace_size(
   size_t buffer_bytes = max_out * num_chunks;
 
   size_t prefix_bytes;
-  CudaUtils::check(
+  HipUtils::check(
       hipcub::DeviceScan::InclusiveSum(
           nullptr,
           prefix_bytes,
@@ -206,7 +206,7 @@ void LZ4Compressor::configure_output(
   m_output_offsets = device_offsets;
 }
 
-void LZ4Compressor::compress_async(cudaStream_t stream)
+void LZ4Compressor::compress_async(hipStream_t stream)
 {
   if (!is_workspace_configured()) {
     throw std::runtime_error(
@@ -284,7 +284,7 @@ void LZ4Compressor::compress_async(cudaStream_t stream)
 
   // perform prefixsum on sizes
   size_t prefix_temp_size;
-  CudaUtils::check(
+  HipUtils::check(
       hipcub::DeviceScan::InclusiveSum(
           nullptr,
           prefix_temp_size,
@@ -296,7 +296,7 @@ void LZ4Compressor::compress_async(cudaStream_t stream)
   void* prefix_temp;
   temp.reserve(&prefix_temp, prefix_temp_size);
 
-  CudaUtils::check(
+  HipUtils::check(
       hipcub::DeviceScan::InclusiveSum(
           prefix_temp,
           prefix_temp_size,
@@ -318,7 +318,7 @@ void LZ4Compressor::compress_async(cudaStream_t stream)
         reinterpret_cast<const uint8_t* const*>(out_ptrs_device),
         m_output_offsets,
         m_output_ptr);
-    CudaUtils::check_last_error();
+    HipUtils::check_last_error();
   }
 }
 

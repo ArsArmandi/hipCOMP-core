@@ -31,7 +31,7 @@
 #include "hipcomp/cascaded.h"
 #include "hipcomp/lz4.h"
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include <assert.h>
 #include <stddef.h>
@@ -48,10 +48,10 @@
     }                                                                          \
   } while (0)
 
-#define CUDA_CHECK(func)                                                       \
+#define HIP_CHECK(func)                                                       \
   do {                                                                         \
-    cudaError_t rt = (func);                                                   \
-    if (rt != cudaSuccess) {                                                   \
+    hipError_t rt = (func);                                                   \
+    if (rt != hipSuccess) {                                                   \
       printf(                                                                  \
           "API call failure \"" #func "\" with %d at " __FILE__ ":%d\n",       \
           (int)rt,                                                             \
@@ -65,7 +65,7 @@ int check_decompress(
     size_t input_size,
     void* d_comp_out,
     size_t comp_out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   // get temp and output size
   size_t temp_bytes;
@@ -81,14 +81,14 @@ int check_decompress(
 
   // allocate temp buffer
   void* temp_ptr;
-  CUDA_CHECK(cudaMalloc(&temp_ptr, temp_bytes));
+  HIP_CHECK(hipMalloc(&temp_ptr, temp_bytes));
 
   status = hipcompDecompressGetOutputSize(metadata_ptr, &output_bytes);
   REQUIRE(status == hipcompSuccess);
 
   // allocate output buffer
   void* out_ptr;
-  CUDA_CHECK(cudaMalloc(&out_ptr, output_bytes));
+  HIP_CHECK(hipMalloc(&out_ptr, output_bytes));
 
   // execute decompression (asynchronous)
   status = hipcompDecompressAsync(
@@ -102,15 +102,15 @@ int check_decompress(
       stream);
   REQUIRE(status == hipcompSuccess);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
 
   hipcompCascadedDestroyMetadata(metadata_ptr);
 
   // Copy result back to host
   int* result = malloc(input_size * sizeof(int));
-  CUDA_CHECK(cudaMemcpy(result, out_ptr, output_bytes, cudaMemcpyDeviceToHost));
+  HIP_CHECK(hipMemcpy(result, out_ptr, output_bytes, hipMemcpyDeviceToHost));
 
-  CUDA_CHECK(cudaFree(temp_ptr));
+  HIP_CHECK(hipFree(temp_ptr));
 
   // Verify correctness
   for (size_t i = 0; i < input_size; ++i) {
@@ -136,16 +136,16 @@ int test_cascaded(void)
   // create GPU only input buffer
   void* d_in_data;
   const size_t in_bytes = sizeof(T) * input_size;
-  CUDA_CHECK(cudaMalloc(&d_in_data, in_bytes));
-  CUDA_CHECK(cudaMemcpy(d_in_data, input, in_bytes, cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc(&d_in_data, in_bytes));
+  HIP_CHECK(hipMemcpy(d_in_data, input, in_bytes, hipMemcpyHostToDevice));
 
   hipcompCascadedFormatOpts comp_opts;
   comp_opts.num_RLEs = RLE;
   comp_opts.num_deltas = Delta;
   comp_opts.use_bp = packing;
 
-  cudaStream_t stream;
-  CUDA_CHECK(hipStreamCreate(&stream));
+  hipStream_t stream;
+  HIP_CHECK(hipStreamCreate(&stream));
 
   hipcompStatus_t status;
 
@@ -164,11 +164,11 @@ int test_cascaded(void)
 
   void* d_comp_temp;
   void* d_comp_out;
-  CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
-  CUDA_CHECK(cudaMalloc(&d_comp_out, comp_out_bytes));
+  HIP_CHECK(hipMalloc(&d_comp_temp, comp_temp_bytes));
+  HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
 
   size_t* d_comp_out_bytes;
-  CUDA_CHECK(cudaMalloc((void**)&d_comp_out_bytes, sizeof(*d_comp_out_bytes)));
+  HIP_CHECK(hipMalloc((void**)&d_comp_out_bytes, sizeof(*d_comp_out_bytes)));
   status = hipcompCascadedCompressAsync(
       &comp_opts,
       type,
@@ -180,20 +180,20 @@ int test_cascaded(void)
       d_comp_out_bytes,
       stream);
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipMemcpy(
       &comp_out_bytes,
       d_comp_out_bytes,
       sizeof(comp_out_bytes),
-      cudaMemcpyDeviceToHost));
+      hipMemcpyDeviceToHost));
 
-  CUDA_CHECK(cudaFree(d_comp_out_bytes));
-  CUDA_CHECK(cudaFree(d_comp_temp));
-  CUDA_CHECK(cudaFree(d_in_data));
+  HIP_CHECK(hipFree(d_comp_out_bytes));
+  HIP_CHECK(hipFree(d_comp_temp));
+  HIP_CHECK(hipFree(d_in_data));
 
   int rv
       = check_decompress(input, input_size, d_comp_out, comp_out_bytes, stream);
-  CUDA_CHECK(cudaFree(d_comp_out));
+  HIP_CHECK(hipFree(d_comp_out));
 
   return rv;
 }
@@ -214,20 +214,20 @@ int test_lz4(void)
   // create GPU only input buffer
   void* d_in_data;
   const size_t in_bytes = sizeof(T) * input_size;
-  CUDA_CHECK(cudaMalloc(&d_in_data, in_bytes));
-  CUDA_CHECK(cudaMemcpy(d_in_data, input, in_bytes, cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc(&d_in_data, in_bytes));
+  HIP_CHECK(hipMemcpy(d_in_data, input, in_bytes, hipMemcpyHostToDevice));
 
   hipcompLZ4FormatOpts opts;
   opts.chunk_size = 1 << 16;
 
-  cudaStream_t stream;
-  CUDA_CHECK(hipStreamCreate(&stream));
+  hipStream_t stream;
+  HIP_CHECK(hipStreamCreate(&stream));
 
   hipcompStatus_t status;
 
   size_t* p_comp_out_bytes;
-  CUDA_CHECK(
-      cudaMallocHost((void**)&p_comp_out_bytes, sizeof(*p_comp_out_bytes)));
+  HIP_CHECK(
+      hipMallocHost((void**)&p_comp_out_bytes, sizeof(*p_comp_out_bytes)));
 
   // Compress on the GPU
   size_t comp_temp_bytes;
@@ -243,8 +243,8 @@ int test_lz4(void)
 
   void* d_comp_temp;
   void* d_comp_out;
-  CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
-  CUDA_CHECK(cudaMalloc(&d_comp_out, *p_comp_out_bytes));
+  HIP_CHECK(hipMalloc(&d_comp_temp, comp_temp_bytes));
+  HIP_CHECK(hipMalloc(&d_comp_out, *p_comp_out_bytes));
 
   status = hipcompLZ4CompressAsync(
       &opts,
@@ -257,15 +257,15 @@ int test_lz4(void)
       p_comp_out_bytes,
       stream);
   REQUIRE(status == hipcompSuccess);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
 
-  cudaFree(d_comp_temp);
-  cudaFree(d_in_data);
+  hipFree(d_comp_temp);
+  hipFree(d_in_data);
 
   int rv = check_decompress(
       input, input_size, d_comp_out, *p_comp_out_bytes, stream);
-  CUDA_CHECK(cudaFree(d_comp_out));
-  CUDA_CHECK(cudaFreeHost(p_comp_out_bytes));
+  HIP_CHECK(hipFree(d_comp_out));
+  HIP_CHECK(hipFreeHost(p_comp_out_bytes));
 
   free(input);
 

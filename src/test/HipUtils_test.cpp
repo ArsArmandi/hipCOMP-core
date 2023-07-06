@@ -30,24 +30,24 @@
 #define CATCH_CONFIG_MAIN
 
 #include "tests/catch.hpp"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
-#ifndef CUDA_RT_CALL
-#define CUDA_RT_CALL(call)                                                     \
+#ifndef HIP_RT_CALL
+#define HIP_RT_CALL(call)                                                     \
   {                                                                            \
-    cudaError_t cudaStatus = call;                                             \
-    if (cudaSuccess != cudaStatus) {                                           \
+    hipError_t hipStatus = call;                                             \
+    if (hipSuccess != hipStatus) {                                           \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: CUDA RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
           "(%d).\n",                                                           \
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
           hipGetErrorString(hipStatus),                                      \
-          cudaStatus);                                                         \
+          hipStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
   }
@@ -63,56 +63,56 @@ TEST_CASE("IsDevicePointerTest", "[small]")
 {
   // check a device pointer - true
   size_t* dev_ptr;
-  CUDA_RT_CALL(cudaMalloc((void**)&dev_ptr, sizeof(*dev_ptr)));
-  REQUIRE(CudaUtils::is_device_pointer(dev_ptr));
-  CUDA_RT_CALL(cudaFree(dev_ptr));
+  HIP_RT_CALL(hipMalloc((void**)&dev_ptr, sizeof(*dev_ptr)));
+  REQUIRE(HipUtils::is_device_pointer(dev_ptr));
+  HIP_RT_CALL(hipFree(dev_ptr));
 
   // check a uvm pointer - false
   size_t* managed_ptr;
-  CUDA_RT_CALL(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
-  REQUIRE(!CudaUtils::is_device_pointer(managed_ptr));
-  CUDA_RT_CALL(cudaFree(managed_ptr));
+  HIP_RT_CALL(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
+  REQUIRE(!HipUtils::is_device_pointer(managed_ptr));
+  HIP_RT_CALL(hipFree(managed_ptr));
 
   // check a pinned pointer - false
   size_t* pinned_ptr;
-  CUDA_RT_CALL(cudaMallocHost((void**)&pinned_ptr, sizeof(*pinned_ptr)));
-  REQUIRE(!CudaUtils::is_device_pointer(pinned_ptr));
-  CUDA_RT_CALL(cudaFreeHost(pinned_ptr));
+  HIP_RT_CALL(hipMallocHost((void**)&pinned_ptr, sizeof(*pinned_ptr)));
+  REQUIRE(!HipUtils::is_device_pointer(pinned_ptr));
+  HIP_RT_CALL(hipFreeHost(pinned_ptr));
 
   // check an unregistered pointer - false
   size_t unregistered;
-  REQUIRE(!CudaUtils::is_device_pointer(&unregistered));
+  REQUIRE(!HipUtils::is_device_pointer(&unregistered));
 
   // check a null pointer - should be false
-  REQUIRE(!CudaUtils::is_device_pointer(nullptr));
+  REQUIRE(!HipUtils::is_device_pointer(nullptr));
 }
 
 TEST_CASE("DevicePointerTest", "[small]")
 {
   // check a device pointer - should be equal
   size_t* dev_ptr;
-  CUDA_RT_CALL(cudaMalloc((void**)&dev_ptr, sizeof(*dev_ptr)));
-  REQUIRE(CudaUtils::device_pointer(dev_ptr) == dev_ptr);
-  CUDA_RT_CALL(cudaFree(dev_ptr));
+  HIP_RT_CALL(hipMalloc((void**)&dev_ptr, sizeof(*dev_ptr)));
+  REQUIRE(HipUtils::device_pointer(dev_ptr) == dev_ptr);
+  HIP_RT_CALL(hipFree(dev_ptr));
 
   // check a uvm pointer - should succeed and return a device pointer
   size_t* managed_ptr;
-  CUDA_RT_CALL(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
-  size_t* managed_dev_ptr = CudaUtils::device_pointer(managed_ptr);
-  CUDA_RT_CALL(hipMemset(managed_dev_ptr, 0, sizeof(*managed_dev_ptr)));
-  CUDA_RT_CALL(cudaFree(managed_ptr));
+  HIP_RT_CALL(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
+  size_t* managed_dev_ptr = HipUtils::device_pointer(managed_ptr);
+  HIP_RT_CALL(hipMemset(managed_dev_ptr, 0, sizeof(*managed_dev_ptr)));
+  HIP_RT_CALL(hipFree(managed_ptr));
 
   // check a pinned pointer - should succeed and return a device pointer
   size_t* pinned_ptr;
-  CUDA_RT_CALL(cudaMallocHost((void**)&pinned_ptr, sizeof(*pinned_ptr)));
-  size_t* pinned_dev_ptr = CudaUtils::device_pointer(pinned_ptr);
-  CUDA_RT_CALL(hipMemset(pinned_dev_ptr, 0, sizeof(*pinned_dev_ptr)));
-  CUDA_RT_CALL(cudaFreeHost(pinned_ptr));
+  HIP_RT_CALL(hipMallocHost((void**)&pinned_ptr, sizeof(*pinned_ptr)));
+  size_t* pinned_dev_ptr = HipUtils::device_pointer(pinned_ptr);
+  HIP_RT_CALL(hipMemset(pinned_dev_ptr, 0, sizeof(*pinned_dev_ptr)));
+  HIP_RT_CALL(hipFreeHost(pinned_ptr));
 
   // check an unregistered pointer - should throw an exception
   try {
     size_t unregistered;
-    CudaUtils::device_pointer(&unregistered);
+    HipUtils::device_pointer(&unregistered);
     REQUIRE(false); // uncreachable
   } catch (const std::exception&) {
     // pass
@@ -120,7 +120,7 @@ TEST_CASE("DevicePointerTest", "[small]")
 
   // check a null pointer - should throw an exception
   try {
-    CudaUtils::device_pointer(static_cast<void*>(nullptr));
+    HipUtils::device_pointer(static_cast<void*>(nullptr));
   } catch (const std::exception&) {
     // pass
   }

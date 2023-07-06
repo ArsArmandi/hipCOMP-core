@@ -29,7 +29,7 @@
 
 #include "CascadedCommon.h"
 #include "CascadedMetadataOnGPU.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "common.h"
 
 #include <cassert>
@@ -257,16 +257,16 @@ size_t readFixedWidthData(
 }
 
 CascadedMetadata deserializeMetadataFromGPUVersion1(
-    const void* const devicePtr, const size_t size, cudaStream_t stream)
+    const void* const devicePtr, const size_t size, hipStream_t stream)
 {
   NUM_INPUTS_TYPE numInputs;
-  CudaUtils::copy_async(
+  HipUtils::copy_async(
       &numInputs,
       (const NUM_INPUTS_TYPE*)(static_cast<const uint8_t*>(devicePtr) + OFFSET_NUM_INPUTS),
       1,
       DEVICE_TO_HOST,
       stream);
-  CudaUtils::sync(stream);
+  HipUtils::sync(stream);
 
   std::vector<uint8_t> localBuffer(serializedMetadataSize(numInputs));
   if (size < localBuffer.size()) {
@@ -277,13 +277,13 @@ CascadedMetadata deserializeMetadataFromGPUVersion1(
         + std::to_string(localBuffer.size()));
   }
 
-  CudaUtils::copy_async(
+  HipUtils::copy_async(
       (uint8_t*)localBuffer.data(),
       (const uint8_t*)devicePtr,
       localBuffer.size(),
       DEVICE_TO_HOST,
       stream);
-  CudaUtils::sync(stream);
+  HipUtils::sync(stream);
 
   // here we convert to types of fixed width by the C++ standard rather than
   // just doing a memcpy of the struct, to ensure portability.
@@ -370,7 +370,7 @@ CascadedMetadataOnGPU::CascadedMetadataOnGPU(void* const ptr, size_t maxSize) :
 void CascadedMetadataOnGPU::copyToGPU(
     const CascadedMetadata& metadata,
     size_t* const serializedSizeDevice,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   const size_t requiredSize = serializedMetadataSize(metadata.getNumInputs());
   if (m_maxSize < requiredSize) {
@@ -391,7 +391,7 @@ void CascadedMetadataOnGPU::copyToGPU(
       metadata.getValueType(),
       metadata.getNumInputs(),
       serializedSizeDevice);
-  CudaUtils::check_last_error("Failed to launch metadata serialization kernel");
+  HipUtils::check_last_error("Failed to launch metadata serialization kernel");
 
   if (metadata.haveAnyOffsetsBeenSet()) {
     if (!metadata.haveAllOffsetsBeenSet()) {
@@ -403,7 +403,7 @@ void CascadedMetadataOnGPU::copyToGPU(
 
     for (size_t i = 0; i < metadata.getNumInputs(); ++i) {
       const HEADER_TYPE header = metadata.getHeader(i);
-      CudaUtils::copy_async(
+      HipUtils::copy_async(
           (HEADER_TYPE*)(static_cast<uint8_t*>(m_ptr) + OFFSET_HEADERS + i * sizeof(header)),
           &header,
           1,
@@ -413,7 +413,7 @@ void CascadedMetadataOnGPU::copyToGPU(
 
     for (size_t i = 0; i < metadata.getNumInputs(); ++i) {
       const OFFSET_TYPE offset = metadata.getDataOffset(i);
-      CudaUtils::copy_async(
+      HipUtils::copy_async(
           (OFFSET_TYPE*)(static_cast<uint8_t*>(m_ptr)
               + getOffsetsOffset(metadata.getNumInputs())
               + sizeof(OFFSET_TYPE) * i),
@@ -429,7 +429,7 @@ void CascadedMetadataOnGPU::copyToGPU(
 }
 
 void CascadedMetadataOnGPU::copyToGPU(
-    const CascadedMetadata& metadata, cudaStream_t stream)
+    const CascadedMetadata& metadata, hipStream_t stream)
 {
   copyToGPU(metadata, nullptr, stream);
 }
@@ -442,7 +442,7 @@ size_t CascadedMetadataOnGPU::getSerializedSize() const
 }
 
 void CascadedMetadataOnGPU::saveOffset(
-    size_t index, const size_t* offsetDevice, cudaStream_t stream)
+    size_t index, const size_t* offsetDevice, hipStream_t stream)
 {
   verifyInitialized();
 
@@ -455,11 +455,11 @@ void CascadedMetadataOnGPU::saveOffset(
   }
 
   setOffset<<<1, 1, 0, stream>>>(m_ptr, index, offsetDevice);
-  CudaUtils::check_last_error("Failed to launch setOffset");
+  HipUtils::check_last_error("Failed to launch setOffset");
 }
 
 void CascadedMetadataOnGPU::setCompressedSizeFromGPU(
-    const size_t* sizeOnDevice, cudaStream_t stream)
+    const size_t* sizeOnDevice, hipStream_t stream)
 {
   // TODO: re-write so that we don't depend on 64-bit architecture
   static_assert(
@@ -476,7 +476,7 @@ void CascadedMetadataOnGPU::setCompressedSizeFromGPU(
       hipMemcpyDeviceToDevice,
       stream);
 
-  if (err != cudaSuccess) {
+  if (err != hipSuccess) {
     throw std::runtime_error(
         "Async memcpy in "
         "CascadedMetadataOnGPU::setCompressedSizeFromGPU() failed with: "
@@ -484,18 +484,18 @@ void CascadedMetadataOnGPU::setCompressedSizeFromGPU(
   }
 }
 
-CascadedMetadata CascadedMetadataOnGPU::copyToHost(cudaStream_t stream)
+CascadedMetadata CascadedMetadataOnGPU::copyToHost(hipStream_t stream)
 {
   // read the version of the serialized metadata.
   VERSION_TYPE version;
 
-  CudaUtils::copy_async(
+  HipUtils::copy_async(
       &version,
       static_cast<const VERSION_TYPE*>(m_ptr),
       1,
       DEVICE_TO_HOST,
       stream);
-  CudaUtils::sync(stream);
+  HipUtils::sync(stream);
 
   if (version == 1) {
     CascadedMetadata metadata

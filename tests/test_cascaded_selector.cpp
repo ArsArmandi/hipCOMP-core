@@ -41,10 +41,10 @@
 using namespace std;
 using namespace hipcomp;
 
-#define CUDA_CHECK(cond)                                                       \
+#define HIP_CHECK(cond)                                                       \
   do {                                                                         \
-    cudaError_t err = cond;                                                    \
-    REQUIRE(err == cudaSuccess);                                               \
+    hipError_t err = cond;                                                    \
+    REQUIRE(err == hipSuccess);                                               \
   } while (false)
 
 /******************************************************************************
@@ -74,9 +74,9 @@ double test_selector_c(const std::vector<T>& input, size_t sample_size, size_t n
   // create GPU only input buffer
   T* d_in_data;
   const size_t in_bytes = sizeof(T) * input.size();
-  CUDA_CHECK(cudaMalloc((void**)&d_in_data, in_bytes));
-  CUDA_CHECK(
-      cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc((void**)&d_in_data, in_bytes));
+  HIP_CHECK(
+      hipMemcpy(d_in_data, input.data(), in_bytes, hipMemcpyHostToDevice));
 
   size_t temp_bytes = 0;
   void* d_temp;
@@ -89,9 +89,9 @@ double test_selector_c(const std::vector<T>& input, size_t sample_size, size_t n
       &selector_opts, TypeOf<T>(), in_bytes, &temp_bytes);
   REQUIRE(err == hipcompSuccess);
 
-  CUDA_CHECK( cudaMalloc(&d_temp, temp_bytes) );
+  HIP_CHECK( hipMalloc(&d_temp, temp_bytes) );
 
-  cudaStream_t stream;
+  hipStream_t stream;
   hipStreamCreate(&stream);
   double est_ratio;
 
@@ -106,11 +106,11 @@ double test_selector_c(const std::vector<T>& input, size_t sample_size, size_t n
       &est_ratio,
       stream);
 
-  cudaStreamSynchronize(stream);
+  hipStreamSynchronize(stream);
   REQUIRE(err == hipcompSuccess);
 
-  cudaFree(d_temp);
-  cudaFree(d_in_data);
+  hipFree(d_temp);
+  hipFree(d_in_data);
   
   return est_ratio;
 }
@@ -122,9 +122,9 @@ double test_selector_default_c(const std::vector<T>& input, hipcompCascadedForma
   // create GPU only input buffer
   T* d_in_data;
   const size_t in_bytes = sizeof(T) * input.size();
-  CUDA_CHECK(cudaMalloc((void**)&d_in_data, in_bytes));
-  CUDA_CHECK(
-      cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc((void**)&d_in_data, in_bytes));
+  HIP_CHECK(
+      hipMemcpy(d_in_data, input.data(), in_bytes, hipMemcpyHostToDevice));
 
   size_t temp_bytes = 0;
   void* d_temp;
@@ -133,9 +133,9 @@ double test_selector_default_c(const std::vector<T>& input, hipcompCascadedForma
       NULL, TypeOf<T>(), in_bytes, &temp_bytes);
   REQUIRE(err == hipcompSuccess);
 
-  CUDA_CHECK( cudaMalloc(&d_temp, temp_bytes) );
+  HIP_CHECK( hipMalloc(&d_temp, temp_bytes) );
 
-  cudaStream_t stream;
+  hipStream_t stream;
   hipStreamCreate(&stream);
   double est_ratio;
 
@@ -150,11 +150,11 @@ double test_selector_default_c(const std::vector<T>& input, hipcompCascadedForma
       &est_ratio,
       stream);
 
-  cudaStreamSynchronize(stream);
+  hipStreamSynchronize(stream);
   REQUIRE(err == hipcompSuccess);
 
-  cudaFree(d_temp);
-  cudaFree(d_in_data);
+  hipFree(d_temp);
+  hipFree(d_in_data);
   
   return est_ratio;
 }
@@ -171,9 +171,9 @@ hipcompCascadedFormatOpts* opts)
   // create GPU only input buffer
   T* d_in_data;
   const size_t in_bytes = sizeof(T) * input.size();
-  CUDA_CHECK(cudaMalloc((void**)&d_in_data, in_bytes));
-  CUDA_CHECK(
-      cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc((void**)&d_in_data, in_bytes));
+  HIP_CHECK(
+      hipMemcpy(d_in_data, input.data(), in_bytes, hipMemcpyHostToDevice));
 
   hipcompCascadedSelectorOpts selector_opts;
   selector_opts.sample_size = sample_size;
@@ -186,18 +186,18 @@ hipcompCascadedFormatOpts* opts)
   // Get temp size and allocate it
   size_t temp_bytes = selector.get_temp_size();
   void* d_temp;
-  CUDA_CHECK( cudaMalloc(&d_temp, temp_bytes) );
+  HIP_CHECK( hipMalloc(&d_temp, temp_bytes) );
 
-  cudaStream_t stream;
+  hipStream_t stream;
   hipStreamCreate(&stream);
   double est_ratio;
 
   *opts = selector.select_config(d_temp, temp_bytes, &est_ratio, stream);
 
-  cudaStreamSynchronize(stream);
+  hipStreamSynchronize(stream);
 
-  cudaFree(d_temp);
-  cudaFree(d_in_data);
+  hipFree(d_temp);
+  hipFree(d_in_data);
   
   return est_ratio;
 }  

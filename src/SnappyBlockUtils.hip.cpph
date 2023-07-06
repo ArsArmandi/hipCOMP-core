@@ -18,10 +18,10 @@
 #pragma once
 #include <stdint.h>
 
-__CUDACC_VER_MAJOR__
+__HIPCC_VER_MAJOR__
 
 
-#if (__CUDACC_VER_MAJOR__ >= 9) or defined(_​_HIP_​PLATFORM_​AMD_​_)
+#if (__HIPCC_VER_MAJOR__ >= 9) or defined(_​_HIP_​PLATFORM_​AMD_​_)
 #  define INDEPENDENT_THREAD_SCHEDULING
 #endif
 #ifdef INDEPENDENT_THREAD_SCHEDULING
@@ -38,7 +38,7 @@ __CUDACC_VER_MAJOR__
 #  define BALLOT(v)       __ballot(v)
 #endif
 
-#if (__CUDA_ARCH__ >= 700)
+#if (__HIP_ARCH__ >= 700)
 #  define NANOSLEEP(d)  __nanosleep(d)
 #else
 // includes the _​_HIP_​PLATFORM_​AMD_​_ case
@@ -205,4 +205,3 @@ inline __device__ bool nvstr_is_equal(const char *as, uint32_t alen, const char 
 {
     return nvstr_compare<bool, false, false, true>(as, alen, bs, blen);
 }
-

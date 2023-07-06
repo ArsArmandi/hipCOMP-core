@@ -35,7 +35,7 @@
 #include <cstdio>
 #include <cassert>
 
-#ifdef __CUDACC__
+#ifdef __HIPCC__
 #define HIPCOMP_HOST_DEVICE __device__ __host__
 #else
 #define HIPCOMP_HOST_DEVICE

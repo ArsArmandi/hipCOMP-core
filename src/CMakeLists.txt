@@ -28,17 +28,17 @@
 # build real and virtual, so as to run on 6x cards.
 set(GPU_ARCHS "60")
 
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER "8")
+if(CMAKE_HIP_COMPILER_VERSION VERSION_GREATER "8")
   set(GPU_ARCHS ${GPU_ARCHS} "70-real")
 endif()
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER "9")
+if(CMAKE_HIP_COMPILER_VERSION VERSION_GREATER "9")
   set(GPU_ARCHS ${GPU_ARCHS} "75-real")
 endif()
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11")
+if(CMAKE_HIP_COMPILER_VERSION VERSION_GREATER_EQUAL "11")
   set(GPU_ARCHS ${GPU_ARCHS} "80")
 endif()
 
-file(GLOB CUDA_SOURCES
+file(GLOB HIP_SOURCES
   ./*.cu
   ./lowlevel/*.cu
   ./highlevel/*.cu)
@@ -48,28 +48,28 @@ file(GLOB CPP_SOURCES
   ./highlevel/*.cpp)
 
 if (BUILD_STATIC)
-  add_library(hipcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
+  add_library(hipcomp STATIC ${HIP_SOURCES} ${CPP_SOURCES})
 else()
   if (MSVC_VERSION)
     # we have to export all symbols on windows for a dll
-    add_library(hipcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
+    add_library(hipcomp STATIC ${HIP_SOURCES} ${CPP_SOURCES})
   else()
-    add_library(hipcomp SHARED ${CUDA_SOURCES} ${CPP_SOURCES})
+    add_library(hipcomp SHARED ${HIP_SOURCES} ${CPP_SOURCES})
   endif()
 endif()
 
 include_directories("./")
 
 set_property(TARGET hipcomp PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET hipcomp PROPERTY CUDA_ARCHITECTURES ${GPU_ARCHS})
+set_property(TARGET hipcomp PROPERTY HIP_ARCHITECTURES ${GPU_ARCHS})
 target_compile_options(hipcomp PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda>)
+    $<$<COMPILE_LANGUAGE:HIP>:--expt-extended-lambda>)
 target_include_directories(hipcomp PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>")
 if(DEFINED CUB_DIR)
   target_include_directories(hipcomp PRIVATE "${CUB_DIR}")
 endif()
-target_include_directories(hipcomp PRIVATE "${CUDAToolkit_INCLUDE_DIRS}")
+target_include_directories(hipcomp PRIVATE "${HIPToolkit_INCLUDE_DIRS}")
 
 if (bitcomp_FOUND)
   target_include_directories(hipcomp INTERFACE ${BITCOMP_INCLUDE_DIRS})

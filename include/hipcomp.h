@@ -30,7 +30,7 @@
 #ifndef HIPCOMP_H
 #define HIPCOMP_H
 
-#include <cuda_runtime.h>
+#include <hip_runtime.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,7 +50,7 @@ typedef enum hipcompStatus_t
   hipcompErrorInvalidValue = 10,
   hipcompErrorNotSupported = 11,
   hipcompErrorCannotDecompress = 12,
-  hipcompErrorCudaError = 1000,
+  hipcompErrorHipError = 1000,
   hipcompErrorInternal = 10000,
 } hipcompStatus_t;
 
@@ -96,7 +96,7 @@ hipcompStatus_t hipcompDecompressGetMetadata(
     const void* in_ptr,
     size_t in_bytes,
     void** metadata_ptr,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * DEPRECATED: Will be removed in future releases.
@@ -160,7 +160,7 @@ hipcompDecompressGetType(const void* metadata_ptr, hipcompType_t* type);
  * @param metadata_ptr The metadata.
  * @param out_ptr The output location on the device.
  * @param out_bytes The size of the output location.
- * @param stream The cuda stream to operate on.
+ * @param stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -172,7 +172,7 @@ hipcompStatus_t hipcompDecompressAsync(
     void* metadata_ptr,
     void* out_ptr,
     size_t out_bytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 #ifdef __cplusplus
 }

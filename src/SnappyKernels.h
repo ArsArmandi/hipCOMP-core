@@ -58,7 +58,7 @@ struct gpu_snappy_status_s {
  * @param[out] device_out_bytes Pointer to the list of actual sizes
  * of compressed data.
  * @param[in] count The number of chunks to compress.
- * @param[in] stream All the compression will be enqueued into this CUDA
+ * @param[in] stream All the compression will be enqueued into this HIP
  * stream and run asynchronously.
  **/
 void gpu_snap(
@@ -69,7 +69,7 @@ void gpu_snap(
 	gpu_snappy_status_s *outputs,
 	size_t* device_out_bytes,
   int count,
-  cudaStream_t stream);
+  hipStream_t stream);
 
 /**
  * @brief Interface for decompressing data with Snappy
@@ -91,7 +91,7 @@ void gpu_snap(
  * @param[out] device_out_bytes Pointer to the list of actual sizes
  * of uncompressed data. Could be null-ptr.
  * @param[in] count The number of chunks to decompress.
- * @param[in] stream All the decompression will be enqueued into this CUDA
+ * @param[in] stream All the decompression will be enqueued into this HIP
  * stream and run asynchronously.
  **/
 void gpu_unsnap(
@@ -102,7 +102,7 @@ void gpu_unsnap(
     hipcompStatus_t* outputs,
     size_t* device_out_bytes,
     int count,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Compute the sizes of the uncompressed data chunks
@@ -121,7 +121,7 @@ void gpu_unsnap(
  * stream. Non-zero value doesn't necesary mean though that the chunk
  * is a valid snappy compressed stream.
  * @param[in] count The number of chunks to compute sizes for.
- * @param[in] stream All the computations will be enqueued into this CUDA
+ * @param[in] stream All the computations will be enqueued into this HIP
  * stream and run asynchronously.
  **/
 void gpu_get_uncompressed_sizes(
@@ -129,5 +129,5 @@ void gpu_get_uncompressed_sizes(
   const size_t* device_in_bytes,
   size_t* device_out_bytes,
   int count,
-  cudaStream_t stream);
+  hipStream_t stream);
 } // namespace hipcomp

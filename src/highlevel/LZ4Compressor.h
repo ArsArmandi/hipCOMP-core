@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -82,7 +82,7 @@ public:
 
   void configure_output(uint8_t* device_location, size_t* device_offsets);
 
-  void compress_async(cudaStream_t stream);
+  void compress_async(hipStream_t stream);
 
 private:
   const uint8_t* m_input_ptr;

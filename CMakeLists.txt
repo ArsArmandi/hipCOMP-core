@@ -26,7 +26,7 @@
 #
 # Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 cmake_minimum_required(VERSION 3.18)
-project(nvcomp LANGUAGES C CUDA CXX)
+project(hipcomp LANGUAGES C HIP CXX)
 
 option(BUILD_TESTS "Build unit and end-to-end tests." OFF)
 option(BUILD_BENCHMARKS "Build benchmarks." OFF)
@@ -34,14 +34,14 @@ option(BUILD_EXAMPLES "Build examples." OFF)
 option(BUILD_STATIC "Build a static library." OFF)
 
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_HIP_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 list( APPEND CMAKE_MODULE_PATH
   ${CMAKE_SOURCE_DIR}/cmake
 )
 
-find_package(CUDAToolkit REQUIRED)
+find_package(HIPToolkit REQUIRED)
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU" OR
     "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR
@@ -53,8 +53,8 @@ endif()
 
 # Using '-G' can cause the register count to overflow for some kernels
 # and cause launch failures
-# set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG};-G")
-set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -g")
+# set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG};-G")
+set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -g")
 
 if(CMAKE_BUILD_TYPE STREQUAL "DEBUG" OR CMAKE_BUILD_TYPE STREQUAL "Debug")
   message("Debug build.")
@@ -74,20 +74,20 @@ if(DEFINED DEVEL AND NOT DEVEL EQUAL 0)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Weffc++")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra")
-    # this doesn't work with old style CMakeLists and cuda
+    # this doesn't work with old style CMakeLists and hip
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wpedantic")
 
     # g++ warnings
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
-    # this doesn't work with old style CMakeLists and cuda
+    # this doesn't work with old style CMakeLists and hip
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpedantic")
   endif()
 
   
-  if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --Werror=all-warnings")
+  if(CMAKE_HIP_COMPILER_VERSION VERSION_GREATER_EQUAL "11")
+    set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} --Werror=all-warnings")
   endif()
 
   # TODO: add clang warnings
@@ -102,13 +102,13 @@ if(NOT DEFINED CUB_DIR AND DEFINED ENV{CUB_DIR})
 endif()
 
 message(STATUS "Finding HIPCUB")
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "11" AND NOT DEFINED CUB_DIR)
-  message(FATAL_ERROR "When using a CUDA prior to CUDA 11, you must specify "
+if(CMAKE_HIP_COMPILER_VERSION VERSION_LESS "11" AND NOT DEFINED CUB_DIR)
+  message(FATAL_ERROR "When using a HIP prior to HIP 11, you must specify "
       "the path of hipcub via the 'HIPCUB_DIR' variable (e.g., "
       "'cmake -DHIPCUB_DIR=...' or 'export HIPCUB_DIR=...'). You can download hipcub "
       "from 'https://github.com/ROCmSoftwarePlatform/hipCUB'.")
 endif()
-find_path(HIPCUB_HEADER NAMES "hipcub/hipcub.hpp" PATHS "${HIPCUB_DIR}" "${CUDAToolkit_INCLUDE_DIRS}")
+find_path(HIPCUB_HEADER NAMES "hipcub/hipcub.hpp" PATHS "${HIPCUB_DIR}" "${HIPToolkit_INCLUDE_DIRS}")
 if(NOT CUB_HEADER)
   message(FATAL_ERROR "Unable to locate 'hipcub/hipcub.hpp'. Please specify a path "
       "to hipcub via 'HIPCUB_DIR'")

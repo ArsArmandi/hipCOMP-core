@@ -68,7 +68,7 @@ hipcompStatus_t hipcompBatchedBitcompCompressAsync(
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
     const hipcompBatchedBitcompFormatOpts format_opts,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   // Convert the HIPCOMP type to a BITCOMP type
   bitcompDataType_t dataType;
@@ -148,11 +148,11 @@ hipcompStatus_t hipcompBatchedBitcompDecompressAsync(
     size_t,      // temp_bytes, not used
     void* const* device_uncompressed_ptrs,
     hipcompStatus_t* device_statuses,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   // Synchronize the stream to make sure the compressed data is visible
-  if (cudaStreamSynchronize(stream) != cudaSuccess)
-    return hipcompErrorCudaError;
+  if (hipStreamSynchronize(stream) != hipSuccess)
+    return hipcompErrorHipError;
 
   // Create a Bitcomp batch handle from the compressed data.
   bitcompHandle_t plan;
@@ -193,7 +193,7 @@ hipcompStatus_t hipcompBatchedBitcompGetDecompressSizeAsync(
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   BTCHK(bitcompBatchGetUncompressedSizesAsync(
       device_compressed_ptrs,

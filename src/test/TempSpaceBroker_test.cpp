@@ -32,24 +32,24 @@
 #include "tests/catch.hpp"
 #include "TempSpaceBroker.h"
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include <cstdint>
 
-#ifndef CUDA_RT_CALL
-#define CUDA_RT_CALL(call)                                                     \
+#ifndef HIP_RT_CALL
+#define HIP_RT_CALL(call)                                                     \
   {                                                                            \
-    cudaError_t cudaStatus = call;                                             \
-    if (cudaSuccess != cudaStatus) {                                           \
+    hipError_t hipStatus = call;                                             \
+    if (hipSuccess != hipStatus) {                                           \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: CUDA RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
           "(%d).\n",                                                           \
           #call,                                                               \
           __LINE__,                                                            \
           __FILE__,                                                            \
           hipGetErrorString(hipStatus),                                      \
-          cudaStatus);                                                         \
+          hipStatus);                                                         \
       abort();                                                                 \
     }                                                                          \
   }
@@ -90,20 +90,20 @@ template <typename T>
 void test_base_alloc(const size_t size, const size_t num)
 {
   void* ptr;
-  CUDA_RT_CALL(cudaMalloc(&ptr, size));
+  HIP_RT_CALL(hipMalloc(&ptr, size));
 
   TempSpaceBroker temp(ptr, size);
 
   checked_alloc<T>(temp, num);
 
-  cudaFree(ptr);
+  hipFree(ptr);
 }
 
 template <typename T>
 void test_base_alloc_exception(const size_t size, const size_t num)
 {
   void* ptr;
-  CUDA_RT_CALL(cudaMalloc(&ptr, size));
+  HIP_RT_CALL(hipMalloc(&ptr, size));
 
   TempSpaceBroker temp(ptr, size);
 
@@ -115,7 +115,7 @@ void test_base_alloc_exception(const size_t size, const size_t num)
     // pass
   }
 
-  cudaFree(ptr);
+  hipFree(ptr);
 }
 
 /******************************************************************************
@@ -126,7 +126,7 @@ TEST_CASE("MixedSizeTest", "[small]")
 {
   void* ptr;
   const size_t size = 1024;
-  CUDA_RT_CALL(cudaMalloc(&ptr, size));
+  HIP_RT_CALL(hipMalloc(&ptr, size));
 
   TempSpaceBroker temp(ptr, size);
 
@@ -138,7 +138,7 @@ TEST_CASE("MixedSizeTest", "[small]")
   checked_alloc<Test32BStruct>(temp, 3);
   checked_alloc<double>(temp, 7);
 
-  cudaFree(ptr);
+  hipFree(ptr);
 }
 
 TEST_CASE("AllBaseTypeTest", "[small]")

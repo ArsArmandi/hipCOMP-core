@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 #include "hipcomp.h"
 
 #include <cstddef>
@@ -71,7 +71,7 @@ public:
       size_t maxNum,
       void* const* const minValueDevicePtr,
       unsigned char* const* const numBitsDevicePtr,
-      cudaStream_t stream);
+      hipStream_t stream);
 
   /**
    * @brief Get the required size of the workspace in bytes.

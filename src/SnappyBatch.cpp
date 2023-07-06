@@ -30,7 +30,7 @@
 #include "hipcomp/snappy.h"
 
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "SnappyKernels.h"
 #include "common.h"
 #include "hipcomp.h"
@@ -86,7 +86,7 @@ hipcompStatus_t hipcompBatchedSnappyGetDecompressSizeAsync(
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   try {
     // error check inputs
@@ -119,7 +119,7 @@ hipcompStatus_t hipcompBatchedSnappyDecompressAsync(
     const size_t /* temp_bytes */,
     void* const* device_uncompressed_ptr,
     hipcompStatus_t* device_statuses,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   try {
     // error check inputs
@@ -195,7 +195,7 @@ hipcompStatus_t hipcompBatchedSnappyCompressAsync(
     void* const* device_compressed_ptr,
     size_t* device_compressed_bytes,
     const hipcompBatchedSnappyOpts_t /* format_ops */,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   try {
     // error check inputs

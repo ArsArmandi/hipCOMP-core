@@ -18,7 +18,7 @@
 
 #[=======================================================================[
 
-hipCOMP is a CUDA library that features generic compression interfaces to enable
+hipCOMP is a HIP library that features generic compression interfaces to enable
 developers to use high-performance GPU compressors and decompressors in their applications.
 
 Result Variables
@@ -35,7 +35,7 @@ This module will set the following variables::
 
 @PACKAGE_INIT@
 
-find_package(CUDAToolkit REQUIRED)
+find_package(HIPToolkit REQUIRED)
 
 include("${CMAKE_CURRENT_LIST_DIR}/hipcomp-targets.cmake")
 

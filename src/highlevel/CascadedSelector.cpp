@@ -78,7 +78,7 @@ hipcompCascadedFormatOpts internal_select(
     const size_t workspace_size,
     const size_t max_size,
     unsigned seed,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 
   if (workspace_size < max_size) {
@@ -125,7 +125,7 @@ hipcompCascadedFormatOpts internal_select(
       d_sample_ptrs,
       sample_ptrs.data(),
       sizeof(size_t) * num_samples,
-      cudaMemcpyHostToDevice,
+      hipMemcpyHostToDevice,
       stream);
 
   SamplingFastOption(
@@ -140,9 +140,9 @@ hipcompCascadedFormatOpts internal_select(
       NUM_SCHEMES,
       stream);
 
-  cudaError_t err = cudaStreamSynchronize(stream);
+  hipError_t err = hipStreamSynchronize(stream);
 
-  if (err != cudaSuccess) {
+  if (err != hipSuccess) {
     throw std::runtime_error(
         "Fail to launch SampleFusedOption: " + std::to_string(err));
   }
@@ -214,7 +214,7 @@ inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
     void* d_workspace,
     size_t workspace_size,
     double* comp_ratio,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 
   HIPCOMP_TYPE_ONE_SWITCH_RETURN(
@@ -234,7 +234,7 @@ inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
 
 template <typename T>
 inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
-    void* d_workspace, size_t workspace_size, cudaStream_t stream)
+    void* d_workspace, size_t workspace_size, hipStream_t stream)
 {
 
   double comp_ratio;
@@ -298,7 +298,7 @@ hipcompCascadedFormatOpts callSelectorSelectConfig(
     void* temp_ptr,
     size_t temp_bytes,
     double* est_ratio,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 
   size_t required_bytes;
@@ -328,7 +328,7 @@ hipcompStatus_t hipcompCascadedSelectorRun(
     size_t temp_bytes,
     hipcompCascadedFormatOpts* format_opts,
     double* est_ratio,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 
   // temp selector opts in case opts are NULL and default needs to be used

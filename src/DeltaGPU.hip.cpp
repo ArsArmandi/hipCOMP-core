@@ -109,7 +109,7 @@ void deltaLaunch(
     void const* const in,
     const size_t* const numDevice,
     const size_t maxNum,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   VALUE** const outTypedPtr = reinterpret_cast<VALUE**>(outPtr);
   const VALUE* const inTyped = static_cast<const VALUE*>(in);
@@ -119,7 +119,7 @@ void deltaLaunch(
   deltaKernel<<<grid, block, 0, stream>>>(
       outTypedPtr, inTyped, numDevice, maxNum);
   hipError_t err = hipGetLastError();
-  if (err != cudaSuccess) {
+  if (err != hipSuccess) {
     throw std::runtime_error(
         "Failed to launch deltaKernel kernel: " + std::to_string(err));
   }
@@ -139,7 +139,7 @@ void DeltaGPU::compress(
     const void* const in,
     const size_t* const numDevice,
     const size_t maxNum,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   HIPCOMP_TYPE_ONE_SWITCH(
       inType, deltaLaunch, outPtr, in, numDevice, maxNum, stream);

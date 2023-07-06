@@ -195,7 +195,7 @@ hipcompStatus_t hipcompCreateHandleAsync(
     hipcompIntConfig_t* const config,
     void* workspaceStorage,
     size_t workspaceBytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /* Reconfigures the workspace. This will try to adjust the allocation policy to
  * fit the specified memory budget of workspaceBytes. On success the handle
@@ -210,25 +210,25 @@ hipcompStatus_t
 hipcompGetWorkspaceSize(hipcompHandle_t handle, size_t* workspaceBytes);
 
 /* Changes the stream used by the handle. */
-hipcompStatus_t hipcompSetStream(hipcompHandle_t handle, cudaStream_t streamId);
+hipcompStatus_t hipcompSetStream(hipcompHandle_t handle, hipStream_t streamId);
 
 /* Gets the current stream assigned to the handle. */
-hipcompStatus_t hipcompGetStream(hipcompHandle_t handle, cudaStream_t* streamId);
+hipcompStatus_t hipcompGetStream(hipcompHandle_t handle, hipStream_t* streamId);
 
 /* Sets the output length of a particular node. This is helpful when the node is
  * the output node of a RLE layer in a multi-GPU system. With this method, the
- * cudaStreamSynchronize() in hipcompDecompressLaunch() can be eliminated which
+ * hipStreamSynchronize() in hipcompDecompressLaunch() can be eliminated which
  * preserves the concurrency. */
 hipcompStatus_t
 hipcompSetNodeLength(hipcompHandle_t handle, int nodeId, size_t output_length);
 
 /* Usage.  Submits a decompression task to the GPU asynchronously and returns
  * the task ID. In practice this would pipeline memory copies and kernels into
- * the assigned CUDA stream(s). The function uses no additional memory and is
+ * the assigned HIP stream(s). The function uses no additional memory and is
  * very lightweight. The main usage pattern is to subdivide your data into
  * relatively large chunks and submit one decompression task per chunk. We must
  * support non-pinned data and this might require implementing a staging
- * pipeline inside the library. We do not want to expose CUDA streams or events
+ * pipeline inside the library. We do not want to expose HIP streams or events
  * to the user externally since we might be able to do some efficient
  * scheduling internally by querying the status of streams or using some other
  * custom heuristics. However, the user is free to record events before and

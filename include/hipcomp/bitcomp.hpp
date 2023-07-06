@@ -100,7 +100,7 @@ public:
       const size_t temp_bytes,
       void* out_ptr,
       size_t* out_bytes,
-      cudaStream_t stream) override;
+      hipStream_t stream) override;
 
 private:
   hipcompType_t m_type;
@@ -133,7 +133,7 @@ public:
       const size_t in_bytes,
       size_t* temp_bytes,
       size_t* out_bytes,
-      cudaStream_t stream) override;
+      hipStream_t stream) override;
 
   /**
    * @brief Decompress the given data asynchronously.
@@ -155,7 +155,7 @@ public:
       const size_t temp_bytes,
       void* out_ptr,
       const size_t out_bytes,
-      cudaStream_t stream) override;
+      hipStream_t stream) override;
 
 private:
   void* m_metadata_ptr;
@@ -203,7 +203,7 @@ inline void BitcompCompressor::compress_async(
     const size_t temp_bytes,
     void* const out_ptr,
     size_t* const out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   hipcompBitcompFormatOpts opts{m_algorithm_type};
   hipcompStatus_t status = hipcompBitcompCompressAsync(
@@ -238,7 +238,7 @@ inline void BitcompDecompressor::configure(
     const size_t in_bytes,
     size_t* const temp_bytes,
     size_t* const out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   hipcompStatus_t status = hipcompBitcompDecompressConfigure(
       in_ptr,
@@ -258,7 +258,7 @@ inline void BitcompDecompressor::decompress_async(
     const size_t temp_bytes,
     void* const out_ptr,
     const size_t out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   hipcompStatus_t status = hipcompBitcompDecompressAsync(
       in_ptr,

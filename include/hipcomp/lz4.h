@@ -32,7 +32,7 @@
 
 #include "hipcomp.h"
 
-#include <cuda_runtime.h>
+#include <hip_runtime.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -68,11 +68,11 @@ static const hipcompBatchedLZ4Opts_t hipcompBatchedLZ4DefaultOpts = {HIPCOMP_TYP
  *
  * @param in_ptr The compressed data.
  * @param in_bytes The size of the compressed data.
- * @param stream The CUDA stream to fetch data from the GPU on.
+ * @param stream The HIP stream to fetch data from the GPU on.
  *
  * @return 1 If the data is compressed via LZ4.
  */
-int hipcompLZ4IsData(const void* const in_ptr, size_t in_bytes, cudaStream_t stream);
+int hipcompLZ4IsData(const void* const in_ptr, size_t in_bytes, hipStream_t stream);
 
 /**
  * @brief Check if the given CPU-accessible metadata is for LZ4.
@@ -120,7 +120,7 @@ hipcompStatus_t hipcompLZ4CompressConfigure(
  * @param compressed_ptr The output location on the device.
  * @param compressed_bytes The size of the compressed data (output). This must
  * be GPU accessible.
- * @param stream The cuda stream to operate on.
+ * @param stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -133,12 +133,12 @@ hipcompStatus_t hipcompLZ4CompressAsync(
     const size_t temp_bytes,
     void* const compressed_ptr,
     size_t* compressed_bytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Configure the decompression and get the output and temp sizes
  * needed to perform the decompression. This function allocates host-side
- * memory, synchronizes the provided CUDA stream, and blocks CPU execution until
+ * memory, synchronizes the provided HIP stream, and blocks CPU execution until
  * the metadata is extracted and copied from the `compressed_ptr`.
  *
  * @param compressed_ptr The compressed data on the device.
@@ -150,7 +150,7 @@ hipcompStatus_t hipcompLZ4CompressAsync(
  * @param temp_bytes The size of the temporary workspace in bytes.
  * @param uncompressed_bytes The required size of the output location in bytes
  * (output).
- * @param stream The cuda stream to operate on.
+ * @param stream The hip stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -161,7 +161,7 @@ hipcompStatus_t hipcompLZ4DecompressConfigure(
     size_t* metadata_bytes,
     size_t* temp_bytes,
     size_t* uncompressed_bytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Perform the asynchronous decompression.
@@ -176,7 +176,7 @@ hipcompStatus_t hipcompLZ4DecompressConfigure(
  * (output).
  * @param uncompressed_bytes The size of the uncompressed data as returned by
  * `hipcompLZ4DecompressConfigure()`.
- * @param stream THe CUDA stream to decompress on.
+ * @param stream THe HIP stream to decompress on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -189,7 +189,7 @@ hipcompStatus_t hipcompLZ4DecompressAsync(
     size_t temp_bytes,
     void* uncompressed_ptr,
     size_t uncompressed_bytes,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Destroys the metadata object and frees the associated memory.  Must be
@@ -267,7 +267,7 @@ hipcompStatus_t hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
  * @param device_compressed_bytes The compressed size of each chunk on the GPU
  * (output). This pointer must be GPU accessible.
  * @param format_opts The LZ4 compression options to use.
- * @param stream The CUDA stream to operate on.
+ * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successfully launched, and an error code otherwise.
  */
@@ -281,7 +281,7 @@ hipcompStatus_t hipcompBatchedLZ4CompressAsync(
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
     hipcompBatchedLZ4Opts_t format_opts,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Get the amount of temp space required on the GPU for decompression.
@@ -319,7 +319,7 @@ hipcompStatus_t hipcompBatchedLZ4DecompressGetTempSize(
  * @param device_statuses The status for each chunk of whether it was
  * decompressed or not. Can be nullptr if desired, 
  * in which case error status is not reported.
- * @param stream The CUDA stream to operate on.
+ * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -333,7 +333,7 @@ hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
     size_t temp_bytes,
     void* const* device_uncompressed_ptrs,
     hipcompStatus_t* device_statuses,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Calculates the decompressed size of each chunk asynchronously. This is
@@ -347,7 +347,7 @@ hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
  * @param device_uncompressed_bytes The calculated decompressed size of each
  * chunk. Must be GPU accessible.
  * @param batch_size The number of chunks.
- * @param stream The CUDA stream to operate on.
+ * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -356,7 +356,7 @@ hipcompStatus_t hipcompBatchedLZ4GetDecompressSizeAsync(
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 #ifdef __cplusplus
 }

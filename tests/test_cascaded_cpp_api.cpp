@@ -42,10 +42,10 @@
 using namespace std;
 using namespace hipcomp;
 
-#define CUDA_CHECK(cond)                                                       \
+#define HIP_CHECK(cond)                                                       \
   do {                                                                         \
-    cudaError_t err = cond;                                                    \
-    REQUIRE(err == cudaSuccess);                                               \
+    hipError_t err = cond;                                                    \
+    REQUIRE(err == hipSuccess);                                               \
   } while (false)
 
 TEST_CASE("comp/decomp RLE-Delta", "[hipcomp]")
@@ -61,11 +61,11 @@ TEST_CASE("comp/decomp RLE-Delta", "[hipcomp]")
   // create GPU only input buffer
   T* d_in_data;
   const size_t in_bytes = sizeof(T) * input.size();
-  CUDA_CHECK(cudaMalloc((void**)&d_in_data, in_bytes));
-  CUDA_CHECK(
-      cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc((void**)&d_in_data, in_bytes));
+  HIP_CHECK(
+      hipMemcpy(d_in_data, input.data(), in_bytes, hipMemcpyHostToDevice));
 
-  cudaStream_t stream;
+  hipStream_t stream;
   hipStreamCreate(&stream);
 
   size_t comp_temp_bytes = 0;
@@ -81,13 +81,13 @@ TEST_CASE("comp/decomp RLE-Delta", "[hipcomp]")
   REQUIRE(comp_out_bytes > 0);
 
   // allocate temp buffer
-  CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
+  HIP_CHECK(hipMalloc(&d_comp_temp, comp_temp_bytes));
 
   // Allocate output buffer
-  CUDA_CHECK(cudaMalloc(&d_comp_out, comp_out_bytes));
+  HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
 
   size_t* comp_out_bytes_ptr;
-  cudaMalloc((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr));
+  hipMalloc((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr));
   compressor.compress_async(
       d_in_data,
       in_bytes,
@@ -97,16 +97,16 @@ TEST_CASE("comp/decomp RLE-Delta", "[hipcomp]")
       comp_out_bytes_ptr,
       stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaMemcpy(
+  HIP_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipMemcpy(
       &comp_out_bytes,
       comp_out_bytes_ptr,
       sizeof(comp_out_bytes),
-      cudaMemcpyDeviceToHost));
-  cudaFree(comp_out_bytes_ptr);
+      hipMemcpyDeviceToHost));
+  hipFree(comp_out_bytes_ptr);
 
-  cudaFree(d_comp_temp);
-  cudaFree(d_in_data);
+  hipFree(d_comp_temp);
+  hipFree(d_in_data);
 
   size_t temp_bytes = 0;
   size_t num_out_bytes = 0;
@@ -122,10 +122,10 @@ TEST_CASE("comp/decomp RLE-Delta", "[hipcomp]")
   REQUIRE(num_out_bytes == in_bytes);
 
   // allocate temp buffer
-  cudaMalloc(&temp_ptr, temp_bytes); // also can use RMM_ALLOC instead
+  hipMalloc(&temp_ptr, temp_bytes); // also can use RMM_ALLOC instead
 
   // allocate output buffer
-  cudaMalloc(&out_ptr, num_out_bytes); // also can use RMM_ALLOC instead
+  hipMalloc(&out_ptr, num_out_bytes); // also can use RMM_ALLOC instead
 
   // execute decompression (asynchronous)
   decompressor.decompress_async(
@@ -137,15 +137,15 @@ TEST_CASE("comp/decomp RLE-Delta", "[hipcomp]")
       num_out_bytes,
       stream);
 
-  cudaStreamSynchronize(stream);
+  hipStreamSynchronize(stream);
 
   // Copy result back to host
   std::vector<T> res(num_out_bytes / sizeof(T));
-  cudaMemcpy(&res[0], out_ptr, num_out_bytes, cudaMemcpyDeviceToHost);
+  hipMemcpy(&res[0], out_ptr, num_out_bytes, hipMemcpyDeviceToHost);
 
-  cudaFree(temp_ptr);
-  cudaFree(d_comp_out);
-  cudaFree(out_ptr);
+  hipFree(temp_ptr);
+  hipFree(d_comp_out);
+  hipFree(out_ptr);
 
   // Verify correctness
   REQUIRE(res == input);
@@ -164,11 +164,11 @@ TEST_CASE("comp/decomp RLE-Delta-BP", "[hipcomp]")
   // create GPU only input buffer
   T* d_in_data;
   const size_t in_bytes = sizeof(T) * input.size();
-  CUDA_CHECK(cudaMalloc((void**)&d_in_data, in_bytes));
-  CUDA_CHECK(
-      cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc((void**)&d_in_data, in_bytes));
+  HIP_CHECK(
+      hipMemcpy(d_in_data, input.data(), in_bytes, hipMemcpyHostToDevice));
 
-  cudaStream_t stream;
+  hipStream_t stream;
   hipStreamCreate(&stream);
 
   size_t comp_temp_bytes = 0;
@@ -183,13 +183,13 @@ TEST_CASE("comp/decomp RLE-Delta-BP", "[hipcomp]")
   REQUIRE(comp_out_bytes > 0);
 
   // allocate temp buffer
-  CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
+  HIP_CHECK(hipMalloc(&d_comp_temp, comp_temp_bytes));
 
   // Allocate output buffer
-  CUDA_CHECK(cudaMalloc(&d_comp_out, comp_out_bytes));
+  HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
 
   size_t* comp_out_bytes_ptr;
-  cudaMallocHost((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr));
+  hipMallocHost((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr));
 
   compressor.compress_async(
       d_in_data,
@@ -200,12 +200,12 @@ TEST_CASE("comp/decomp RLE-Delta-BP", "[hipcomp]")
       comp_out_bytes_ptr,
       stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
   comp_out_bytes = *comp_out_bytes_ptr;
 
-  cudaFreeHost(comp_out_bytes_ptr);
-  cudaFree(d_comp_temp);
-  cudaFree(d_in_data);
+  hipFreeHost(comp_out_bytes_ptr);
+  hipFree(d_comp_temp);
+  hipFree(d_in_data);
 
   size_t temp_bytes;
   void* temp_ptr;
@@ -217,10 +217,10 @@ TEST_CASE("comp/decomp RLE-Delta-BP", "[hipcomp]")
       d_comp_out, comp_out_bytes, &temp_bytes, &num_out_bytes, stream);
 
   // allocate temp buffer
-  cudaMalloc(&temp_ptr, temp_bytes); // also can use RMM_ALLOC instead
+  hipMalloc(&temp_ptr, temp_bytes); // also can use RMM_ALLOC instead
 
   // allocate output buffer
-  cudaMalloc(&out_ptr, num_out_bytes); // also can use RMM_ALLOC instead
+  hipMalloc(&out_ptr, num_out_bytes); // also can use RMM_ALLOC instead
 
   // execute decompression (asynchronous)
   decompressor.decompress_async(
@@ -232,17 +232,17 @@ TEST_CASE("comp/decomp RLE-Delta-BP", "[hipcomp]")
       num_out_bytes,
       stream);
 
-  cudaStreamSynchronize(stream);
+  hipStreamSynchronize(stream);
 
   // Copy result back to host
   std::vector<T> res(num_out_bytes / sizeof(T));
-  cudaMemcpy(&res[0], out_ptr, num_out_bytes, cudaMemcpyDeviceToHost);
-  cudaFree(out_ptr);
+  hipMemcpy(&res[0], out_ptr, num_out_bytes, hipMemcpyDeviceToHost);
+  hipFree(out_ptr);
 
   // Verify result
   REQUIRE(res == input);
-  cudaFree(temp_ptr);
-  cudaFree(d_comp_out);
+  hipFree(temp_ptr);
+  hipFree(d_comp_out);
 }
 
 TEST_CASE("max_size_test", "[hipcomp]")
@@ -258,11 +258,11 @@ TEST_CASE("max_size_test", "[hipcomp]")
   // create GPU only input buffer
   T* d_in_data;
   const size_t in_bytes = sizeof(T) * input.size();
-  CUDA_CHECK(cudaMalloc(&d_in_data, in_bytes));
-  CUDA_CHECK(
-      cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc(&d_in_data, in_bytes));
+  HIP_CHECK(
+      hipMemcpy(d_in_data, input.data(), in_bytes, hipMemcpyHostToDevice));
 
-  cudaStream_t stream;
+  hipStream_t stream;
   hipStreamCreate(&stream);
 
   size_t comp_temp_bytes = 0;
@@ -271,7 +271,7 @@ TEST_CASE("max_size_test", "[hipcomp]")
   void* d_comp_out = nullptr;
 
   size_t* comp_out_bytes_ptr;
-  cudaMallocHost((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr));
+  hipMallocHost((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr));
 
   try {
     CascadedCompressor compressor(TypeOf<T>(), RLE, Delta, packing);
@@ -279,10 +279,10 @@ TEST_CASE("max_size_test", "[hipcomp]")
     compressor.configure(in_bytes, &comp_temp_bytes, &comp_out_bytes);
 
     // allocate temp buffer
-    CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
+    HIP_CHECK(hipMalloc(&d_comp_temp, comp_temp_bytes));
 
     // Allocate output buffer
-    CUDA_CHECK(cudaMalloc(&d_comp_out, comp_out_bytes));
+    HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
 
     compressor.compress_async(
         d_in_data,
@@ -299,12 +299,12 @@ TEST_CASE("max_size_test", "[hipcomp]")
     // we through the right exception, pass
   }
 
-  cudaFreeHost(comp_out_bytes_ptr);
+  hipFreeHost(comp_out_bytes_ptr);
 
   if (d_comp_temp) {
-    cudaFree(d_comp_temp);
+    hipFree(d_comp_temp);
   }
   if (d_comp_out) {
-    cudaFree(d_comp_out);
+    hipFree(d_comp_out);
   }
 }

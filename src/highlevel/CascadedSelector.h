@@ -86,7 +86,7 @@ public:
       void* d_workspace,
       size_t workspace_len,
       double* comp_ratio,
-      cudaStream_t stream);
+      hipStream_t stream);
 
   /*
    *@brief Select a CascadedSelector compression scheme that can provide the
@@ -98,7 +98,7 @@ public:
    *@return Selected Cascaded options (RLE, Delta encoding, bit packing)
    */
   hipcompCascadedFormatOpts
-  select_config(void* d_workspace, size_t workspace_len, cudaStream_t stream);
+  select_config(void* d_workspace, size_t workspace_len, hipStream_t stream);
 };
 
 } // namespace highlevel

@@ -28,7 +28,7 @@
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "MutableLZ4MetadataOnGPU.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 
 #include <cassert>
 #include <stdexcept>
@@ -72,7 +72,7 @@ operator=(const MutableLZ4MetadataOnGPU& other)
 }
 
 void MutableLZ4MetadataOnGPU::copyToGPU(
-    const LZ4Metadata& metadata, cudaStream_t stream)
+    const LZ4Metadata& metadata, hipStream_t stream)
 {
   const size_t required_size = getSerializedSizeOf(metadata);
   if (required_size > max_size()) {
@@ -90,7 +90,7 @@ void MutableLZ4MetadataOnGPU::copyToGPU(
   buffer[LZ4Metadata::ChunkSize] = metadata.getUncompChunkSize();
   buffer[LZ4Metadata::OffsetAddr] = buffer[LZ4Metadata::MetadataBytes];
 
-  CudaUtils::copy_async(
+  HipUtils::copy_async(
       static_cast<size_t*>(m_mutable_ptr),
       buffer.data(),
       buffer.size(),

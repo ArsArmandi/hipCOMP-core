@@ -25,10 +25,10 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#ifndef HIPCOMP_CUDAUTILS_H
-#define HIPCOMP_CUDAUTILS_H
+#ifndef HIPCOMP_HIPUTILS_H
+#define HIPCOMP_HIPUTILS_H
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include <string>
 
@@ -36,24 +36,24 @@ namespace hipcomp
 {
 
 enum CopyDirection {
-  HOST_TO_DEVICE = cudaMemcpyHostToDevice,
-  DEVICE_TO_HOST = cudaMemcpyDeviceToHost,
+  HOST_TO_DEVICE = hipMemcpyHostToDevice,
+  DEVICE_TO_HOST = hipMemcpyDeviceToHost,
   DEVICE_TO_DEVICE = hipMemcpyDeviceToDevice
 };
 
-class CudaUtils
+class HipUtils
 {
 public:
   /**
-   * @brief Convert cuda errors into exceptions. Will throw an exception
-   * unless `err == cudaSuccess`.
+   * @brief Convert hip errors into exceptions. Will throw an exception
+   * unless `err == hipSuccess`.
    *
    * @param err The error.
    * @param msg The message to attach to the exception.
    */
-  static void check(const cudaError_t err, const std::string& msg);
+  static void check(const hipError_t err, const std::string& msg);
 
-  static void sync(cudaStream_t stream);
+  static void sync(hipStream_t stream);
 
   static void check_last_error(const std::string& msg = "");
 
@@ -73,12 +73,12 @@ public:
       const T* const src,
       const size_t count,
       const CopyDirection kind,
-      cudaStream_t stream)
+      hipStream_t stream)
   {
     check(
         hipMemcpyAsync(dst, src, sizeof(T) * count,
           static_cast<hipMemcpyKind>(kind), stream),
-        "CudaUtils::copy_async(dst, src, count, kind, stream)");
+        "HipUtils::copy_async(dst, src, count, kind, stream)");
   }
 
   /**
@@ -99,7 +99,7 @@ public:
   {
     check(
         hipMemcpy(dst, src, sizeof(T) * count, static_cast<hipMemcpyKind>(kind)),
-        "CudaUtils::copy(dst, src, count, kind)");
+        "HipUtils::copy(dst, src, count, kind)");
   }
 
   static bool is_device_pointer(const void* ptr);

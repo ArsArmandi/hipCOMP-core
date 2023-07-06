@@ -62,7 +62,7 @@ public:
    * @param metadata The metadata object to serialize.
    * @param stream The stream to asynchronously execute on.
    */
-  void copyToGPU(const LZ4Metadata& metadata, cudaStream_t stream);
+  void copyToGPU(const LZ4Metadata& metadata, hipStream_t stream);
 
   size_t* compressed_prefix_ptr();
 

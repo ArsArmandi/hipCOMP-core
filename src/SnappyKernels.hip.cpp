@@ -17,7 +17,7 @@
 
 #include "SnappyBlockUtils.cuh"
 #include "SnappyKernels.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 
 namespace hipcomp {
 
@@ -152,7 +152,7 @@ static __device__ uint8_t *StoreCopy(uint8_t *dst,
  **/
 static inline __device__ uint32_t HashMatchAny(uint32_t v, uint32_t t)
 {
-#if (__CUDA_ARCH__ >= 700)
+#if (__HIP_ARCH__ >= 700)
   return __match_any_sync(~0, v);
 #else
   uint32_t err_map = 0;
@@ -1118,14 +1118,14 @@ void gpu_snap(
 	gpu_snappy_status_s *outputs,
 	size_t* device_out_bytes,
   int count,
-  cudaStream_t stream)
+  hipStream_t stream)
 {
   dim3 dim_block(64, 1);  // 2 warps per stream, 1 stream per block
   dim3 dim_grid(count, 1);
   if (count > 0) { snap_kernel<<<dim_grid, dim_block, 0, stream>>>(
     device_in_ptr, device_in_bytes, device_out_ptr, device_out_available_bytes,
       outputs, device_out_bytes); }
-  CudaUtils::check_last_error("Failed to launch Snappy compression CUDA kernel gpu_snap");
+  HipUtils::check_last_error("Failed to launch Snappy compression HIP kernel gpu_snap");
 }
 
 void gpu_unsnap(
@@ -1136,7 +1136,7 @@ void gpu_unsnap(
     hipcompStatus_t* outputs,
     size_t* device_out_bytes,
     int count,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   uint32_t count32 = (count > 0) ? count : 0;
   dim3 dim_block(96, 1);     // 3 warps per stream, 1 stream per block
@@ -1145,7 +1145,7 @@ void gpu_unsnap(
   unsnap_kernel<<<dim_grid, dim_block, 0, stream>>>(
     device_in_ptr, device_in_bytes, device_out_ptr, device_out_available_bytes,
       outputs, device_out_bytes);
-  CudaUtils::check_last_error("Failed to launch Snappy decompression CUDA kernel gpu_unsnap");
+  HipUtils::check_last_error("Failed to launch Snappy decompression HIP kernel gpu_unsnap");
 }
 
 void gpu_get_uncompressed_sizes(
@@ -1153,14 +1153,14 @@ void gpu_get_uncompressed_sizes(
   const size_t* device_in_bytes,
   size_t* device_out_bytes,
   int count,
-  cudaStream_t stream)
+  hipStream_t stream)
 {
   dim3 dim_block(32, 1);
   dim3 dim_grid(count, 1);
 
   get_uncompressed_sizes_kernel<<<dim_grid, dim_block, 0, stream>>>(
     device_in_ptr, device_in_bytes, device_out_bytes);
-  CudaUtils::check_last_error("Failed to run Snappy kernel gpu_get_uncompressed_sizes");
+  HipUtils::check_last_error("Failed to run Snappy kernel gpu_get_uncompressed_sizes");
 }
 
 } // hipcomp namespace

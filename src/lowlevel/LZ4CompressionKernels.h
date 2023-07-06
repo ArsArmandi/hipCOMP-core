@@ -57,7 +57,7 @@ void lz4BatchCompress(
     uint8_t* const* comp_data_device,
     size_t* const comp_sizes_device,
     hipcompType_t data_type,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 void lz4BatchDecompress(
     const uint8_t* const* device_in_ptrs,
@@ -69,7 +69,7 @@ void lz4BatchDecompress(
     uint8_t* const* device_out_ptrs,
     size_t* device_actual_uncompressed_bytes,
     hipcompStatus_t* device_status_ptrs,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Calculate the decompressed sizes of each chunk. This is 
@@ -81,14 +81,14 @@ void lz4BatchDecompress(
  * @param device_uncompressed_bytes The output calculated decompressed sizes
  * for each chunk.
  * @param batch_size The number of compressed chunks
- * @param stream The cuda stream to run on
+ * @param stream The hip stream to run on
  */
 void lz4BatchGetDecompressSizes(
     const uint8_t* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 size_t lz4ComputeChunksInBatch(
     const size_t* const decomp_data_size,

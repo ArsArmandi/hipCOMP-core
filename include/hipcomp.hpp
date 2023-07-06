@@ -34,7 +34,7 @@
 #include "hipcomp/lz4.h"
 
 #include <cstdint>
-#include <cuda_runtime.h>
+#include <hip_runtime.h>
 #include <stdexcept>
 #include <string>
 
@@ -109,7 +109,7 @@ public:
       const size_t temp_bytes,
       void* out_ptr,
       size_t* out_bytes,
-      cudaStream_t stream)
+      hipStream_t stream)
       = 0;
 };
 
@@ -128,7 +128,7 @@ public:
       const size_t in_bytes,
       size_t* temp_bytes,
       size_t* out_bytes,
-      cudaStream_t stream)
+      hipStream_t stream)
       = 0;
 
   virtual void decompress_async(
@@ -138,7 +138,7 @@ public:
       const size_t temp_bytes,
       void* out_ptr,
       const size_t out_bytes,
-      cudaStream_t stream)
+      hipStream_t stream)
       = 0;
 };
 

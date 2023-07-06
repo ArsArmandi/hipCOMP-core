@@ -33,7 +33,7 @@
 #include "cascaded.h"
 #include "hipcomp.hpp"
 
-#include <cuda_runtime.h>
+#include <hip_runtime.h>
 
 namespace hipcomp
 {
@@ -117,7 +117,7 @@ public:
       const size_t temp_bytes,
       void* out_ptr,
       size_t* out_bytes,
-      cudaStream_t stream) override;
+      hipStream_t stream) override;
 
 private:
   hipcompType_t m_type;
@@ -150,7 +150,7 @@ public:
       const size_t in_bytes,
       size_t* temp_bytes,
       size_t* out_bytes,
-      cudaStream_t stream) override;
+      hipStream_t stream) override;
 
   /**
    * @brief Decompress the given data asynchronously.
@@ -172,7 +172,7 @@ public:
       const size_t temp_bytes,
       void* out_ptr,
       const size_t out_bytes,
-      cudaStream_t stream) override;
+      hipStream_t stream) override;
 
 private:
   void* m_metadata_ptr;
@@ -234,7 +234,7 @@ public:
       void* d_workspace,
       size_t workspace_len,
       double* comp_ratio,
-      cudaStream_t stream);
+      hipStream_t stream);
 
   /*
    *@brief Select a CascadedSelector compression scheme that can provide the
@@ -246,7 +246,7 @@ public:
    *@return Selected Cascaded options (RLE, Delta encoding, bit packing)
    */
   hipcompCascadedFormatOpts
-  select_config(void* d_workspace, size_t workspace_len, cudaStream_t stream);
+  select_config(void* d_workspace, size_t workspace_len, hipStream_t stream);
 };
 
 /******************************************************************************
@@ -289,7 +289,7 @@ inline void CascadedCompressor::compress_async(
     const size_t temp_bytes,
     void* const out_ptr,
     size_t* const out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
 
   hipcompCascadedFormatOpts* temp_opts = &m_opts;
@@ -329,7 +329,7 @@ inline void CascadedDecompressor::configure(
     const size_t in_bytes,
     size_t* const temp_bytes,
     size_t* const out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   hipcompStatus_t status = hipcompCascadedDecompressConfigure(
       in_ptr,
@@ -349,7 +349,7 @@ inline void CascadedDecompressor::decompress_async(
     const size_t temp_bytes,
     void* const out_ptr,
     const size_t out_bytes,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   hipcompStatus_t status = hipcompCascadedDecompressAsync(
       in_ptr,
@@ -395,7 +395,7 @@ inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
     void* d_workspace,
     size_t workspace_size,
     double* comp_ratio,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   hipcompCascadedFormatOpts cascadedOpts;
   hipcompStatus_t status = hipcompCascadedSelectorRun(
@@ -415,7 +415,7 @@ inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
 
 template <typename T>
 inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
-    void* d_workspace, size_t workspace_size, cudaStream_t stream)
+    void* d_workspace, size_t workspace_size, hipStream_t stream)
 {
   double comp_ratio;
   return select_config(d_workspace, workspace_size, &comp_ratio, stream);

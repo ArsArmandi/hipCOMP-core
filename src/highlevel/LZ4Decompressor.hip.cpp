@@ -28,7 +28,7 @@
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "../Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "LZ4Decompressor.h"
 #include "TempSpaceBroker.h"
 #include "common.h"
@@ -156,7 +156,7 @@ void LZ4Decompressor::configure_output(
   m_output_size = output_size;
 }
 
-void LZ4Decompressor::decompress_async(cudaStream_t stream)
+void LZ4Decompressor::decompress_async(hipStream_t stream)
 {
   if (!is_workspace_configured()) {
     throw std::runtime_error(

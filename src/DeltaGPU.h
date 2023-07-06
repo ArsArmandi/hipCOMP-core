@@ -32,7 +32,7 @@
 
 #include "hipcomp.h"
 
-#include "cuda_runtime.h"
+#include "hip_runtime.h"
 
 #include <cstddef>
 
@@ -63,7 +63,7 @@ public:
       const void* inValues,
       const size_t* numDevice,
       const size_t maxNum,
-      cudaStream_t stream);
+      hipStream_t stream);
 
   /**
    * @brief Get the required size of the workspace in bytes.

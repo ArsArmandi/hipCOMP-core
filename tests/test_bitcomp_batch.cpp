@@ -45,10 +45,10 @@
 using namespace std;
 using namespace hipcomp;
 
-#define CUDA_CHECK(cond)                                                       \
+#define HIP_CHECK(cond)                                                       \
   do {                                                                         \
-    cudaError_t err = cond;                                                    \
-    REQUIRE(err == cudaSuccess);                                               \
+    hipError_t err = cond;                                                    \
+    REQUIRE(err == hipSuccess);                                               \
   } while (false)
 
 /******************************************************************************
@@ -196,8 +196,8 @@ void test_bitcomp_batch(
 
   // Copy the input data into a GPU buffer
   void *d_input_data;
-  CUDA_CHECK(cudaMalloc(&d_input_data, input_bytes));
-  CUDA_CHECK(hipMemcpy(d_input_data, input.data(), input_bytes, hipMemcpyDefault));
+  HIP_CHECK(hipMalloc(&d_input_data, input_bytes));
+  HIP_CHECK(hipMemcpy(d_input_data, input.data(), input_bytes, hipMemcpyDefault));
 
   hipcompBatchedBitcompFormatOpts bitcomp_opts;
   bitcomp_opts.algorithm_type = 0; // Using default algorithm
@@ -214,7 +214,7 @@ void test_bitcomp_batch(
     total_output_size += maxi;
   }
   void* d_comp_data;
-  CUDA_CHECK(cudaMalloc(&d_comp_data, total_output_size));
+  HIP_CHECK(hipMalloc(&d_comp_data, total_output_size));
 
   // Compute the input and output pointers for every batch
   std::vector<void*> input_ptrs(batches);
@@ -232,20 +232,20 @@ void test_bitcomp_batch(
   size_t pointer_bytes = batches * sizeof(void*);
   size_t batchsize_bytes = batches * sizeof(size_t);
   void **d_input_ptrs, **d_comp_ptrs;
-  CUDA_CHECK(cudaMalloc(&d_input_ptrs, pointer_bytes));
-  CUDA_CHECK(cudaMalloc(&d_comp_ptrs, pointer_bytes));
+  HIP_CHECK(hipMalloc(&d_input_ptrs, pointer_bytes));
+  HIP_CHECK(hipMalloc(&d_comp_ptrs, pointer_bytes));
   size_t *d_input_sizes, *d_comp_sizes, *d_decomp_sizes;
-  CUDA_CHECK(cudaMalloc((void**)&d_input_sizes, batchsize_bytes));
-  CUDA_CHECK(cudaMalloc((void**)&d_comp_sizes, batchsize_bytes));
-  CUDA_CHECK(cudaMalloc((void**)&d_decomp_sizes, batchsize_bytes));
+  HIP_CHECK(hipMalloc((void**)&d_input_sizes, batchsize_bytes));
+  HIP_CHECK(hipMalloc((void**)&d_comp_sizes, batchsize_bytes));
+  HIP_CHECK(hipMalloc((void**)&d_decomp_sizes, batchsize_bytes));
   hipcompStatus_t* d_decomp_statuses;
-  CUDA_CHECK(cudaMalloc((void**)&d_decomp_statuses, batches * sizeof(hipcompStatus_t)));
-  CUDA_CHECK(hipMemcpy(d_input_ptrs, input_ptrs.data(), pointer_bytes, hipMemcpyDefault));
-  CUDA_CHECK(hipMemcpy(d_comp_ptrs, comp_ptrs.data(), pointer_bytes, hipMemcpyDefault));
-  CUDA_CHECK(hipMemcpy(d_input_sizes, input_sizes.data(), batchsize_bytes, hipMemcpyDefault));
+  HIP_CHECK(hipMalloc((void**)&d_decomp_statuses, batches * sizeof(hipcompStatus_t)));
+  HIP_CHECK(hipMemcpy(d_input_ptrs, input_ptrs.data(), pointer_bytes, hipMemcpyDefault));
+  HIP_CHECK(hipMemcpy(d_comp_ptrs, comp_ptrs.data(), pointer_bytes, hipMemcpyDefault));
+  HIP_CHECK(hipMemcpy(d_input_sizes, input_sizes.data(), batchsize_bytes, hipMemcpyDefault));
   std::vector<size_t> decomp_sizes(batches);
 
-  cudaStream_t stream;
+  hipStream_t stream;
   hipStreamCreate(&stream);
 
   // Compress async
@@ -263,8 +263,8 @@ void test_bitcomp_batch(
 
   // Query the uncompressed sizes, make sure it matches the input sizes
   hipcompBatchedBitcompGetDecompressSizeAsync (d_comp_ptrs, d_comp_sizes, d_decomp_sizes, batches, stream);
-  CUDA_CHECK (cudaStreamSynchronize (stream));
-  CUDA_CHECK(hipMemcpy(decomp_sizes.data(), d_decomp_sizes, batchsize_bytes, hipMemcpyDefault));
+  HIP_CHECK (hipStreamSynchronize (stream));
+  HIP_CHECK(hipMemcpy(decomp_sizes.data(), d_decomp_sizes, batchsize_bytes, hipMemcpyDefault));
   REQUIRE (decomp_sizes == input_sizes);
 
   // Overwrite input and input sizes
@@ -284,28 +284,28 @@ void test_bitcomp_batch(
       d_decomp_statuses,
       stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
 
   // Copy the results back to CPU and check
   std::vector<T> res(input.size());
-  CUDA_CHECK(hipMemcpy(res.data(), d_input_data, input_bytes, hipMemcpyDefault));
+  HIP_CHECK(hipMemcpy(res.data(), d_input_data, input_bytes, hipMemcpyDefault));
   REQUIRE (res == input);
-  CUDA_CHECK(hipMemcpy(decomp_sizes.data(), d_decomp_sizes, batchsize_bytes, hipMemcpyDefault));
+  HIP_CHECK(hipMemcpy(decomp_sizes.data(), d_decomp_sizes, batchsize_bytes, hipMemcpyDefault));
   REQUIRE (decomp_sizes == input_sizes);
   std::vector<hipcompStatus_t> decomp_statuses(batches);
-  CUDA_CHECK(cudaMemcpy(decomp_statuses.data(), d_decomp_statuses,
+  HIP_CHECK(hipMemcpy(decomp_statuses.data(), d_decomp_statuses,
                         batches * sizeof(hipcompStatus_t), hipMemcpyDefault));
 
   REQUIRE (decomp_statuses == std::vector<hipcompStatus_t>(batches, hipcompSuccess));
 
-  CUDA_CHECK(cudaFree(d_input_data));
-  CUDA_CHECK(cudaFree(d_comp_data));
-  CUDA_CHECK(cudaFree(d_input_ptrs));
-  CUDA_CHECK(cudaFree(d_comp_ptrs));
-  CUDA_CHECK(cudaFree(d_input_sizes));
-  CUDA_CHECK(cudaFree(d_comp_sizes));
-  CUDA_CHECK(cudaFree(d_decomp_sizes));
-  CUDA_CHECK(cudaFree(d_decomp_statuses));
+  HIP_CHECK(hipFree(d_input_data));
+  HIP_CHECK(hipFree(d_comp_data));
+  HIP_CHECK(hipFree(d_input_ptrs));
+  HIP_CHECK(hipFree(d_comp_ptrs));
+  HIP_CHECK(hipFree(d_input_sizes));
+  HIP_CHECK(hipFree(d_comp_sizes));
+  HIP_CHECK(hipFree(d_decomp_sizes));
+  HIP_CHECK(hipFree(d_decomp_statuses));
 }
 
 // ****************************************************************************

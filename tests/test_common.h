@@ -38,16 +38,16 @@
 #include "catch.hpp"
 
 #include <vector>
-#include <cuda_profiler_api.h>
+#include <hip_profiler_api.h>
 #include <iomanip>
 #include <random>
 
 using namespace hipcomp;
 
-#define CUDA_CHECK(func)                                                       \
+#define HIP_CHECK(func)                                                       \
   do {                                                                         \
-    cudaError_t rt = (func);                                                   \
-    if (rt != cudaSuccess) {                                                   \
+    hipError_t rt = (func);                                                   \
+    if (rt != hipSuccess) {                                                   \
       std::cout << "API call failure \"" #func "\" with " << rt << " at "      \
                 << __FILE__ << ":" << __LINE__ << std::endl;                   \
       throw;                                                                   \
@@ -115,16 +115,16 @@ void test(
     // create GPU only input buffer
     void* d_in_data;
     const size_t in_bytes = sizeof(T) * data.size();
-    CUDA_CHECK(cudaMalloc(&d_in_data, in_bytes));
-    CUDA_CHECK(
-        cudaMemcpy(d_in_data, data.data(), in_bytes, cudaMemcpyHostToDevice));
+    HIP_CHECK(hipMalloc(&d_in_data, in_bytes));
+    HIP_CHECK(
+        hipMemcpy(d_in_data, data.data(), in_bytes, hipMemcpyHostToDevice));
 
     hipcompCascadedFormatOpts comp_opts;
     comp_opts.num_RLEs = numRLEs;
     comp_opts.num_deltas = numDeltas;
     comp_opts.use_bp = bitPacking;
 
-    cudaStream_t stream;
+    hipStream_t stream;
     hipStreamCreate(&stream);
 
     hipcompStatus_t status;
@@ -144,8 +144,8 @@ void test(
     REQUIRE(status == hipcompSuccess);
 
     void* d_comp_temp;
-    CUDA_CHECK(cudaMalloc(&d_comp_temp, comp_temp_bytes));
-    CUDA_CHECK(cudaMalloc(&d_comp_out, comp_out_bytes));
+    HIP_CHECK(hipMalloc(&d_comp_temp, comp_temp_bytes));
+    HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
 
     status = hipcompCascadedCompressAsync(
         &comp_opts,
@@ -158,10 +158,10 @@ void test(
         &comp_out_bytes,
         stream);
     REQUIRE(status == hipcompSuccess);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    HIP_CHECK(hipStreamSynchronize(stream));
 
-    cudaFree(d_comp_temp);
-    cudaFree(d_in_data);
+    hipFree(d_comp_temp);
+    hipFree(d_in_data);
     hipStreamDestroy(stream);
 
     std::cout << "comp_size: " << comp_out_bytes
@@ -174,7 +174,7 @@ void test(
     // serialized metadata and compressed data, are the only things passed
     // between compression and decopmression
 
-    cudaStream_t stream;
+    hipStream_t stream;
     hipStreamCreate(&stream);
 
     // get metadata from compressed data
@@ -195,12 +195,12 @@ void test(
 
     // allocate temp buffer
     void* d_decomp_temp;
-    CUDA_CHECK(cudaMalloc(
+    HIP_CHECK(hipMalloc(
         &d_decomp_temp, decomp_temp_bytes)); // also can use RMM_ALLOC instead
 
     // allocate output buffer
     void* decomp_out_ptr;
-    CUDA_CHECK(cudaMalloc(
+    HIP_CHECK(hipMalloc(
         &decomp_out_ptr, decomp_out_bytes)); // also can use RMM_ALLOC instead
 
     auto start = std::chrono::steady_clock::now();
@@ -220,7 +220,7 @@ void test(
         stream);
     REQUIRE(err == hipcompSuccess);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    HIP_CHECK(hipStreamSynchronize(stream));
 
     // stop timing and the profiler
     auto end = std::chrono::steady_clock::now();
@@ -230,12 +230,12 @@ void test(
     hipcompCascadedDestroyMetadata(metadata);
 
     hipStreamDestroy(stream);
-    cudaFree(d_decomp_temp);
-    cudaFree(d_comp_out);
+    hipFree(d_decomp_temp);
+    hipFree(d_comp_out);
 
     std::vector<T> res(decomp_out_bytes / sizeof(T));
-    cudaMemcpy(
-        &res[0], decomp_out_ptr, decomp_out_bytes, cudaMemcpyDeviceToHost);
+    hipMemcpy(
+        &res[0], decomp_out_ptr, decomp_out_bytes, hipMemcpyDeviceToHost);
 
 #if VERBOSE > 1
     // dump output data

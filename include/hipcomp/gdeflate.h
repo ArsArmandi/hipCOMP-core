@@ -32,7 +32,7 @@
 
 #include "hipcomp.h"
 
-#include <cuda_runtime.h>
+#include <hip_runtime.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -120,7 +120,7 @@ hipcompStatus_t hipcompBatchedGdeflateCompressGetMaxOutputChunkSize(
  * @param device_compressed_bytes The compressed size of each chunk on the GPU
  * (output). This pointer must be GPU accessible.
  * @param format_opts The GDeflate compression options to use.
- * @param stream The CUDA stream to operate on.
+ * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successfully launched, and an error code otherwise.
  */
@@ -134,7 +134,7 @@ hipcompStatus_t hipcompBatchedGdeflateCompressAsync(
     void* const* device_compressed_ptrs,
     size_t* device_compressed_bytes,
     hipcompBatchedGdeflateOpts_t format_opts,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 
 /**
@@ -176,7 +176,7 @@ hipcompStatus_t hipcompBatchedGdeflateDecompressGetTempSize(
  * @param device_statuses The status for each chunk of whether it was
  * decompressed or not. Can be nullptr if desired, 
  * in which case error status is not reported.
- * @param stream The CUDA stream to operate on.
+ * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -190,7 +190,7 @@ hipcompStatus_t hipcompBatchedGdeflateDecompressAsync(
     size_t temp_bytes,
     void* const* device_uncompressed_ptrs,
     hipcompStatus_t* device_statuses,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Calculates the decompressed size of each chunk asynchronously. This is
@@ -204,7 +204,7 @@ hipcompStatus_t hipcompBatchedGdeflateDecompressAsync(
  * @param device_uncompressed_bytes The calculated decompressed size of each
  * chunk. Must be GPU accessible.
  * @param batch_size The number of chunks
- * @param stream The CUDA stream to operate on.
+ * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
@@ -213,7 +213,7 @@ hipcompStatus_t hipcompBatchedGdeflateGetDecompressSizeAsync(
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 
 #ifdef __cplusplus
