@@ -25,12 +25,11 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.21) # HIP language support requires 3.21
+cmake_policy(VERSION 3.21.3...3.27)
 project(hipcomp LANGUAGES C HIP CXX)
 
 option(BUILD_TESTS "Build unit and end-to-end tests." OFF)
-option(BUILD_BENCHMARKS "Build benchmarks." OFF)
-option(BUILD_EXAMPLES "Build examples." OFF)
 option(BUILD_STATIC "Build a static library." OFF)
 
 set(CMAKE_CXX_STANDARD 14)
@@ -166,13 +165,6 @@ add_subdirectory(src)
 if (BUILD_TESTS)
   add_subdirectory(tests)
 endif()
-if (BUILD_BENCHMARKS)
-  add_subdirectory(benchmarks)
-endif()
-if (BUILD_EXAMPLES)
-  add_subdirectory(examples)
-endif()
-
 
 if (UNIX)
   include(GNUInstallDirs)
