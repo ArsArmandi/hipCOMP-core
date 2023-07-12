@@ -29,7 +29,7 @@ cmake_minimum_required(VERSION 3.21) # HIP language support requires 3.21
 cmake_policy(VERSION 3.21.3...3.27)
 project(hipcomp LANGUAGES C CXX)
 
-option(USE_CUDA "Build for CUDA devices via CUDA language. Default configuration builds for AMD GPUs via HIP language." OFF)
+option(USE_CUDA "Build for CUDA devices. Default configuration builds for AMD devices." OFF)
 option(BUILD_TESTS "Build unit and end-to-end tests." OFF)
 option(BUILD_STATIC "Build a static library." OFF)
 
@@ -70,7 +70,7 @@ macro(setup_cuda_build)
   add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
   include_directories(${HIP_INCLUDE_DIRS})
 
-   # TODO(docharri) why is this done?
+   # TODO(domcharrier) why is this done?
    # Using '-G' can cause the register count to overflow for some kernels
    # and cause launch failures
    # set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG};-G")
