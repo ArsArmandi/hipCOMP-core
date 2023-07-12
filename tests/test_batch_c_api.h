@@ -27,7 +27,7 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 #include <assert.h>
 #include <stddef.h>

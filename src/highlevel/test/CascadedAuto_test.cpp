@@ -40,7 +40,7 @@
 #include "common.h"
 #include "type_macros.h"
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 #include <algorithm>
 #include <assert.h>

@@ -33,12 +33,12 @@
 
 #include "CascadedCommon.h"
 #include "CascadedCompressionGPU.h"
-#include "CascadedDecompressionKernels.cuh"
+#include "CascadedDecompressionKernels.hiph"
 #include "CascadedMetadata.h"
 #include "CascadedMetadataOnGPU.h"
 #include "Check.h"
 #include "HipUtils.h"
-#include "hipcomp_cub.cuh"
+#include "hipcomp_hipcub.hiph"
 #include "type_macros.h"
 #include "unpack.h"
 

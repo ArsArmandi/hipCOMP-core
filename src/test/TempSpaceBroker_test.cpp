@@ -32,7 +32,7 @@
 #include "tests/catch.hpp"
 #include "TempSpaceBroker.h"
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 #include <cstdint>
 

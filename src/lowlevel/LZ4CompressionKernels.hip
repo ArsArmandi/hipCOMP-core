@@ -32,8 +32,8 @@
 #include "TempSpaceBroker.h"
 #include "common.h"
 
-#include "hip_runtime.h"
-#include "hipcomp_cub.cuh"
+#include "hip/hip_runtime.h"
+#include "hipcomp_hipcub.hiph"
 
 #include <cassert>
 #include <fstream>

@@ -32,7 +32,7 @@
 #include "LZ4Compressor.h"
 #include "TempSpaceBroker.h"
 #include "common.h"
-#include "hipcomp_cub.cuh"
+#include "hipcomp_hipcub.hiph"
 
 #include "hipcomp/lz4.h"
 

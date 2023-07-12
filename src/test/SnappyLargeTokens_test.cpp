@@ -31,7 +31,7 @@
 
 #include <random>
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 #include "tests/catch.hpp"
 

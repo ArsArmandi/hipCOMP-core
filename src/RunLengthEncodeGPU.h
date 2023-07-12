@@ -32,7 +32,7 @@
 
 #include "hipcomp.h"
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 #include <cstddef>
 

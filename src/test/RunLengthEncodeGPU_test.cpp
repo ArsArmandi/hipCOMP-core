@@ -34,7 +34,7 @@
 #include "common.h"
 #include "hipcomp.hpp"
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 #include <cstdlib>
 

@@ -32,7 +32,7 @@
 
 #include "CascadedMetadata.h"
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 namespace hipcomp
 {

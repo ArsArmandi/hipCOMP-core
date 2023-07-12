@@ -28,7 +28,7 @@
 #ifndef HIPCOMP_HIPUTILS_H
 #define HIPCOMP_HIPUTILS_H
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 #include <string>
 

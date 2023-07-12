@@ -32,7 +32,7 @@
 #include "tests/catch.hpp"
 #include "HipUtils.h"
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 #ifndef HIP_RT_CALL
 #define HIP_RT_CALL(call)                                                     \

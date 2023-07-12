@@ -38,7 +38,7 @@
 #include <cstdint>
 #include <vector>
 
-#ifdef __HIPCC__
+#if defined(__HIP_PLATFORM_AMD__) or defined(__HIP_PLATFORM_NVCC__)
 #define HIPCOMP_HOST_DEVICE __device__ __host__
 #else
 #define HIPCOMP_HOST_DEVICE

@@ -34,7 +34,7 @@
 #include "hipcomp/lz4.h"
 
 #include <cstdint>
-#include <hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include <stdexcept>
 #include <string>
 

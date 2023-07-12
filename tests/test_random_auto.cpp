@@ -35,7 +35,7 @@
 
 #include "test_common.h"
 
-#include <hip_profiler_api.h>
+#include <hip/hip_runtime_api.h>
 #include <iomanip>
 #include <random>
 #include <thread>

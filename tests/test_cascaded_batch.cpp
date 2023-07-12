@@ -33,7 +33,7 @@
 #include "catch.hpp"
 #include "hipcomp.hpp"
 #include "hipcomp/cascaded.hpp"
-#include <hip_runtime.h>
+#include <hip/hip_runtime.h>
 
 #include <cstdint>
 #include <random>

@@ -36,7 +36,7 @@
 #include "hipcomp.hpp"
 #include "type_macros.h"
 
-#include "hipcomp_cub.cuh"
+#include "hipcomp_hipcub.hiph"
 
 #include <algorithm>
 #include <cassert>

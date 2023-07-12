@@ -36,7 +36,7 @@
 #include "hipcomp.hpp"
 #include "type_macros.h"
 
-#include "hipcomp_cub.cuh"
+#include "hipcomp_hipcub.hiph"
 
 #include <cassert>
 #include <stdexcept>
@@ -52,10 +52,10 @@ namespace hipcomp
 namespace
 {
 constexpr const size_t ALIGN_OFFSET = 256;
-#ifdef _​_HIP_​PLATFORM_​AMD_​_
+#ifdef __HIP_PLATFORM_AMD__
 constexpr const int WARP_SIZE = 64;
 #else
-#  ifdef __HIPCC_VER_MAJOR__ >= 9
+#  if __NVCC_VER_MAJOR__ >= 9
 #    define INDEPENDENT_THREAD_SCHEDULING
 #  endif
 constexpr const int WARP_SIZE = 32;

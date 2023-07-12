@@ -30,7 +30,7 @@
 #ifndef HIPCOMP_GPUKERNELS_H
 #define HIPCOMP_GPUKERNELS_H
 
-#include "hipcomp_cub.cuh"
+#include "hipcomp_hipcub.hiph"
 #include "unpack.h"
 
 namespace hipcomp

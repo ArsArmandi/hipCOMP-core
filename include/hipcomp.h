@@ -30,7 +30,7 @@
 #ifndef HIPCOMP_H
 #define HIPCOMP_H
 
-#include <hip_runtime.h>
+#include <hip/hip_runtime.h>
 
 #ifdef __cplusplus
 extern "C" {

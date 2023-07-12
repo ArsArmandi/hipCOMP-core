@@ -18,10 +18,7 @@
 #pragma once
 #include <stdint.h>
 
-__HIPCC_VER_MAJOR__
-
-
-#if (__HIPCC_VER_MAJOR__ >= 9) or defined(_​_HIP_​PLATFORM_​AMD_​_)
+#if (__NVCC_VER_MAJOR__ >= 9) or defined(_​_HIP_​PLATFORM_​AMD_​_)
 #  define INDEPENDENT_THREAD_SCHEDULING
 #endif
 #ifdef INDEPENDENT_THREAD_SCHEDULING

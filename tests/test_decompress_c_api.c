@@ -31,7 +31,7 @@
 #include "hipcomp/cascaded.h"
 #include "hipcomp/lz4.h"
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 #include <assert.h>
 #include <stddef.h>

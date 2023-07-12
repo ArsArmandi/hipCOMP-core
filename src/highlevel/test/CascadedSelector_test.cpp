@@ -45,7 +45,7 @@
 #include <assert.h>
 #include <cstdlib>
 #include <cstring>
-#include <hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include <vector>
 
 #ifndef HIP_RT_CALL

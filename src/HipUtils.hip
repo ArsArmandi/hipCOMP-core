@@ -70,7 +70,7 @@ void HipUtils::check_last_error(const std::string& msg)
 
 const void* HipUtils::void_device_pointer(const void* const ptr)
 {
-  hipPointerAttributes attr;
+  hipPointerAttribute_t attr;
   check(
       hipPointerGetAttributes(&attr, ptr),
       "Failed to get pointer "
@@ -89,7 +89,7 @@ const void* HipUtils::void_device_pointer(const void* const ptr)
 
 bool HipUtils::is_device_pointer(const void* const ptr)
 {
-  hipPointerAttributes attr;
+  hipPointerAttribute_t attr;
 
   hipError_t err = hipPointerGetAttributes(&attr, ptr);
 
@@ -120,8 +120,8 @@ bool HipUtils::is_device_pointer(const void* const ptr)
 
 void* HipUtils::void_device_pointer(void* const ptr)
 {
-  hipPointerAttributes attr;
-  // we don't need to worry about the difference between hip 10 and hip 11
+  hipPointerAttribute_t attr;
+  // we don't need to worry about the difference between cuda 10 and cuda 11
   // here, as if it's not a device pointer, we want throw an exception either
   // way.
   check(

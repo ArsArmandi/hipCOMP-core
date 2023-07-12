@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 #include "hipcomp.h"
 
 #include <cstddef>

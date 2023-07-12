@@ -30,7 +30,7 @@
 #include "hipcomp.h"
 #include "hipcomp/cascaded.h"
 
-#include "hip_runtime.h"
+#include "hip/hip_runtime.h"
 
 #include <assert.h>
 #include <stddef.h>
