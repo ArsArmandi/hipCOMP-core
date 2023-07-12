@@ -31,9 +31,19 @@ The code is based on `nvCOMP` release branch [`branch-2.1`](https://github.com/N
 
 ## HIP/AMD
 
-TBA
+```shell
+cd hipcomp-core/
+mkdir build/
+cd build/
+cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake
+# To build with tests, append `-D BUILD_TESTS=1`:
+# cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake -D BUILD_TESTS=1
+make
+```
 
 ### HIP/CUDA
+
+Like HIP/AMD but with additional `-D CUDA_BACKEND=1` option:
 
 ```shell
 cd hipcomp-core/

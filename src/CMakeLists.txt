@@ -81,7 +81,9 @@ endif()
 
 include_directories("./")
 
-set_cuda_compilation_options()
+if (CUDA_BACKEND)
+  set_cuda_compilation_options()
+endif (CUDA_BACKEND)
 
 if (bitcomp_FOUND)
   target_include_directories(hipcomp INTERFACE ${BITCOMP_INCLUDE_DIRS})
