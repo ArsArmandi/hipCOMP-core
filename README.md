@@ -22,7 +22,30 @@
   -->
 
 # hipCOMP-CORE
-hipCOMP CORE is a library for fast lossless compression/decompression on the GPU which contains the algorithm implementation
+
+hipCOMP CORE is a library for fast lossless compression/decompression on the GPU which contains the algorithm implementation.
+
+The code is based on `nvCOMP` release branch [`branch-2.1`](https://github.com/NVIDIA/nvcomp/tree/branch-2.1).
+
+## Build From Source
+
+## HIP/AMD
+
+TBA
+
+### HIP/CUDA
+
+```shell
+cd hipcomp-core/
+mkdir build/
+cd build/
+cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake -D USE_CUDA=1 
+# To build with tests, append `-D BUILD_TESTS=1`:
+# cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake -D USE_CUDA=1 -D BUILD_TESTS=1
+make
+```
+
+<!-- REMOVE BELOW BEFORE RELEASE -->
 
 #### Legal Requirements:
 Always include the appropriate copyright and MIT X11 notice (see below)

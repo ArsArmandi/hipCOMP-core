@@ -27,8 +27,9 @@
 # Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 cmake_minimum_required(VERSION 3.21) # HIP language support requires 3.21
 cmake_policy(VERSION 3.21.3...3.27)
-project(hipcomp LANGUAGES C HIP CXX)
+project(hipcomp LANGUAGES C CXX)
 
+option(USE_CUDA "Build for CUDA devices via CUDA language. Default configuration builds for AMD GPUs via HIP language." OFF)
 option(BUILD_TESTS "Build unit and end-to-end tests." OFF)
 option(BUILD_STATIC "Build a static library." OFF)
 
@@ -40,7 +41,56 @@ list( APPEND CMAKE_MODULE_PATH
   ${CMAKE_SOURCE_DIR}/cmake
 )
 
-find_package(HIPToolkit REQUIRED)
+macro(setup_cuda_build)
+  enable_language(CUDA)
+  
+  find_package(CUDAToolkit REQUIRED)
+  include_directories("${CUDAToolkit_INCLUDE_DIRS}")
+
+  if(NOT DEFINED CUB_DIR AND DEFINED ENV{CUB_DIR})
+    set(CUB_DIR ENV{CUB_DIR})
+  endif()
+  
+  message(STATUS "Finding CUB")
+  if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "11" AND NOT DEFINED CUB_DIR)
+    message(FATAL_ERROR "When using a HIP prior to HIP 11, you must specify "
+        "the path of cub via the 'CUB_DIR' variable (e.g., "
+        "'cmake -DCUB_DIR=...' or 'export CUB_DIR=...'). You can download cub "
+        "from 'https://github.com/ROCmSoftwarePlatform/hipCUB'.")
+  endif()
+  find_path(CUB_PARENT_DIR NAMES "cub/cub.cuh" PATHS "${CUB_DIR}" "${CUDAToolkit_INCLUDE_DIRS}")
+  if(NOT CUB_PARENT_DIR)
+    message(FATAL_ERROR "Unable to locate 'cub/cub.cuh'. Please specify a path "
+        "to cub via 'CUB_DIR'")
+  endif()
+  
+  include_directories(${CUB_PARENT_DIR})
+  
+  find_package(hip REQUIRED)
+  add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
+  include_directories(${HIP_INCLUDE_DIRS})
+
+   # TODO(docharri) why is this done?
+   # Using '-G' can cause the register count to overflow for some kernels
+   # and cause launch failures
+   # set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG};-G")
+   set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -g")
+endmacro()
+
+macro(setup_hip_amd_build)
+  enable_language(HIP)
+  message(STATUS "Finding hipCUB")
+  find_package(hipcub REQUIRED)
+endmacro()
+
+
+################################
+
+if (USE_CUDA)
+  setup_cuda_build()
+else (USE_CUDA)
+  setup_hip_amd_build()
+endif (USE_CUDA)
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU" OR
     "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR
@@ -53,7 +103,7 @@ endif()
 # Using '-G' can cause the register count to overflow for some kernels
 # and cause launch failures
 # set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG};-G")
-set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -g")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -g")
 
 if(CMAKE_BUILD_TYPE STREQUAL "DEBUG" OR CMAKE_BUILD_TYPE STREQUAL "Debug")
   message("Debug build.")
@@ -92,26 +142,10 @@ if(DEFINED DEVEL AND NOT DEVEL EQUAL 0)
   # TODO: add clang warnings
 endif()
 
-  if (MSVC)
-    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/W3>")
-  endif()
-
-if(NOT DEFINED CUB_DIR AND DEFINED ENV{CUB_DIR})
-  set(CUB_DIR ENV{CUB_DIR})
+if (MSVC)
+  add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/W3>")
 endif()
 
-message(STATUS "Finding HIPCUB")
-if(CMAKE_HIP_COMPILER_VERSION VERSION_LESS "11" AND NOT DEFINED CUB_DIR)
-  message(FATAL_ERROR "When using a HIP prior to HIP 11, you must specify "
-      "the path of hipcub via the 'HIPCUB_DIR' variable (e.g., "
-      "'cmake -DHIPCUB_DIR=...' or 'export HIPCUB_DIR=...'). You can download hipcub "
-      "from 'https://github.com/ROCmSoftwarePlatform/hipCUB'.")
-endif()
-find_path(HIPCUB_HEADER NAMES "hipcub/hipcub.hpp" PATHS "${HIPCUB_DIR}" "${HIPToolkit_INCLUDE_DIRS}")
-if(NOT CUB_HEADER)
-  message(FATAL_ERROR "Unable to locate 'hipcub/hipcub.hpp'. Please specify a path "
-      "to hipcub via 'HIPCUB_DIR'")
-endif()
 
 if(NOT DEFINED HIPCOMP_EXTS_ROOT AND DEFINED ENV{HIPCOMP_EXTS_ROOT})
   set(HIPCOMP_EXTS_ROOT "$ENV{HIPCOMP_EXTS_ROOT}")

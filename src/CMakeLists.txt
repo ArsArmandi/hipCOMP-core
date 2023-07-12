@@ -26,26 +26,47 @@
 #
 # Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 # build real and virtual, so as to run on 6x cards.
-set(GPU_ARCHS "60")
 
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER "8")
-  set(GPU_ARCHS ${GPU_ARCHS} "70-real")
-endif()
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER "9")
-  set(GPU_ARCHS ${GPU_ARCHS} "75-real")
-endif()
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11")
-  set(GPU_ARCHS ${GPU_ARCHS} "80")
-endif()
+macro (setup_cuda_devices)
+  set(GPU_ARCHS "60")
+  
+  if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER "8")
+    set(GPU_ARCHS ${GPU_ARCHS} "70-real")
+  endif()
+  if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER "9")
+    set(GPU_ARCHS ${GPU_ARCHS} "75-real")
+  endif()
+  if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11")
+    set(GPU_ARCHS ${GPU_ARCHS} "80")
+  endif()
+endmacro(setup_cuda_devices)
+
+macro (set_cuda_compilation_options)
+  set_property(TARGET hipcomp PROPERTY POSITION_INDEPENDENT_CODE ON)
+  set_property(TARGET hipcomp PROPERTY HIP_ARCHITECTURES ${GPU_ARCHS})
+  target_compile_options(hipcomp PRIVATE
+      $<$<COMPILE_LANGUAGE:HIP>:--expt-extended-lambda>)
+  target_include_directories(hipcomp PUBLIC
+      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>")
+  if(DEFINED CUB_DIR)
+    target_include_directories(hipcomp PRIVATE "${CUB_DIR}")
+  endif()
+  target_include_directories(hipcomp PRIVATE "${CUDAToolkit_INCLUDE_DIRS}")
+endmacro (set_cuda_compilation_options)
 
 file(GLOB HIP_SOURCES
-  ./*.cu
-  ./lowlevel/*.cu
-  ./highlevel/*.cu)
+  ./*.hip
+  ./lowlevel/*.hip
+  ./highlevel/*.hip)
 file(GLOB CPP_SOURCES
   ./*.cpp
   ./lowlevel/*.cpp
   ./highlevel/*.cpp)
+
+if (USE_CUDA)
+  setup_cuda_devices()
+  set_source_files_properties(${HIP_SOURCES} PROPERTIES LANGUAGE CUDA)
+endif (USE_CUDA)
 
 if (BUILD_STATIC)
   add_library(hipcomp STATIC ${HIP_SOURCES} ${CPP_SOURCES})
@@ -60,16 +81,7 @@ endif()
 
 include_directories("./")
 
-set_property(TARGET hipcomp PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET hipcomp PROPERTY HIP_ARCHITECTURES ${GPU_ARCHS})
-target_compile_options(hipcomp PRIVATE
-    $<$<COMPILE_LANGUAGE:HIP>:--expt-extended-lambda>)
-target_include_directories(hipcomp PUBLIC
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>")
-if(DEFINED CUB_DIR)
-  target_include_directories(hipcomp PRIVATE "${CUB_DIR}")
-endif()
-target_include_directories(hipcomp PRIVATE "${HIPToolkit_INCLUDE_DIRS}")
+set_cuda_compilation_options()
 
 if (bitcomp_FOUND)
   target_include_directories(hipcomp INTERFACE ${BITCOMP_INCLUDE_DIRS})
