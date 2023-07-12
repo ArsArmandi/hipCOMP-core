@@ -63,10 +63,10 @@ file(GLOB CPP_SOURCES
   ./lowlevel/*.cpp
   ./highlevel/*.cpp)
 
-if (USE_CUDA)
+if (CUDA_BACKEND)
   setup_cuda_devices()
   set_source_files_properties(${HIP_SOURCES} PROPERTIES LANGUAGE CUDA)
-endif (USE_CUDA)
+endif (CUDA_BACKEND)
 
 if (BUILD_STATIC)
   add_library(hipcomp STATIC ${HIP_SOURCES} ${CPP_SOURCES})

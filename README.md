@@ -39,9 +39,9 @@ TBA
 cd hipcomp-core/
 mkdir build/
 cd build/
-cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake -D USE_CUDA=1 
+cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake -D CUDA_BACKEND=1 
 # To build with tests, append `-D BUILD_TESTS=1`:
-# cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake -D USE_CUDA=1 -D BUILD_TESTS=1
+# cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake -D CUDA_BACKEND=1 -D BUILD_TESTS=1
 make
 ```
 

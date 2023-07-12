@@ -29,7 +29,7 @@ cmake_minimum_required(VERSION 3.21) # HIP language support requires 3.21
 cmake_policy(VERSION 3.21.3...3.27)
 project(hipcomp LANGUAGES C CXX)
 
-option(USE_CUDA "Build for CUDA devices. Default configuration builds for AMD devices." OFF)
+option(CUDA_BACKEND "Build for CUDA devices. Default configuration builds for AMD devices." OFF)
 option(BUILD_TESTS "Build unit and end-to-end tests." OFF)
 option(BUILD_STATIC "Build a static library." OFF)
 
@@ -86,11 +86,11 @@ endmacro()
 
 ################################
 
-if (USE_CUDA)
+if (CUDA_BACKEND)
   setup_cuda_build()
-else (USE_CUDA)
+else (CUDA_BACKEND)
   setup_hip_amd_build()
-endif (USE_CUDA)
+endif (CUDA_BACKEND)
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU" OR
     "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR
