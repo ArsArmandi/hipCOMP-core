@@ -1,0 +1,1506 @@
+/*
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of NVIDIA CORPORATION nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
+
+#include "hipcomp.h"
+#include "hipcomp.hpp"
+#include "hipcomp/cascaded.h"
+
+#include "CascadedCommon.h"
+#include "CascadedCompressionGPU.h"
+#include "CascadedDecompressionKernels.hiph"
+#include "CascadedMetadata.h"
+#include "CascadedMetadataOnGPU.h"
+#include "Check.h"
+#include "HipUtils.h"
+#include "hipcomp_hipcub.hiph"
+#include "type_macros.h"
+#include "unpack.h"
+
+#include <cassert>
+#include <iostream>
+#include <list>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <vector>
+
+// align all temp allocations by 512B
+#define HIP_MEM_ALIGN(size) (((size) + 0x1FF) & ~0x1FF)
+
+#ifndef RLE_THREAD_BLOCK
+#define RLE_THREAD_BLOCK 128
+#endif
+
+#ifndef RLE_ELEMS_PER_THREAD
+#define RLE_ELEMS_PER_THREAD 4
+#endif
+
+#define RLE_ELEMS_PER_BLOCK (RLE_THREAD_BLOCK * RLE_ELEMS_PER_THREAD)
+
+namespace hipcomp
+{
+namespace highlevel
+{
+
+// internal representations: one kernel per scheme
+enum hipcompScheme_t
+{
+  HIPCOMP_SCHEME_BP,
+  HIPCOMP_SCHEME_RLE,
+  HIPCOMP_SCHEME_DELTA,
+  HIPCOMP_SCHEME_RLE_DELTA, // automatically fused RLE+Delta to reduce mem
+                           // traffic
+};
+
+struct hipcompLayer_t;
+
+struct hipcompDataNode_t
+{
+  void* ptr;
+  hipcompType_t type;
+  int packing;
+
+  hipcompLayer_t* parentLayer;
+  size_t length;
+
+  // to enable BP as a separate layer, default -1
+  int pointToId;
+};
+
+struct hipcompLayer_t
+{
+  hipcompScheme_t scheme;
+  size_t maxOutputSize;
+
+  hipcompDataNode_t* vals;
+  hipcompDataNode_t* runs;
+  hipcompDataNode_t* output;
+
+  // TODO: can we get rid of those
+  int valId;
+  int runId;
+  int outputId;
+};
+
+struct hipcompIntConfig_t
+{
+  int outputId = 0;
+  hipcompType_t outputType = HIPCOMP_TYPE_INT;
+  size_t maxOutputSize = 0;
+
+  std::list<hipcompLayer_t> layers = {};
+  std::map<int, hipcompDataNode_t> nodes
+      = {}; // TODO: should we make this hipcompData_t instead of int?
+
+  // compute the workspace size
+  size_t getWorkspaceBytes();
+  size_t getWorkspaceBytes(hipcompDataNode_t* node);
+
+  // fuse kernels, etc.
+  void optimizeLayers();
+};
+
+struct hipcompIntTask_t
+{
+  // TODO: add HIP event assigned to this task
+};
+
+struct hipcompIntHandle_t
+{
+  std::unique_ptr<hipcompIntConfig_t> config = nullptr;
+  hipStream_t stream = 0;
+
+  // main decomp functions
+  template <typename outputT>
+  hipcompStatus_t decompCPU(
+      hipcompDataNode_t* node, const void** inputData, const void** h_headers);
+  template <typename outputT, typename runT>
+  hipcompStatus_t decompGPU(
+      hipcompDataNode_t* node,
+      const void** inputData,
+      const void** h_headers,
+      hipStream_t stream = NULL);
+
+  // workspace memory
+  size_t workspaceBytes = 0;
+  void* workspaceStorage = nullptr;
+
+  // workspace mem management
+  hipcompStatus_t release();
+  hipcompStatus_t
+  allocateAsync(); // new function that splits of pre-allocated memory
+
+  // workspace breakdown
+  size_t max_input_len = 0;  // maximum input RLE length
+  size_t max_output_len = 0; // maximum output RLE length
+
+  void* temp_val = nullptr;    // temp RLE val expansions
+  void* temp_run = nullptr;    // temp RLE run expansions
+  void* temp_delta = nullptr;  // temp Delta expansions
+  void* temp_output = nullptr; // temp Delta expansions
+
+  // hipcub scan memory
+  size_t temp_scan_bytes = 0;
+  void* temp_scan = nullptr;
+
+  // block indices start and offsets
+  size_t max_num_blocks = 0;
+  size_t* start_ind = nullptr;
+  size_t* start_off = nullptr;
+};
+
+template <typename keyT, typename valueT>
+struct SharedMap
+{
+  std::map<keyT, valueT> data = {};
+  std::mutex m = {};
+
+  // find the next available id
+  keyT find_next()
+  {
+    std::lock_guard<std::mutex> guard(m);
+    int id = 0;
+    while (data.find(id) != data.end())
+      id++;
+    return (keyT)id;
+  }
+
+  bool exists(const keyT& key)
+  {
+    std::lock_guard<std::mutex> guard(m);
+    return data.find(key) != data.end();
+  }
+
+  void insert(const keyT& key, const valueT& val)
+  {
+    std::lock_guard<std::mutex> guard(m);
+    if (data.find(key) == data.end())
+      data[key] = val;
+  }
+
+  valueT& operator[](const keyT& key)
+  {
+    std::lock_guard<std::mutex> guard(m);
+    return data[key];
+  }
+
+  void erase(const keyT& key)
+  {
+    std::lock_guard<std::mutex> guard(m);
+    data.erase(key);
+  }
+};
+
+// internal collections
+SharedMap<hipcompConfig_t, hipcompIntConfig_t> configs;
+SharedMap<hipcompHandle_t, hipcompIntHandle_t> handles;
+
+// TODO: can we get rid of these?
+std::mutex config_mutex;
+std::mutex handle_mutex;
+
+namespace
+{
+
+template <typename T>
+void cubDeviceScanTempSpace(size_t& temp_scan_bytes, const size_t max_input_len)
+{
+  void* temp_scan = nullptr;
+  T* temp_run = nullptr;
+
+  HipUtils::check(
+      hipcub::DeviceScan::InclusiveSum(
+          temp_scan, temp_scan_bytes, temp_run, temp_run, max_input_len),
+      "hipcub::DeviceScan::InclusiveSum failed");
+}
+
+void checkCompressSize(const size_t numBytes)
+{
+  const size_t maxBytes = static_cast<size_t>(std::numeric_limits<int>::max());
+  if (numBytes > maxBytes) {
+    throw std::runtime_error(
+        "Cascaded compression can only compress up to a maximum of "
+        + std::to_string(maxBytes) + " bytes at a time (requested "
+        + std::to_string(numBytes) + " bytes).");
+  }
+}
+
+std::unique_ptr<hipcompIntConfig_t>
+generateConfig(const CascadedMetadata* const metadata)
+{
+  const int numRLEs = metadata->getNumRLEs();
+  const int numDeltas = metadata->getNumDeltas();
+  const bool bitPacking = metadata->useBitPacking();
+
+  int vals_id = 0;
+
+  // initialize config
+  const hipcompType_t type = metadata->getValueType();
+
+  std::unique_ptr<hipcompIntConfig_t> config(new hipcompIntConfig_t);
+  config->outputId = vals_id;
+  config->outputType = type;
+  config->maxOutputSize = metadata->getUncompressedSize();
+
+  const hipcompType_t runType
+      = selectRunsType(metadata->getNumUncompressedElements());
+
+  const size_t maxSegmentSize = metadata->getUncompressedSize();
+
+  config->nodes[0].length = metadata->getNumUncompressedElements();
+
+  // A step can be RLE+Delta, RLE, or Delta, with final outputs conditionally
+  // having bit packing applied
+  const int numSteps = std::max(numRLEs, numDeltas);
+  for (int r = numSteps - 1; r >= 0; r--) {
+    const int inputId = vals_id;
+
+    if (numSteps - r - 1 < numRLEs) {
+      const int runId = ++vals_id;
+      const int valId = ++vals_id;
+
+      // add to config
+      hipcompConfigAddRLE_BP(
+          config.get(),
+          inputId,
+          maxSegmentSize,
+          valId,
+          type,
+          bitPacking,
+          runId,
+          runType,
+          bitPacking);
+      config->nodes[valId].length = metadata->getNumElementsOf(valId);
+      config->nodes[runId].length = metadata->getNumElementsOf(runId);
+
+      // store vals (apply delta if necessary)
+      if (numRLEs - 1 - r < numDeltas) {
+        const int deltaId = ++vals_id;
+
+        if (r == 0) {
+          hipcompConfigAddDelta_BP(
+              config.get(), valId, maxSegmentSize, deltaId, type, bitPacking);
+        } else {
+          hipcompConfigAddDelta_BP(
+              config.get(),
+              valId,
+              maxSegmentSize,
+              deltaId,
+              type,
+              0); // no bitpacking when delta is used as an intermediate step
+        }
+        config->nodes[deltaId].length = metadata->getNumElementsOf(deltaId);
+      }
+    } else {
+      // RLE-less step
+      const int deltaId = ++vals_id;
+
+      if (r == 0) {
+        hipcompConfigAddDelta_BP(
+            config.get(), inputId, maxSegmentSize, deltaId, type, bitPacking);
+      } else {
+        hipcompConfigAddDelta_BP(
+            config.get(),
+            inputId,
+            maxSegmentSize,
+            deltaId,
+            type,
+            0); // no bitpacking when delta is used as an intermediate step
+      }
+      config->nodes[deltaId].length = metadata->getNumElementsOf(deltaId);
+    }
+  }
+
+  // If there are no RLEs or Deltas, we will do a single BP step.
+  if (numRLEs == 0 && numDeltas == 0) {
+    const int inputId = vals_id;
+    const int bpId = ++vals_id;
+    hipcompConfigAddBP(config.get(), inputId, maxSegmentSize, bpId, type);
+
+    config->nodes[bpId].length = metadata->getNumElementsOf(bpId);
+  }
+
+  return config;
+}
+
+template <typename T>
+constexpr bool isFixedWidth()
+{
+  return std::is_same<T, char>::value || std::is_same<T, int8_t>::value
+         || std::is_same<T, uint8_t>::value || std::is_same<T, int16_t>::value
+         || std::is_same<T, uint16_t>::value || std::is_same<T, int32_t>::value
+         || std::is_same<T, uint32_t>::value || std::is_same<T, int64_t>::value
+         || std::is_same<T, uint64_t>::value;
+}
+
+template <typename T>
+size_t writeFixedWidthData(
+    const T* const val,
+    void* const ptr,
+    const size_t offset,
+    const size_t maxSize)
+{
+  assert(isFixedWidth<T>());
+
+  size_t newOffset = offset + sizeof(*val);
+
+  if (ptr) {
+    // only write if we're doing a really output
+    if (newOffset > maxSize) {
+      throw std::runtime_error(
+          "Not enough room to write member, need at least "
+          + std::to_string(newOffset) + " bytes, but given only "
+          + std::to_string(maxSize));
+    }
+
+    memcpy(static_cast<char*>(ptr) + offset, val, sizeof(*val));
+  }
+
+  return newOffset;
+}
+
+template <typename T>
+size_t writeData(
+    const T* const val,
+    void* const ptr,
+    const size_t offset,
+    const size_t maxSize)
+{
+  if (isFixedWidth<T>()) {
+    return writeFixedWidthData(val, ptr, offset, maxSize);
+  } else if (std::is_same<T, bool>::value) {
+    const int8_t typedVal = static_cast<int8_t>(*val);
+    return writeData(&typedVal, ptr, offset, maxSize);
+  } else if (std::is_same<T, int>::value) {
+    // on most systems this will not be used, as int32_t is usually defined as
+    // int
+    const int32_t typedVal = static_cast<int32_t>(*val);
+    return writeData(&typedVal, ptr, offset, maxSize);
+  } else if (std::is_same<T, size_t>::value) {
+    const uint64_t typedVal = static_cast<uint64_t>(*val);
+    return writeData(&typedVal, ptr, offset, maxSize);
+  } else {
+    throw std::runtime_error("Unsupported type for serialization.");
+  }
+}
+
+} // namespace
+
+/**************************************************************************************
+ *            Older API definitions below.  New API calls rely on them.
+ **************************************************************************************/
+
+hipcompIntConfig_t* createConfig(const CascadedMetadata* metadata)
+{
+  return generateConfig(metadata).release();
+}
+
+void destroyConfig(hipcompIntConfig_t* config)
+{
+  delete config;
+}
+
+hipcompStatus_t hipcompConfigAddRLE_BP(
+    hipcompIntConfig_t* const config,
+    int outputId,
+    size_t maxOutputSize,
+    int valId,
+    hipcompType_t valType,
+    int valPacking,
+    int runId,
+    hipcompType_t runType,
+    int runPacking)
+{
+  hipcompIntConfig_t& c = *config;
+
+  // setup input nodes if necessary
+  if (c.nodes.find(valId) == c.nodes.end()) {
+    c.nodes[valId] = {NULL, valType, valPacking, NULL, 0, 0};
+  }
+  if (c.nodes.find(runId) == c.nodes.end()) {
+    c.nodes[runId] = {NULL, runType, runPacking, NULL, 0, 0};
+  }
+
+  // create the output node if necessary
+  if (c.nodes.find(outputId) == c.nodes.end()) {
+    c.nodes[outputId] = {NULL, valType, 0, NULL, 0, 0};
+  }
+
+  hipcompLayer_t layer = {HIPCOMP_SCHEME_RLE,
+                         maxOutputSize,
+                         NULL,
+                         NULL,
+                         NULL,
+                         valId,
+                         runId,
+                         outputId};
+  c.layers.push_back(layer);
+  c.nodes[outputId].parentLayer = &c.layers.back();
+
+  return hipcompSuccess;
+}
+
+hipcompStatus_t hipcompConfigAddDelta_BP(
+    hipcompIntConfig_t* const config,
+    int outputId,
+    size_t maxOutputSize,
+    int valId,
+    hipcompType_t valType,
+    int valPacking)
+{
+  hipcompIntConfig_t& c = *config;
+
+  // setup the input node if necessary
+  if (c.nodes.find(valId) == c.nodes.end()) {
+    c.nodes[valId] = {NULL, valType, valPacking, NULL, 0, 0};
+  }
+
+  // create the output node if necessary
+  if (c.nodes.find(outputId) == c.nodes.end()) {
+    c.nodes[outputId] = {NULL, valType, 0, NULL, 0, 0};
+  }
+
+  hipcompLayer_t layer = {HIPCOMP_SCHEME_DELTA,
+                         maxOutputSize,
+                         NULL,
+                         NULL,
+                         NULL,
+                         valId,
+                         -1,
+                         outputId};
+  c.layers.push_back(layer);
+  c.nodes[outputId].parentLayer = &c.layers.back();
+
+  return hipcompSuccess;
+}
+
+hipcompStatus_t hipcompConfigAddBP(
+    hipcompIntConfig_t* const config,
+    int outputId,
+    size_t maxOutputSize,
+    int valId,
+    hipcompType_t valType)
+{
+  hipcompIntConfig_t& c = *config;
+
+  // setup the input node if necessary
+  if (c.nodes.find(valId) == c.nodes.end()) {
+    c.nodes[valId] = {NULL, valType, 1, NULL, 0, 0};
+  }
+
+  // create the output node if necessary
+  if (c.nodes.find(outputId) == c.nodes.end()) {
+    c.nodes[outputId] = {NULL, valType, 0, NULL, 0, 0};
+  }
+
+  hipcompLayer_t layer = {
+      HIPCOMP_SCHEME_BP, maxOutputSize, NULL, NULL, NULL, valId, -1, outputId};
+  c.layers.push_back(layer);
+  c.nodes[outputId].parentLayer = &c.layers.back();
+
+  return hipcompSuccess;
+}
+
+size_t hipcompIntConfig_t::getWorkspaceBytes(hipcompDataNode_t* /*node*/)
+{
+  // TODO: allocate output buffers for each node except the terminal one
+  // currently this is done inside decompGPU which will break concurrency (once
+  // we add streams)
+  return 0;
+}
+
+size_t hipcompIntConfig_t::getWorkspaceBytes()
+{
+  if (nodes.find(outputId) == nodes.end()) {
+    throw std::runtime_error(
+        "getWorkspaceBytes(): could not find output ID amongst nodes: "
+        + std::to_string(outputId) + " with " + std::to_string(nodes.size())
+        + " nodes.");
+  }
+  if (nodes[outputId].parentLayer == NULL) {
+    throw std::runtime_error("getWorkspaceBytes(): the output node is not used "
+                             "by any compression layers.");
+  }
+
+  int numRLEs = 0;
+  int numDeltas = 0;
+
+  size_t max_input_len = 0;
+  for (const hipcompLayer_t& layer : layers) {
+    if (layer.scheme == HIPCOMP_SCHEME_RLE
+        || layer.scheme == HIPCOMP_SCHEME_RLE_DELTA) {
+      ++numRLEs;
+    }
+    if (layer.scheme == HIPCOMP_SCHEME_DELTA
+        || layer.scheme == HIPCOMP_SCHEME_RLE_DELTA) {
+      ++numDeltas;
+    }
+
+    const size_t layer_len = nodes[layer.valId].length;
+    if (layer_len > max_input_len) {
+      max_input_len = layer_len;
+    }
+  }
+
+  const size_t max_output_len = maxOutputSize;
+
+  size_t size = 0;
+
+  // temp vals, runs, delta, output
+  if (numRLEs > 0 || numDeltas > 0) {
+    size += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+    if (numRLEs > 0) {
+      size += HIP_MEM_ALIGN(
+          max_input_len * sizeOfhipcompType(selectRunsType(maxOutputSize)));
+    }
+    size += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+    size += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+  }
+
+  size_t temp_scan_bytes_run = 0;
+  size_t temp_scan_bytes_delta = 0;
+  HIPCOMP_TYPE_ONE_SWITCH(
+      selectRunsType(max_output_len),
+      cubDeviceScanTempSpace,
+      temp_scan_bytes_run,
+      max_input_len);
+  HIPCOMP_TYPE_ONE_SWITCH(
+      outputType, cubDeviceScanTempSpace, temp_scan_bytes_delta, max_input_len);
+  size_t temp_scan_bytes = std::max(temp_scan_bytes_run, temp_scan_bytes_delta);
+
+  size += HIP_MEM_ALIGN(temp_scan_bytes);
+
+  size_t max_num_blocks
+      = (max_output_len + RLE_ELEMS_PER_BLOCK - 1) / RLE_ELEMS_PER_BLOCK;
+  size += HIP_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
+  size += HIP_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
+
+  return size;
+}
+
+hipcompStatus_t hipcompIntHandle_t::release()
+{
+  return hipcompSuccess;
+}
+
+// recursively assign memory for all nodes in our DAG
+// ** Assumes worspaceStorage is already allocated with sufficient space **
+hipcompStatus_t hipcompIntHandle_t::allocateAsync()
+{
+  hipcompIntConfig_t& c = *config;
+
+  hipcompType_t outputType = c.outputType;
+
+  // assign member variables for size
+  max_output_len = c.maxOutputSize;
+  max_input_len = 0;
+  int numRLEs = 0;
+  int numDeltas = 0;
+  for (const hipcompLayer_t& layer : c.layers) {
+    if (layer.scheme == HIPCOMP_SCHEME_RLE
+        || layer.scheme == HIPCOMP_SCHEME_RLE_DELTA) {
+      ++numRLEs;
+    }
+    if (layer.scheme == HIPCOMP_SCHEME_DELTA
+        || layer.scheme == HIPCOMP_SCHEME_RLE_DELTA) {
+      ++numDeltas;
+    }
+
+    const size_t layer_len = c.nodes[layer.valId].length;
+    if (layer_len > max_input_len) {
+      max_input_len = layer_len;
+    }
+  }
+
+  unsigned char* ptr = (unsigned char*)workspaceStorage;
+
+  // temporary buffers that can hold RLE expansions and other data, but we will
+  // re-use locations
+  if (numRLEs > 0 || numDeltas > 0) {
+    temp_val = ptr;
+    ptr += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+    if (numRLEs > 0) {
+      temp_run = ptr;
+      ptr += HIP_MEM_ALIGN(
+          max_input_len * sizeOfhipcompType(selectRunsType(max_output_len)));
+    }
+    temp_delta = ptr;
+    ptr += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+
+    // one additional buffer for delta expansion
+    // TODO: can we get rid of this one?
+    temp_output = ptr;
+    ptr += HIP_MEM_ALIGN(max_input_len * sizeOfhipcompType(outputType));
+  }
+
+  // allocate temp storage for hipcub scan using the largest size_t
+  // this temp storage will be reused by delta and runs scans of different types
+  temp_scan = ptr;
+
+  size_t temp_scan_bytes_run = 0;
+  size_t temp_scan_bytes_delta = 0;
+  HIPCOMP_TYPE_ONE_SWITCH(
+      selectRunsType(max_output_len),
+      cubDeviceScanTempSpace,
+      temp_scan_bytes_run,
+      max_input_len);
+  HIPCOMP_TYPE_ONE_SWITCH(
+      outputType, cubDeviceScanTempSpace, temp_scan_bytes_delta, max_input_len);
+  temp_scan_bytes = std::max(temp_scan_bytes_run, temp_scan_bytes_delta);
+  ptr += HIP_MEM_ALIGN(temp_scan_bytes);
+
+  // block indices/offsets
+  max_num_blocks
+      = (max_output_len + RLE_ELEMS_PER_BLOCK - 1) / RLE_ELEMS_PER_BLOCK;
+  start_ind = (size_t*)ptr;
+  ptr += HIP_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
+  start_off = (size_t*)ptr;
+  ptr += HIP_MEM_ALIGN((max_num_blocks + 1) * sizeof(size_t));
+
+  return hipcompSuccess;
+}
+
+// here we do kernel fusion
+void hipcompIntConfig_t::optimizeLayers()
+{
+  for (auto it = layers.begin(); it != layers.end();) {
+    if (it->scheme == HIPCOMP_SCHEME_DELTA) {
+      int valId = it->valId;
+      int outputId = it->outputId;
+      if (nodes.find(valId) != nodes.end() && nodes[valId].parentLayer != NULL
+          && nodes[valId].parentLayer->scheme == HIPCOMP_SCHEME_RLE) {
+        nodes[outputId].parentLayer = nodes[valId].parentLayer;
+        nodes[outputId].parentLayer->scheme = HIPCOMP_SCHEME_RLE_DELTA;
+        nodes[outputId].parentLayer->outputId = outputId;
+        it = layers.erase(it);
+        continue;
+      }
+    }
+    it++;
+  }
+}
+
+/* These functions may not be needed and removed to simplify codebase */
+hipcompStatus_t hipcompSetWorkspace(
+    hipcompHandle_t /*handle*/,
+    void* /*workspaceStorage*/,
+    size_t /*workspaceBytes*/)
+{
+  std::cerr << "ERROR: hipcompSetWorkspace is not implemented yet!" << std::endl;
+  return hipcompErrorNotSupported;
+}
+
+hipcompStatus_t
+hipcompGetWorkspaceSize(hipcompHandle_t handle, size_t* workspaceBytes)
+{
+  *workspaceBytes = handles[handle].workspaceBytes;
+
+  return hipcompSuccess;
+}
+
+hipcompStatus_t hipcompSetStream(hipcompHandle_t handle, hipStream_t streamId)
+{
+  handles[handle].stream = streamId;
+
+  return hipcompSuccess;
+}
+
+hipcompStatus_t hipcompGetStream(hipcompHandle_t handle, hipStream_t* streamId)
+{
+  *streamId = handles[handle].stream;
+
+  return hipcompSuccess;
+}
+
+// if the header is not packed this will shallow copy the pointer
+// otherwise unpack into the output buffer
+template <typename inputT, typename outputT>
+void unpackCpu(
+    outputT** output, hipcompDataNode_t* node, const void* hdr, const void* data)
+{
+  const CascadedMetadata::Header header
+      = *static_cast<const CascadedMetadata::Header*>(hdr);
+  if (node->packing) {
+    for (size_t i = 0; i < header.length; ++i) {
+      const inputT minValue
+          = *CascadedMetadata::getMinValueLocation<inputT>(&header);
+      (*output)[i] = unpackBytes(data, header.numBits, minValue, i);
+    }
+  } else {
+    if (typeid(inputT) == typeid(outputT)) {
+      *output = (outputT*)data;
+    } else {
+      for (size_t i = 0; i < header.length; i++)
+        (*output)[i] = (outputT)((inputT*)data)[i];
+    }
+  }
+}
+
+template <typename outputT>
+void unpackCpu(
+    outputT** output, hipcompDataNode_t* node, const void* hdr, const void* data)
+{
+  HIPCOMP_TYPE_TWO_SWITCH_FIRST_ONLY(
+      node->type, outputT, unpackCpu, output, node, hdr, data);
+}
+
+// if the header is not packed this will shallow copy the pointer if it's
+// accessible from the GPU otherwise copy or unpack into the output buffer
+template <typename inputT, typename outputT>
+void unpackGpu(
+    outputT* d_output,
+    hipcompDataNode_t* node,
+    const void* data,
+    const void* h_hdr,
+    hipStream_t stream)
+{
+  // prepare input data
+  const void* const d_input = HipUtils::device_pointer(data);
+
+  // Get length of run from the host-side header
+  size_t length = static_cast<const CascadedMetadata::Header*>(h_hdr)->length;
+
+  CascadedMetadata::Header header
+      = *static_cast<const CascadedMetadata::Header*>(h_hdr);
+  const unsigned char numBits = header.numBits;
+  const inputT minValue
+      = *CascadedMetadata::getMinValueLocation<inputT>(&header);
+
+  const dim3 block(512);
+  const dim3 grid(roundUpDiv(length, block.x));
+
+  if (node->packing) {
+    unpackBytesKernel<<<grid, block, 0, stream>>>(
+        d_input, d_output, numBits, minValue, length);
+    HipUtils::check_last_error("unpacKBytesKernel failed to launch");
+  } else {
+    convertKernel<<<grid, block, 0, stream>>>(
+        static_cast<const inputT*>(d_input), d_output, length);
+    HipUtils::check_last_error("convertKernel failed to launch");
+  }
+}
+
+template <typename outputT>
+void unpackGpu(
+    outputT* d_output,
+    hipcompDataNode_t* node,
+    const void* data,
+    const void* h_hdr,
+    hipStream_t stream)
+{
+  HIPCOMP_TYPE_TWO_SWITCH_FIRST_ONLY(
+      node->type, outputT, unpackGpu, d_output, node, data, h_hdr, stream);
+}
+
+template <typename outputT>
+hipcompStatus_t hipcompIntHandle_t::decompCPU(
+    hipcompDataNode_t* node, const void** inputHdrs, const void** inputData)
+{
+  size_t maxOutputSize = config->maxOutputSize;
+
+  std::vector<outputT> unpacked_vals;
+  std::vector<size_t> unpacked_runs;
+  outputT* vals_data = NULL;
+  size_t* runs_data = NULL;
+  size_t vals_len;
+
+  hipcompLayer_t* layer = node->parentLayer;
+
+  // add BP only layer
+  if (layer->scheme == HIPCOMP_SCHEME_BP) {
+    unpacked_vals.resize(maxOutputSize);
+    vals_data = &unpacked_vals[0];
+    unpackCpu(
+        &vals_data,
+        layer->vals,
+        inputHdrs[layer->valId],
+        inputData[layer->valId]);
+    vals_len
+        = static_cast<const CascadedMetadata::Header*>(inputHdrs[layer->valId])
+              ->length;
+
+    node->length = vals_len;
+
+    // lazy allocation
+    // TODO: move to allocate()
+    if (node->ptr == NULL)
+      node->ptr = new outputT[vals_len];
+
+    // copy and convert type if necessary
+    for (int i = 0; i < vals_len; i++) {
+      ((outputT*)(node->ptr))[i] = vals_data[i];
+    }
+    return hipcompSuccess;
+  }
+
+  // compute vals
+  if (layer->vals->parentLayer != NULL) {
+    decompCPU<outputT>(layer->vals, inputHdrs, inputData);
+    vals_data = (outputT*)layer->vals->ptr;
+    vals_len = layer->vals->length;
+  } else {
+    unpacked_vals.resize(maxOutputSize);
+    vals_data = &unpacked_vals[0];
+    unpackCpu(
+        &vals_data,
+        layer->vals,
+        inputHdrs[layer->valId],
+        inputData[layer->valId]);
+    vals_len
+        = static_cast<const CascadedMetadata::Header*>(inputHdrs[layer->valId])
+              ->length;
+  }
+
+  // compute runs
+  if (layer->runs != NULL) {
+    if (layer->runs->parentLayer != NULL) {
+      decompCPU<size_t>(layer->runs, inputHdrs, inputData);
+      runs_data = (size_t*)layer->runs->ptr;
+    } else {
+      unpacked_runs.resize(maxOutputSize);
+      runs_data = &unpacked_runs[0];
+      unpackCpu(
+          &runs_data,
+          layer->runs,
+          inputHdrs[layer->runId],
+          inputData[layer->runId]);
+    }
+  }
+
+  // decompress (this is using additional memory)
+  std::vector<outputT> next;
+  next.clear();
+  switch (layer->scheme) {
+  case HIPCOMP_SCHEME_RLE: {
+    for (int i = 0; i < vals_len; i++)
+      next.insert(next.end(), runs_data[i], vals_data[i]);
+    break;
+  }
+  case HIPCOMP_SCHEME_RLE_DELTA: {
+    for (int i = 0; i < vals_len; i++)
+      next.insert(next.end(), runs_data[i], vals_data[i]);
+    for (int i = 1; i < next.size(); i++)
+      next[i] += next[i - 1];
+    break;
+  }
+  case HIPCOMP_SCHEME_DELTA: {
+    next.resize(vals_len);
+    next[0] = vals_data[0];
+    for (int i = 1; i < vals_len; i++)
+      next[i] = next[i - 1] + vals_data[i];
+    break;
+  }
+  default:
+    return hipcompErrorNotSupported;
+  }
+
+  node->length = next.size();
+
+  // lazy allocation
+  // TODO: move to allocate()
+  if (node->ptr == NULL)
+    node->ptr = new outputT[next.size()];
+
+  // copy and convert type if necessary
+  for (int i = 0; i < next.size(); i++)
+    ((outputT*)(node->ptr))[i] = next[i];
+
+  return hipcompSuccess;
+}
+
+// Perform Cascaded decompression on the GPU.
+// Assumes all workspace is pre-allocated and assigned, inputHdrs and inputData
+// are GPU-accessible, and h_headers is CPU-accessible
+template <typename outputT, typename runT>
+hipcompStatus_t hipcompIntHandle_t::decompGPU(
+    hipcompDataNode_t* node,
+    const void** inputData,
+    const void** h_headers,
+    hipStream_t stream)
+{
+  // get typed copies of pointers to avoid casting
+  outputT* const localOutput = static_cast<outputT*>(temp_output);
+  outputT* const localDelta = static_cast<outputT*>(temp_delta);
+  runT* const localRun = static_cast<runT*>(temp_run);
+
+  outputT* out_ptr
+      = HipUtils::device_pointer(static_cast<outputT*>(node->ptr));
+
+  hipcompLayer_t* layer = node->parentLayer;
+  if (layer->scheme == HIPCOMP_SCHEME_BP) {
+    // We assume this is the only layer, and we just do it and exit
+    layer->vals->ptr = out_ptr;
+    unpackGpu(
+        (outputT*)layer->vals->ptr,
+        layer->vals,
+        inputData[layer->valId],
+        h_headers[layer->valId],
+        stream);
+    layer->vals->length
+        = static_cast<const CascadedMetadata::Header*>(h_headers[layer->valId])
+              ->length;
+    assert(layer->vals->length <= max_input_len);
+
+    return hipcompSuccess;
+  }
+
+  // prepare inputs
+  std::swap(temp_output, temp_val);
+  if (layer->vals->parentLayer != NULL) {
+    layer->vals->ptr = localOutput;
+    // when recursing, swap
+    decompGPU<outputT, runT>(layer->vals, inputData, h_headers, stream);
+  } else {
+    // unpack RLE values
+    layer->vals->ptr = localOutput;
+    unpackGpu(
+        (outputT*)layer->vals->ptr,
+        layer->vals,
+        inputData[layer->valId],
+        h_headers[layer->valId],
+        stream);
+    layer->vals->length
+        = static_cast<const CascadedMetadata::Header*>(h_headers[layer->valId])
+              ->length;
+    assert(layer->vals->length <= max_input_len);
+  }
+
+  if (layer->runs != nullptr) {
+    if (layer->runs->parentLayer != nullptr) {
+      throw std::runtime_error("decompGPU(): Runs cannot have parent layers.");
+    } else {
+      // unpack RLE runs
+      layer->runs->ptr = localRun;
+      unpackGpu(
+          (runT*)layer->runs->ptr,
+          layer->runs,
+          inputData[layer->runId],
+          h_headers[layer->runId],
+          stream);
+      layer->runs->length = static_cast<const CascadedMetadata::Header*>(
+                                h_headers[layer->runId])
+                                ->length;
+    }
+  }
+
+  outputT* d_vals = (outputT*)layer->vals->ptr;
+  const size_t input_size = layer->vals->length;
+  assert(input_size <= max_input_len);
+
+  if (layer->scheme == HIPCOMP_SCHEME_DELTA) {
+    assert(out_ptr != d_vals);
+    HipUtils::check(
+        hipcub::DeviceScan::InclusiveSum(
+            temp_scan, temp_scan_bytes, d_vals, out_ptr, input_size, stream),
+        "hipcub::DeviceScan::InclusiveSum failed");
+  } else {
+    // must be RLE of some form
+    runT* d_runs = (runT*)layer->runs->ptr;
+
+    assert(layer->runs->length == input_size);
+
+    if (layer->scheme == HIPCOMP_SCHEME_RLE_DELTA) {
+      const dim3 block(512);
+      const dim3 grid(roundUpDiv(input_size, block.x));
+      vecMultKernel<<<grid, block, 0, stream>>>(
+          d_vals, d_runs, localDelta, input_size);
+      HipUtils::check_last_error("vecMultKernel failed to launch");
+
+      // inclusive scan to compute Delta sums
+      HipUtils::check(
+          hipcub::DeviceScan::InclusiveSum(
+              temp_scan,
+              temp_scan_bytes,
+              localDelta,
+              localDelta,
+              input_size,
+              stream),
+          "hipcub::DeviceScan::InclusiveSum");
+    }
+
+    // inclusive scan to compute RLE offsets
+    // TODO: could be merged with the unpack kernel?
+    HipUtils::check(
+        hipcub::DeviceScan::InclusiveSum(
+            temp_scan, temp_scan_bytes, d_runs, d_runs, input_size, stream),
+        "hipcub::DeviceScan::InclusiveSum");
+
+    const size_t output_length = node->length;
+
+    // precompute start/end boundaries for each HIP block
+    size_t output_grid
+        = (output_length + RLE_ELEMS_PER_BLOCK - 1) / RLE_ELEMS_PER_BLOCK;
+    size_t output_grid_block
+        = (output_grid + RLE_THREAD_BLOCK - 1) / RLE_THREAD_BLOCK;
+    searchBlockBoundaries<runT, RLE_THREAD_BLOCK, RLE_ELEMS_PER_THREAD>
+        <<<output_grid_block, RLE_THREAD_BLOCK, 0, stream>>>(
+            start_ind, start_off, output_grid, input_size, d_runs);
+    HipUtils::check_last_error("searchBlockBoundariesKernel failed to launch");
+
+    // expand RLE and apply Delta: buf[r] -> buf[r+1]
+    // TODO: implement macro to look nicer?
+    switch (layer->scheme) {
+    case HIPCOMP_SCHEME_RLE_DELTA:
+      expandRLEDelta<
+          outputT,
+          outputT,
+          runT,
+          RLE_THREAD_BLOCK,
+          RLE_ELEMS_PER_THREAD,
+          true><<<output_grid, RLE_THREAD_BLOCK, 0, stream>>>(
+          (outputT*)out_ptr,
+          output_length,
+          d_vals,
+          d_runs,
+          localDelta,
+          start_ind,
+          start_off);
+      HipUtils::check_last_error("expandRLEDelta failed to launch");
+      break;
+    case HIPCOMP_SCHEME_RLE:
+      expandRLEDelta<
+          outputT,
+          outputT,
+          runT,
+          RLE_THREAD_BLOCK,
+          RLE_ELEMS_PER_THREAD,
+          false><<<output_grid, RLE_THREAD_BLOCK, 0, stream>>>(
+          (outputT*)out_ptr,
+          output_length,
+          d_vals,
+          d_runs,
+          localDelta,
+          start_ind,
+          start_off);
+      HipUtils::check_last_error("expandRLEDelta failed to launch");
+      break;
+    default:
+      throw std::runtime_error(
+          "Invalid rle scheme: " + std::to_string(layer->scheme));
+    }
+  }
+
+  return hipcompSuccess;
+}
+
+hipcompStatus_t
+hipcompSetNodeLength(hipcompHandle_t handle, int nodeId, size_t output_length)
+{
+  hipcompIntHandle_t& h = handles[handle];
+  hipcompIntConfig_t& c = *h.config;
+  c.nodes[nodeId].length = output_length;
+  return hipcompSuccess;
+}
+
+// Main function that sets up Cascaded decompression from the old API.
+// the new cascaded decompression API call is just a wrapper around this (though
+// heavily modified to be asynchronous).
+template <typename outputType, typename runType>
+hipcompStatus_t hipcompDecompressLaunch(
+    hipcompHandle_t handle,
+    void* outputData,
+    const size_t outputSize,
+    const void** inputData,
+    const void** h_headers)
+{
+  hipcompIntHandle_t& h = handles[handle];
+
+  hipcompIntConfig_t& c = *h.config;
+
+  // TODO: assign all the buffers
+  hipcompDataNode_t* terminal_node = &c.nodes[c.outputId];
+  terminal_node->ptr = outputData;
+
+  hipcompStatus_t ret = h.decompGPU<outputType, runType>(
+      terminal_node, inputData, h_headers, h.stream);
+
+  const size_t neededBytes = terminal_node->length * sizeof(outputType);
+  if (outputSize < neededBytes) {
+    std::cerr << "Insufficient space to write decompressed date: given "
+              << outputSize << " bytes but need " << neededBytes << " bytes."
+              << std::endl;
+    return hipcompErrorInvalidValue;
+  }
+
+  // this is to enable the correct result for multi-chunk execuation
+  for (auto it = c.nodes.begin(); it != c.nodes.end(); it++) {
+    it->second.length = 0;
+  }
+
+  return ret;
+}
+
+hipcompStatus_t hipcompDecompressLaunch(
+    hipcompHandle_t handle,
+    const size_t numUncompressedElements,
+    void* const outputData,
+    const size_t outputSize,
+    const void** const inputData,
+    const void** const h_headers)
+{
+  const hipcompType_t outputType = handles[handle].config->outputType;
+  const hipcompType_t runType = selectRunsType(numUncompressedElements);
+
+  HIPCOMP_TYPE_TWO_SWITCH_RETURN(
+      outputType,
+      runType,
+      hipcompDecompressLaunch,
+      handle,
+      outputData,
+      outputSize,
+      inputData,
+      h_headers);
+}
+
+hipcompStatus_t hipcompDestroyHandle(hipcompHandle_t handle)
+{
+  hipcompIntHandle_t& h = handles[handle];
+  hipcompIntConfig_t& c = *h.config;
+
+  // free temp memory
+  h.release();
+
+  // clear all local nodes attached to this config
+  c.nodes.clear();
+
+  // remove the handle from the list
+  handles.erase(handle);
+
+  return hipcompSuccess;
+}
+
+// Modified version of handle creation function from previous API to now be
+// asynchronous Assumes workspaceStorage is already allocated.
+hipcompStatus_t hipcompCreateHandleAsync(
+    hipcompHandle_t* handle,
+    std::unique_ptr<hipcompIntConfig_t> config,
+    void* workspaceStorage,
+    const size_t workspaceBytes,
+    hipStream_t stream)
+{
+
+  std::lock_guard<std::mutex> guard(handle_mutex);
+
+  hipcompIntConfig_t& c = *config;
+
+  // first - optimize the plan
+  c.optimizeLayers();
+  // assign pointers - at this point the nodes map is set
+  for (auto it = c.layers.begin(); it != c.layers.end(); it++) {
+    it->vals = &c.nodes[it->valId];
+    it->output = &c.nodes[it->outputId];
+    if (it->runId >= 0)
+      it->runs = &c.nodes[it->runId];
+  }
+
+  if (workspaceBytes < c.getWorkspaceBytes()) {
+    std::cerr << "Insufficient workspace size: got " << workspaceBytes
+              << " but need " << c.getWorkspaceBytes() << std::endl;
+    return hipcompErrorInvalidValue;
+  }
+
+  // find the next available id
+  hipcompHandle_t id = handles.find_next();
+  *handle = id;
+  hipcompIntHandle_t& h = handles[id];
+
+  h.config = std::move(config);
+  h.stream = stream;
+
+  h.workspaceBytes = workspaceBytes;
+  h.workspaceStorage = workspaceStorage;
+
+  h.allocateAsync();
+
+  return hipcompSuccess;
+}
+
+} // namespace highlevel
+} // namespace hipcomp
+
+using namespace hipcomp;
+using namespace hipcomp::highlevel;
+
+
+void hipcompCascadedDestroyMetadata(void* const metadata_ptr)
+{
+  CascadedMetadata* metadata = static_cast<CascadedMetadata*>(metadata_ptr);
+  ::operator delete(metadata);
+}
+
+hipcompStatus_t hipcompCascadedDecompressConfigure(
+    const void* compressed_ptr,
+    size_t compressed_bytes,
+    void** metadata_ptr,
+    size_t* metadata_bytes,
+    size_t* temp_bytes,
+    size_t* uncompressed_bytes,
+    hipStream_t stream)
+{
+  try {
+    CHECK_NOT_NULL(compressed_ptr);
+    CHECK_NOT_NULL(metadata_ptr);
+    CHECK_NOT_NULL(temp_bytes);
+    CHECK_NOT_NULL(uncompressed_bytes);
+
+    CascadedMetadata* metadata;
+
+    CascadedMetadataOnGPU gpuMetadata((void*)compressed_ptr, compressed_bytes);
+    metadata = new CascadedMetadata(gpuMetadata.copyToHost(stream));
+
+    *temp_bytes = metadata->getTempBytes();
+    *uncompressed_bytes = metadata->getUncompressedSize();
+
+    *metadata_ptr = (void*)metadata;
+
+    if(metadata_bytes) {
+      *metadata_bytes = sizeof(CascadedMetadata);
+    }
+
+  } catch (const std::exception& e) {
+    return Check::exception_to_error(
+        e, "hipcompCascadedDecompressConfigure()");
+  }
+
+  return hipcompSuccess;
+}
+
+hipcompStatus_t hipcompCascadedDecompressAsync(
+    const void* const in_ptr,
+    const size_t in_bytes,
+    const void* const metadata_ptr,
+    size_t metadata_bytes,
+    void* const temp_ptr,
+    const size_t temp_bytes,
+    void* const out_ptr,
+    const size_t out_bytes,
+    hipStream_t stream)
+{
+  hipcompHandle_t handle = -1;
+  try {
+    CHECK_NOT_NULL(metadata_ptr);
+
+    const CascadedMetadata* const metadata
+        = static_cast<const CascadedMetadata*>(metadata_ptr);
+
+    if (in_bytes < metadata->getCompressedSize()) {
+      throw HipCompException(
+          hipcompErrorInvalidValue,
+          "in_bytes is smaller than compressed data size: "
+              + std::to_string(in_bytes) + " < "
+              + std::to_string(metadata->getCompressedSize()));
+    }
+
+    std::unique_ptr<hipcompIntConfig_t> c = generateConfig(metadata);
+
+    // first - optimize the plan
+    c->optimizeLayers();
+    // assign pointers - at this point the nodes map is set
+    for (auto& layer : c->layers) {
+      layer.vals = &c->nodes[layer.valId];
+      layer.output = &c->nodes[layer.outputId];
+      if (layer.runId >= 0) {
+        layer.runs = &c->nodes[layer.runId];
+      }
+    }
+
+    CHECK_API_CALL(hipcompCreateHandleAsync(
+        &handle, std::move(c), temp_ptr, temp_bytes, stream));
+    assert(handle >= 0);
+
+    // Pointers to different portions of compressed data
+    std::vector<void*> inputData(metadata->getNumInputs(), nullptr);
+
+    std::vector<CascadedMetadata::Header> inputHdrs;
+    std::vector<CascadedMetadata::Header*> cpuHdrs;
+    for (size_t i = 0; i < metadata->getNumInputs(); i++) {
+      inputHdrs.emplace_back(metadata->getHeader(i));
+      inputData[i] = &((char*)in_ptr)[metadata->getDataOffset(i)];
+    }
+
+    for (CascadedMetadata::Header& hdr : inputHdrs) {
+      cpuHdrs.emplace_back(&hdr);
+    }
+
+    hipcompDecompressLaunch(
+        handle,
+        metadata->getNumUncompressedElements(),
+        out_ptr,
+        out_bytes,
+        (const void**)inputData.data(),
+        (const void**)cpuHdrs.data());
+    hipcompDestroyHandle(handle);
+  } catch (const std::exception& e) {
+    if (handle >= 0) {
+      hipcompDestroyHandle(handle);
+    }
+    return Check::exception_to_error(e, "hipcompCascadedDecompressAsync()");
+  }
+
+  return hipcompSuccess;
+}
+
+hipcompStatus_t hipcompCascadedCompressConfigure(
+    const hipcompCascadedFormatOpts* format_opts,
+    hipcompType_t type,
+    size_t uncompressed_bytes,
+    size_t* metadata_bytes,
+    size_t* temp_bytes,
+    size_t* compressed_bytes)
+{
+  try {
+    CHECK_NOT_NULL(temp_bytes);
+    CHECK_NOT_NULL(compressed_bytes);
+
+    checkCompressSize(uncompressed_bytes);
+
+    hipcompCascadedFormatOpts temp_opts;
+ 
+    // if no format opts given, assume worst-case temp and output sizes
+    if(format_opts == NULL) {
+      temp_opts.num_RLEs = 2;
+      temp_opts.num_deltas = 2;
+      temp_opts.use_bp = 1;
+    }
+    else {
+      temp_opts.num_RLEs = format_opts->num_RLEs;
+      temp_opts.num_deltas = format_opts->num_deltas;
+      temp_opts.use_bp = format_opts->use_bp;
+    }
+
+    if(metadata_bytes) {
+      *metadata_bytes = sizeof(CascadedMetadata);
+    }
+
+    hipcompCascadedCompressionGPU::computeWorkspaceSize(
+        uncompressed_bytes, type, &temp_opts, temp_bytes);
+
+    hipcompCascadedCompressionGPU::generateOutputUpperBound(
+        uncompressed_bytes,
+        type,
+        &temp_opts,
+        compressed_bytes);
+
+  } catch (const std::exception& e) {
+    return Check::exception_to_error(e, "hipcompCascadedCompressConfigure()");
+  }
+
+  return hipcompSuccess;
+}
+
+hipcompStatus_t hipcompCascadedCompressAsync(
+    const hipcompCascadedFormatOpts* const format_opts,
+    const hipcompType_t in_type,
+    const void* const in_ptr,
+    const size_t in_bytes,
+    void* const temp_ptr,
+    const size_t temp_bytes,
+    void* const out_ptr,
+    size_t* const out_bytes,
+    hipStream_t stream)
+{
+  try {
+    checkCompressSize(in_bytes);
+
+    CHECK_NOT_NULL(out_bytes);
+    hipcompCascadedFormatOpts final_opts;
+    if(format_opts == NULL) { // need to run auto-selector of NULL
+      hipcompCascadedSelectorOpts selector_opts;
+      selector_opts.sample_size = 1024;
+      selector_opts.num_samples = 100;
+      selector_opts.seed = 1;
+      size_t type_bytes = sizeOfhipcompType(in_type);
+
+      // Adjust sample size if input is too small
+      if (in_bytes < (selector_opts.sample_size * selector_opts.num_samples * type_bytes)) {
+        selector_opts.num_samples = in_bytes / (selector_opts.sample_size*type_bytes);
+
+        // If too small for even 1 sample of 1024, decrease sample size
+        if (in_bytes < 1024*type_bytes) {
+          selector_opts.num_samples = 1;
+          selector_opts.sample_size = in_bytes / type_bytes;
+        }
+      }
+
+      double est_ratio;
+
+      hipcompStatus_t err = hipcompCascadedSelectorRun(
+          &selector_opts,
+          in_type,
+          in_ptr,
+          in_bytes,
+          temp_ptr,
+          temp_bytes,
+          &final_opts,
+          &est_ratio,
+          stream);
+
+    }
+    else {
+      final_opts.num_RLEs = format_opts->num_RLEs;
+      final_opts.num_deltas = format_opts->num_deltas;
+      final_opts.use_bp = format_opts->use_bp;
+    }
+
+    hipcompCascadedCompressionGPU::compressAsync(
+        in_ptr,
+        in_bytes,
+        in_type,
+        &final_opts,
+        temp_ptr,
+        temp_bytes,
+        out_ptr,
+        out_bytes,
+        stream);
+  } catch (const std::exception& e) {
+    return Check::exception_to_error(e, "hipcompCascadedCompressAsync()");
+  }
+
+  return hipcompSuccess;
+}
+
+
+size_t CascadedMetadata::getTempBytes() const
+{
+  std::unique_ptr<hipcompIntConfig_t> c = generateConfig(this);
+
+  // first - optimize the plan
+  c->optimizeLayers();
+  // assign pointers - at this point the nodes map is set
+  for (auto& layer : c->layers) {
+    layer.vals = &c->nodes[layer.valId];
+    layer.output = &c->nodes[layer.outputId];
+    if (layer.runId >= 0) {
+      layer.runs = &c->nodes[layer.runId];
+    }
+  }
+
+  // Return the required temp and output sizes
+  return c->getWorkspaceBytes();
+}
