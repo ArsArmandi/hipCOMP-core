@@ -152,7 +152,7 @@ static __device__ uint8_t *StoreCopy(uint8_t *dst,
  **/
 static inline __device__ uint32_t HashMatchAny(uint32_t v, uint32_t t)
 {
-#if (__HIP_ARCH__ >= 700)
+#if (__CUDA_ARCH__ >= 700)
   return __match_any_sync(~0, v);
 #else
   uint32_t err_map = 0;
@@ -188,10 +188,19 @@ static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
   if (t == 0) { s->copy_length = 0; }
   do {
     bool valid4               = (pos + t + 4 <= len);
+    #ifdef __HIP_PLATFORM_AMD__
+    #warning debug(hip/amd): code appears to depend on warpsize 32: uint32_t data32           = (valid4) ? unaligned_load32(src + pos + t) : 0;
+    #endif
     uint32_t data32           = (valid4) ? unaligned_load32(src + pos + t) : 0;
     uint32_t hash             = (valid4) ? snap_hash(data32) : 0;
     uint32_t local_match      = HashMatchAny(hash, t);
+    #ifdef __HIP_PLATFORM_AMD__
+    #warning debug(hip/amd): code appears to depend on warpsize 32: uint32_t local_match_data = SHFL(data32, min(local_match_lane, t));
+    #endif
     uint32_t local_match_lane = 31 - __clz(local_match & ((1 << t) - 1));
+    #ifdef __HIP_PLATFORM_AMD__
+    #warning debug(hip/amd): code appears to depend on warpsize 32: uint32_t local_match_lane = 31 - __clz(local_match & ((1 << t) - 1));
+    #endif
     uint32_t local_match_data = SHFL(data32, min(local_match_lane, t));
     uint32_t offset, match;
     if (valid4) {
@@ -672,7 +681,11 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
           blen           = WarpReducePos32(blen, t);
           bytes_left     = SHFL0(bytes_left);
           dst_pos        = SHFL0(dst_pos);
-          short_sym_mask = __ffs(BALLOT(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
+          #ifdef __HIP_PLATFORM_AMD__
+          #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): 'short_sym_mask = __ffs(BALLOT(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));'
+          // short_sym_mask = __ffs(BALLOT(blen > bytes_left || ofs > (int32_t)(dst_pos + blen))); // TODO(amd): __ballot produces uint64t (==warpSize)
+          #endif
+                                                                                  
           if (short_sym_mask != 0) { batch_len = min(batch_len, short_sym_mask - 1); }
           if (batch_len != 0) {
             blen = SHFL(blen, batch_len - 1);
@@ -702,7 +715,10 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
           b0          = READ_BYTE(cur_t);
           is_long_sym = ((b0 & 3) ? ((b0 & 3) == 3) : (b0 > 3 * 4)) || (cur_t >= cur + 32) ||
                         (batch_len + t >= BATCH_SIZE);
-          batch_add = __ffs(BALLOT(is_long_sym)) - 1;
+          #ifdef __HIP_PLATFORM_AMD__
+          #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): batch_add = __ffs(BALLOT(is_long_sym)) - 1;
+          // batch_add = __ffs(BALLOT(is_long_sym)) - 1;
+          #endif
           if (batch_add != 0) {
             uint32_t blen = 0;
             int32_t ofs   = 0;
@@ -718,7 +734,10 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
             blen           = WarpReducePos32(blen, t);
             bytes_left     = SHFL0(bytes_left);
             dst_pos        = SHFL0(dst_pos);
-            short_sym_mask = __ffs(BALLOT(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
+            #ifdef __HIP_PLATFORM_AMD__
+            #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): short_sym_mask = __ffs(BALLOT(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
+            // short_sym_mask = __ffs(BALLOT(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
+            #endif
             if (short_sym_mask != 0) { batch_add = min(batch_add, short_sym_mask - 1); }
             if (batch_add != 0) {
               blen = SHFL(blen, batch_add - 1);
