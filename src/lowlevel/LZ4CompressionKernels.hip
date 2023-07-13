@@ -40,6 +40,25 @@
 #include <iostream>
 #include <vector>
 
+#if (__NVCC_VER_MAJOR__ >= 9) or defined(_​_HIP_​PLATFORM_​AMD_​_)
+#  define INDEPENDENT_THREAD_SCHEDULING
+#endif
+#ifdef INDEPENDENT_THREAD_SCHEDULING
+#  define __SHFL0(v)        __shfl_sync(~0, v, 0)
+#  define __SHFL(v, t)      __shfl_sync(~0, v, t)
+#  define __SHFL_DOWN(v, m)  __shfl_down_sync(~0, v, m)
+#  define __SYNCWARP0()      __syncwarp()
+#  define __SYNCWARP(m)      __syncwarp(m)
+#  define __BALLOT(v)       __ballot_sync(~0, v)
+#else
+#  define __SHFL0(v)        __shfl(v, 0)
+#  define __SHFL(v, t)      __shfl(v, t)
+#  define __SHFL_DOWN(v, m)  __shfl_down(v, m)
+#  define __SYNCWARP0()
+#  define __SYNCWARP(m)
+#  define __BALLOT(v)       __ballot(v)
+#endif
+
 using offset_type = uint16_t;
 using word_type = uint32_t;
 
@@ -148,19 +167,19 @@ inline __device__ void syncCTA()
   if (DECOMP_THREADS_PER_CHUNK > 32) {
     __syncthreads();
   } else {
-    __syncwarp();
+    __SYNCWARP0();
   }
 }
 
 inline __device__ int warpBallot(int vote)
 {
-  return __ballot_sync(0xffffffff, vote);
+  return __BALLOT(vote);
 }
 
 template <typename T>
 inline __device__ int warpMatchAny(const int participants, T val)
 {
-#if __HIP_ARCH__ >= 700
+#if __CUDA_ARCH__ >= 700
   return __match_any_sync(participants, val);
 #else
   int mask = 0;
@@ -171,7 +190,7 @@ inline __device__ int warpMatchAny(const int participants, T val)
   assert(blockDim.y == 1);
   if ((1 << threadIdx.x) & participants) {
     values[threadIdx.x] = val;
-    __syncwarp(participants);
+    __SYNCWARP(participants);
     for (int d = 0; d < 32; ++d) {
       const int nbr_id = (threadIdx.x + d) & 31;
       if ((1 << nbr_id) & participants) {
@@ -179,7 +198,7 @@ inline __device__ int warpMatchAny(const int participants, T val)
         mask |= (val == nbr_val) << nbr_id;
       }
     }
-    __syncwarp(participants);
+    __SYNCWARP(participants);
   }
 
   return mask;
@@ -336,7 +355,7 @@ public:
       const position_type fullBytes = __clz(mask);
 
       if (fullBytes < DECOMP_THREADS_PER_CHUNK) {
-        return fullBytes * 0xff + __shfl_sync(0xffffffff, byte, fullBytes);
+        return fullBytes * 0xff + __SHFL(byte, fullBytes);
       } else {
         return DECOMP_THREADS_PER_CHUNK * 0xff;
       }
@@ -673,7 +692,7 @@ inline __device__ void insertHashTableWarp(
     }
   }
 
-  __syncwarp();
+  __SYNCWARP0();
 }
 
 template<typename ALIGNMENT>
@@ -692,9 +711,9 @@ inline __device__ word_type shuffleLiterals<uint8_t>(word_type literals)
   // collect first byte
   word_type next = literals;
   // collect second byte
-  next |= __shfl_down_sync(0xffffffff, next, 1) << 8;
+  next |= __SHFL_DOWN(next, 1) << 8;
   // collect third and fourth bytes
-  next |= __shfl_down_sync(0xffffffff, next, 2) << 16;
+  next |= __SHFL_DOWN(next, 2) << 16;
   return next;
 }
 
@@ -710,7 +729,7 @@ inline __device__ word_type shuffleLiterals<uint16_t>(word_type literals)
   // collect first and second bytes
   word_type next = literals;
   // collect third and fourth byte
-  next |= __shfl_down_sync(0xffffffff, next, 1) << 16;
+  next |= __SHFL_DOWN(next, 1) << 16;
   return next;
 }
 
@@ -749,7 +768,7 @@ __device__ void compressStream(
     hashTable[i] = NULL_OFFSET;
   }
 
-  __syncwarp();
+  __SYNCWARP0();
 
   constexpr position_type last_valid_match = divRoundUp(LAST_VALID_MATCH_BYTES, sizeof(T));
   constexpr position_type min_ending_literals = divRoundUp(MIN_ENDING_LITERALS_BYTES, sizeof(T));
@@ -817,7 +836,7 @@ __device__ void compressStream(
 
         // comunicate the global position of the match to other threads
         match_location
-            = __shfl_sync(0xffffffff, match_location, first_match_thread);
+            = __SHFL(match_location, first_match_thread);
       } else {
         first_match_thread = numValidThreads;
       }
@@ -847,7 +866,7 @@ __device__ void compressStream(
           // if we found a valid match, and it occurs before a previously found
           // match, use that
           first_match_thread = candidate_first_match_thread;
-          match_location = __shfl_sync(0xffffffff, offset, first_match_thread);
+          match_location = __SHFL(offset, first_match_thread);
         }
       }
 

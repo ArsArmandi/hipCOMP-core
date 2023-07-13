@@ -46,8 +46,6 @@ macro (set_cuda_compilation_options)
   set_property(TARGET hipcomp PROPERTY HIP_ARCHITECTURES ${GPU_ARCHS})
   target_compile_options(hipcomp PRIVATE
       $<$<COMPILE_LANGUAGE:HIP>:--expt-extended-lambda>)
-  target_include_directories(hipcomp PUBLIC
-      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>")
   if(DEFINED CUB_DIR)
     target_include_directories(hipcomp PRIVATE "${CUB_DIR}")
   endif()
@@ -79,7 +77,8 @@ else()
   endif()
 endif()
 
-include_directories("./")
+target_include_directories(hipcomp PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>")
+target_include_directories(hipcomp PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>")
 
 if (CUDA_BACKEND)
   set_cuda_compilation_options()

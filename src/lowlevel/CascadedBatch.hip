@@ -496,7 +496,7 @@ __device__ void block_bitpack(
     // The bitpacking metadata consists of FOR (data_type size) and bitwidth and
     // the number of elements (4B). The start of the bitpacking data needs to be
     // both 4B and data_type aligned.
-    *out_bytes = roundUpTo(sizeof(data_type) + 4, max(4L, sizeof(data_type)))
+    *out_bytes = roundUpTo<size_t,size_t>(sizeof(data_type) + 4, max(4L, sizeof(data_type)))
                  + num_output_elements * sizeof(uint32_t);
   }
 
@@ -1274,7 +1274,7 @@ __device__ void cascaded_decompression_fcn(
           }
           // The final array start at location both aligned with data_type and
           // aligned with 4B.
-          rle_offsets[num_RLEs] = roundUpTo(
+          rle_offsets[num_RLEs] = roundUpTo<uint32_t,size_t>(
               rle_offsets[num_RLEs - 1] + chunk_metadata[num_RLEs],
               max(4L, sizeof(data_type)));
         }

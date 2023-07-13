@@ -44,6 +44,7 @@ list( APPEND CMAKE_MODULE_PATH
 macro(setup_cuda_build)
   enable_language(CUDA)
   
+  message(STATUS "Finding CUDAToolkit")
   find_package(CUDAToolkit REQUIRED)
   include_directories("${CUDAToolkit_INCLUDE_DIRS}")
 
@@ -81,6 +82,11 @@ macro(setup_hip_amd_build)
   enable_language(HIP)
   message(STATUS "Finding hipCUB")
   find_package(hipcub REQUIRED)
+  # for the CXX compiler
+  message(STATUS "Finding HIP")
+  find_package(hip REQUIRED)
+  add_compile_definitions(__HIP_PLATFORM_HCC__ __HIP_PLATFORM_AMD__)
+  include_directories(${HIP_INCLUDE_DIRS})
 endmacro()
 
 
