@@ -67,7 +67,7 @@ namespace
 {
 
 template <typename T>
-__global__ void toGPU(
+void toGPU(
     T* const output,
     T const* const input,
     size_t const num,
@@ -78,7 +78,7 @@ __global__ void toGPU(
 }
 
 template <typename T>
-__global__ void fromGPU(
+void fromGPU(
     T* const output,
     T const* const input,
     size_t const num,
@@ -96,7 +96,7 @@ void compressAsyncTestRandom(const size_t n)
 
   HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
 
-  HIP_RT_CALL(hipMallocHost((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
@@ -121,9 +121,9 @@ void compressAsyncTestRandom(const size_t n)
   HIP_RT_CALL(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
   HIP_RT_CALL(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
   HIP_RT_CALL(
-      hipMallocHost((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
+      hipHostMalloc((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
   HIP_RT_CALL(
-      hipMallocHost((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
+      hipHostMalloc((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
 
   void* workspace;
   const size_t maxNum = 2 * n;
@@ -223,11 +223,11 @@ void compressAsyncTestRandom(const size_t n)
     CHECK(expectedCounts[i] == outputCountsHost[i]);
   }
 
-  HIP_RT_CALL(hipFreeHost(outputValuesHost));
-  HIP_RT_CALL(hipFreeHost(outputCountsHost));
+  HIP_RT_CALL(hipHostFree(outputValuesHost));
+  HIP_RT_CALL(hipHostFree(outputCountsHost));
 
   HIP_RT_CALL(hipFree(input));
-  HIP_RT_CALL(hipFreeHost(inputHost));
+  HIP_RT_CALL(hipHostFree(inputHost));
 }
 
 } // namespace
@@ -248,7 +248,7 @@ TEST_CASE("compress_10Million_Test", "[small]")
 
   HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
 
-  HIP_RT_CALL(hipMallocHost((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
@@ -273,9 +273,9 @@ TEST_CASE("compress_10Million_Test", "[small]")
   HIP_RT_CALL(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
   HIP_RT_CALL(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
   HIP_RT_CALL(
-      hipMallocHost((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
+      hipHostMalloc((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
   HIP_RT_CALL(
-      hipMallocHost((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
+      hipHostMalloc((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
 
   size_t* numOutDevice;
   HIP_RT_CALL(hipMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
@@ -341,11 +341,11 @@ TEST_CASE("compress_10Million_Test", "[small]")
     CHECK(expectedCounts[i] == outputCountsHost[i]);
   }
 
-  HIP_RT_CALL(hipFreeHost(outputValuesHost));
-  HIP_RT_CALL(hipFreeHost(outputCountsHost));
+  HIP_RT_CALL(hipHostFree(outputValuesHost));
+  HIP_RT_CALL(hipHostFree(outputCountsHost));
 
   HIP_RT_CALL(hipFree(input));
-  HIP_RT_CALL(hipFreeHost(inputHost));
+  HIP_RT_CALL(hipHostFree(inputHost));
 }
 
 TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
@@ -360,7 +360,7 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
 
   HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
 
-  HIP_RT_CALL(hipMallocHost((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
@@ -380,9 +380,9 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
   HIP_RT_CALL(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
   HIP_RT_CALL(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
   HIP_RT_CALL(
-      hipMallocHost((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
+      hipHostMalloc((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
   HIP_RT_CALL(
-      hipMallocHost((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
+      hipHostMalloc((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
 
   void* workspace;
   const size_t maxNum = 2 * n;
@@ -481,11 +481,11 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
     CHECK(expectedCounts[i] == outputCountsHost[i]);
   }
 
-  HIP_RT_CALL(hipFreeHost(outputValuesHost));
-  HIP_RT_CALL(hipFreeHost(outputCountsHost));
+  HIP_RT_CALL(hipHostFree(outputValuesHost));
+  HIP_RT_CALL(hipHostFree(outputCountsHost));
 
   HIP_RT_CALL(hipFree(input));
-  HIP_RT_CALL(hipFreeHost(inputHost));
+  HIP_RT_CALL(hipHostFree(inputHost));
 }
 
 TEST_CASE("compressDownstream_10k_16bit_count_Test", "[small]")
