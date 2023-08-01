@@ -44,8 +44,22 @@
 #  define NANOSLEEP(d)  clock()
 #endif
 
+# if __HIP_PLATFORM_AMD__
+typedef lane_mask_t uint64_t;
+typedef signed_lane_mask_t int64_t;
+#define CLZ(x) __clzll(x)
+#define FFS(x) __ffsll(x)
+#else
+#typedef lane_mask_t uint32_t;
+typedef signed_lane_mask_t int32_t;
+
+#define CLZ(x) __clz(x)
+#define FFS(x) __ffs(x)
+#endif
+
+
 // Warp reduction helpers
-# if _​_HIP_​PLATFORM_​AMD_​_
+# if __HIP_PLATFORM_AMD__
     template <typename T> inline __device__ T WarpReduceSum2(T acc)     { return acc + SHFL1_XOR(acc, 1); }
     template <typename T> inline __device__ T WarpReduceSum4(T acc)     { acc = WarpReduceSum2(acc); return acc + SHFL1_XOR(acc, 2); }
     template <typename T> inline __device__ T WarpReduceSum8(T acc)     { acc = WarpReduceSum4(acc); return acc + SHFL1_XOR(acc, 4); }
