@@ -107,7 +107,7 @@ static __device__ uint8_t *StoreLiterals(
     }
     dst += 5;
   }
-  for (uint32_t i = t; i <= len_minus1; i += 32) {
+  for (uint32_t i = t; i <= len_minus1; i += 32) { //: 32 is warpsize
     if (dst + i < end) dst[i] = src[i];
   }
   return dst + len_minus1 + 1;
@@ -144,24 +144,26 @@ static __device__ uint8_t *StoreCopy(uint8_t *dst,
     }
     return dst + 3;
   }
-}
+} //: no warpsize dependency
 
 /**
  * @brief Returns mask of any thread in the warp that has a hash value
  * equal to that of the calling thread
  **/
-static inline __device__ uint32_t HashMatchAny(uint32_t v, uint32_t t)
+static inline __device__ uint32_t HashMatchAny(uint32_t v, uint32_t t)  //: warp size dependent datatype
 {
 #if (__CUDA_ARCH__ >= 700)
   return __match_any_sync(~0, v);
 #else
-  uint32_t err_map = 0;
+  //: applies to AMD too
+  //: TODO looks very expensive (32 ballots), use implementation derived from warp primitives (shfl from calling thread + ballot if the result matches)
+  uint32_t err_map = 0;  //: warp size dependent datatype
   for (uint32_t i = 0; i < HASH_BITS; i++, v >>= 1) {
     uint32_t b       = v & 1;
-    uint32_t match_b = BALLOT(b);
+    uint32_t match_b = BALLOT1(b); //: warp size dependent datatype
     err_map |= match_b ^ -(int32_t)b;
   }
-  return ~err_map;
+  return ~err_map;  //: warp size dependent datatype
 #endif
 }
 
@@ -188,18 +190,15 @@ static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
   if (t == 0) { s->copy_length = 0; }
   do {
     bool valid4               = (pos + t + 4 <= len);
-    #ifdef __HIP_PLATFORM_AMD__
-    #warning debug(hip/amd): code appears to depend on warpsize 32: uint32_t data32           = (valid4) ? unaligned_load32(src + pos + t) : 0;
-    #endif
     uint32_t data32           = (valid4) ? unaligned_load32(src + pos + t) : 0;
     uint32_t hash             = (valid4) ? snap_hash(data32) : 0;
     uint32_t local_match      = HashMatchAny(hash, t);
     #ifdef __HIP_PLATFORM_AMD__
-    #warning debug(hip/amd): code appears to depend on warpsize 32: uint32_t local_match_data = SHFL(data32, min(local_match_lane, t));
+    #warning debug(hip/amd): code appears to depend on warpsize 32: uint32_t local_match_lane = 31 - __clz(local_match & ((1 << t) - 1));
     #endif
     uint32_t local_match_lane = 31 - __clz(local_match & ((1 << t) - 1));
     #ifdef __HIP_PLATFORM_AMD__
-    #warning debug(hip/amd): code appears to depend on warpsize 32: uint32_t local_match_lane = 31 - __clz(local_match & ((1 << t) - 1));
+    #warning debug(hip/amd): code appears to depend on warpsize 32: uint32_t local_match_data = SHFL(data32, min(local_match_lane, t));
     #endif
     uint32_t local_match_data = SHFL(data32, min(local_match_lane, t));
     uint32_t offset, match;
@@ -218,7 +217,7 @@ static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
       local_match = 0;
       offset      = pos + t;
     }
-    match_mask = BALLOT(match);
+    match_mask = BALLOT1(match);  //: warp size dependent datatype
     if (match_mask != 0) {
       literal_cnt = __ffs(match_mask) - 1;
       if (t == literal_cnt) {
@@ -237,14 +236,16 @@ static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
 }
 
 /// @brief Returns the number of matching bytes for two byte sequences up to 63 bytes
+//: this takes the max copy len of 64 into account.
+//: for amd only a a single work item is processed per thread
 static __device__ uint32_t Match60(const uint8_t *src1,
                                    const uint8_t *src2,
                                    uint32_t len,
                                    uint32_t t)
-{
-  uint32_t mismatch = BALLOT(t >= len || src1[t] != src2[t]);
+{ 
+  uint32_t mismatch = BALLOT1(t >= len || src1[t] != src2[t]);  //: warp size dependent datatype
   if (mismatch == 0) {
-    mismatch = BALLOT(32 + t >= len || src1[32 + t] != src2[32 + t]);
+    mismatch = BALLOT1(32 + t >= len || src1[32 + t] != src2[32 + t]);  //: warp size dependent datatype
     return 31 + __ffs(mismatch);  // mismatch cannot be zero here if len <= 63
   } else {
     return __ffs(mismatch) - 1;
@@ -447,7 +448,7 @@ __device__ void snappy_prefetch_bytestream(unsnap_state_s *s, int t)
         NANOSLEEP(1600);
       }
     }
-    blen = SHFL0(blen);
+    blen = SHFL10(blen);
     if (blen == PREFETCH_SECTORS * 32u) {
       uint8_t vals[PREFETCH_SECTORS];
       for(int i = 0; i < PREFETCH_SECTORS; ++i)
@@ -560,9 +561,9 @@ inline __device__ uint32_t get_len3_mask(uint32_t v0, uint32_t v1, uint32_t v2)
 {
   uint32_t m, v, m4, n;
   v  = v0;
-  m4 = k_len3lut[v & 0x3ff];
-  m  = m4 & 0xf;
-  n  = m4 >> 4;  // 8..12
+  m4 = k_len3lut[v & 0x3ff];     //: k_len3lut[v % 1024]
+  m  = m4 & 0xf;                 //: extract lower 4 bits (mask for 3 byte codes)
+  n  = m4 >> 4;  // 8..12        //: n stores upper 4 bits (bytes to code for four lengths in mask)
   v  = v0 >> n;
   m4 = k_len3lut[v & 0x3ff];
   m |= (m4 & 0xf) << 4;
@@ -649,23 +650,23 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
     {
       uint32_t v0, v1, v2, len3_mask, cur_t, is_long_sym, short_sym_mask;
       uint32_t b0;
-      cur            = SHFL0(cur);
+      cur            = SHFL10(cur);
       cur_t          = cur + t;
       b0             = READ_BYTE(cur_t);
-      v0             = BALLOT((b0 == 4) || (b0 & 2));
+      v0             = BALLOT1((b0 == 4) || (b0 & 2));
       b0             = READ_BYTE(cur_t + 32);
-      v1             = BALLOT((b0 == 4) || (b0 & 2));
+      v1             = BALLOT1((b0 == 4) || (b0 & 2));
       b0             = READ_BYTE(cur_t + 64);
-      v2             = BALLOT((b0 == 4) || (b0 & 2));
-      len3_mask      = SHFL0((t == 0) ? get_len3_mask(v0, v1, v2) : 0);
+      v2             = BALLOT1((b0 == 4) || (b0 & 2));
+      len3_mask      = SHFL10((t == 0) ? get_len3_mask(v0, v1, v2) : 0);
       cur_t          = cur + 2 * t + __popc(len3_mask & ((1 << t) - 1));
       b0             = READ_BYTE(cur_t);
       is_long_sym    = ((b0 & ~4) != 0) && (((b0 + 1) & 2) == 0);
-      short_sym_mask = BALLOT(is_long_sym);
+      short_sym_mask = BALLOT1(is_long_sym);
       batch_len      = 0;
-      b = reinterpret_cast<volatile unsnap_batch_s *>(SHFL0(reinterpret_cast<uintptr_t>(b)));
+      b = reinterpret_cast<volatile unsnap_batch_s *>(SHFL10(reinterpret_cast<uintptr_t>(b)));
       if (!(short_sym_mask & 1)) {
-        batch_len = SHFL0((t == 0) ? (short_sym_mask) ? __ffs(short_sym_mask) - 1 : 32 : 0);
+        batch_len = SHFL10((t == 0) ? (short_sym_mask) ? __ffs(short_sym_mask) - 1 : 32 : 0);
         if (batch_len != 0) {
           uint32_t blen = 0;
           int32_t ofs   = 0;
@@ -679,17 +680,17 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
             ofs += blen;  // for correct out-of-range detection below
           }
           blen           = WarpReducePos32(blen, t);
-          bytes_left     = SHFL0(bytes_left);
-          dst_pos        = SHFL0(dst_pos);
+          bytes_left     = SHFL10(bytes_left);
+          dst_pos        = SHFL10(dst_pos);
           #ifdef __HIP_PLATFORM_AMD__
-          #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): 'short_sym_mask = __ffs(BALLOT(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));'
-          // short_sym_mask = __ffs(BALLOT(blen > bytes_left || ofs > (int32_t)(dst_pos + blen))); // TODO(amd): __ballot produces uint64t (==warpSize)
+          #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): 'short_sym_mask = __ffs(BALLOT1(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));'
+          // short_sym_mask = __ffs(BALLOT1(blen > bytes_left || ofs > (int32_t)(dst_pos + blen))); // TODO(amd): __ballot produces uint64t (==warpSize)
           #endif
                                                                                   
           if (short_sym_mask != 0) { batch_len = min(batch_len, short_sym_mask - 1); }
           if (batch_len != 0) {
-            blen = SHFL(blen, batch_len - 1);
-            cur  = SHFL(cur_t, batch_len - 1) + 2 + ((len3_mask >> (batch_len - 1)) & 1);
+            blen = SHFL1(blen, batch_len - 1);
+            cur  = SHFL1(cur_t, batch_len - 1) + 2 + ((len3_mask >> (batch_len - 1)) & 1);
             if (t == 0) {
               dst_pos += blen;
               bytes_left -= blen;
@@ -698,7 +699,7 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
         }
       }
       // Check if the batch was stopped by a 3-byte or 4-byte literal
-      if (batch_len < BATCH_SIZE - 2 && SHFL(b0 & ~4, batch_len) == 8) {
+      if (batch_len < BATCH_SIZE - 2 && SHFL1(b0 & ~4, batch_len) == 8) {
         // If so, run a slower version of the above that can also handle 3/4-byte literal sequences
         uint32_t batch_add;
         do {
@@ -706,9 +707,9 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
           cur_t     = cur + t;
           b0        = READ_BYTE(cur_t);
           clen      = (b0 & 3) ? (b0 & 2) ? 1 : 0 : (b0 >> 2);  // symbol length minus 2
-          v0        = BALLOT(clen & 1);
-          v1        = BALLOT((clen >> 1) & 1);
-          len3_mask = SHFL0((t == 0) ? get_len5_mask(v0, v1) : 0);
+          v0        = BALLOT1(clen & 1);
+          v1        = BALLOT1((clen >> 1) & 1);
+          len3_mask = SHFL10((t == 0) ? get_len5_mask(v0, v1) : 0);
           mask_t    = (1 << (2 * t)) - 1;
           cur_t     = cur + 2 * t + 2 * __popc((len3_mask & 0xaaaaaaaa) & mask_t) +
                   __popc((len3_mask & 0x55555555) & mask_t);
@@ -716,43 +717,45 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
           is_long_sym = ((b0 & 3) ? ((b0 & 3) == 3) : (b0 > 3 * 4)) || (cur_t >= cur + 32) ||
                         (batch_len + t >= BATCH_SIZE);
           #ifdef __HIP_PLATFORM_AMD__
-          #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): batch_add = __ffs(BALLOT(is_long_sym)) - 1;
-          // batch_add = __ffs(BALLOT(is_long_sym)) - 1;
+          #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): batch_add = __ffs(BALLOT1(is_long_sym)) - 1;
+          // batch_add = __ffs(BALLOT1(is_long_sym)) - 1;
           #endif
-          if (batch_add != 0) {
+            //: roughly same as in previous approach, except flow statement conditions and some indices
+          if (batch_add != 0) { //: differs
             uint32_t blen = 0;
             int32_t ofs   = 0;
-            if (t < batch_add) {
+            if (t < batch_add) { //: differs
               blen = (b0 & 1) ? ((b0 >> 2) & 7) + 4 : ((b0 >> 2) + 1);
               ofs  = (b0 & 1) ? ((b0 & 0xe0) << 3) | READ_BYTE(cur_t + 1)
                              : (b0 & 2) ? READ_BYTE(cur_t + 1) | (READ_BYTE(cur_t + 2) << 8)
                                         : -(int32_t)(cur_t + 1);
-              b[batch_len + t].len    = blen;
-              b[batch_len + t].offset = ofs;
+              b[batch_len + t].len    = blen; //: differs
+              b[batch_len + t].offset = ofs;  //: differs
               ofs += blen;  // for correct out-of-range detection below
             }
             blen           = WarpReducePos32(blen, t);
-            bytes_left     = SHFL0(bytes_left);
-            dst_pos        = SHFL0(dst_pos);
+            bytes_left     = SHFL10(bytes_left);
+            dst_pos        = SHFL10(dst_pos);
             #ifdef __HIP_PLATFORM_AMD__
-            #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): short_sym_mask = __ffs(BALLOT(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
-            // short_sym_mask = __ffs(BALLOT(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
+            #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): short_sym_mask = __ffs(BALLOT1(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
+            // short_sym_mask = __ffs(BALLOT1(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
             #endif
-            if (short_sym_mask != 0) { batch_add = min(batch_add, short_sym_mask - 1); }
-            if (batch_add != 0) {
-              blen = SHFL(blen, batch_add - 1);
-              cur  = SHFL(cur_t, batch_add - 1) + 2 + ((len3_mask >> ((batch_add - 1) * 2)) & 3);
+            if (short_sym_mask != 0) { batch_add = min(batch_add, short_sym_mask - 1); } //: differs
+            if (batch_add != 0) { //: differs
+              blen = SHFL1(blen, batch_add - 1); //: differs
+              cur  = SHFL1(cur_t, batch_add - 1) + 2 + ((len3_mask >> ((batch_add - 1) * 2)) & 3); //: differs
               if (t == 0) {
                 dst_pos += blen;
                 bytes_left -= blen;
               }
-              batch_len += batch_add;
+              batch_len += batch_add; //: added
             }
           }
+            //: end roughly the same as in previous approach
         } while (batch_add >= 6 && batch_len < BATCH_SIZE - 2);
       }
     }
-    if (t == 0) {
+    if (t == 0) { //: only thread 0 active
       uint32_t current_prefetch_wrpos = s->q.prefetch_wrpos;
       while (bytes_left > 0 && batch_len < BATCH_SIZE && min(cur + 5, end) <= current_prefetch_wrpos) {
         uint32_t blen, offset;
@@ -820,8 +823,8 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
         batch                 = (batch + 1) & (BATCH_COUNT - 1);
       }
     }
-    batch_len = SHFL0(batch_len);
-    bytes_left = SHFL0(bytes_left);
+    batch_len = SHFL10(batch_len);
+    bytes_left = SHFL10(bytes_left);
     if (t == 0) {
       while (s->q.batch_len[batch] != 0) { NANOSLEEP(100); }
     }
@@ -859,7 +862,7 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
     } else {
       batch_len = 0;
     }
-    batch_len = SHFL0(batch_len);
+    batch_len = SHFL10(batch_len);
     if (batch_len <= 0) { break; }
     if (t < batch_len) {
       blen_t = b[t].len;
@@ -869,37 +872,37 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
     }
     // Try to combine as many small entries as possible, but try to avoid doing that
     // if we see a small repeat distance 8 bytes or less
-    if (SHFL0(min((uint32_t)dist_t, (uint32_t)SHFL_XOR(dist_t, 1))) > 8) {
+    if (SHFL10(min((uint32_t)dist_t, (uint32_t)SHFL1_XOR(dist_t, 1))) > 8) {
       uint32_t n;
       do {
         uint32_t bofs       = WarpReducePos32(blen_t, t);
-        uint32_t stop_mask  = BALLOT((uint32_t)dist_t < bofs);
+        uint32_t stop_mask  = BALLOT1((uint32_t)dist_t < bofs);
         uint32_t start_mask = WarpReduceSum32((bofs < 32 && t < batch_len) ? 1 << bofs : 0);
         n = min(min((uint32_t)__popc(start_mask), (uint32_t)(__ffs(stop_mask) - 1u)),
                 (uint32_t)batch_len);
         if (n != 0) {
           uint32_t it  = __popc(start_mask & ((2 << t) - 1));
-          uint32_t tr  = t - SHFL(bofs - blen_t, it);
-          int32_t dist = SHFL(dist_t, it);
+          uint32_t tr  = t - SHFL1(bofs - blen_t, it);
+          int32_t dist = SHFL1(dist_t, it);
           if (it < n) {
             const uint8_t *src = (dist > 0) ? (out + t - dist) : (literal_base + tr - dist);
             out[t]             = *src;
           }
-          out += SHFL(bofs, n - 1);
-          blen_t = SHFL(blen_t, (n + t) & 0x1f);
-          dist_t = SHFL(dist_t, (n + t) & 0x1f);
+          out += SHFL1(bofs, n - 1);
+          blen_t = SHFL1(blen_t, (n + t) & 0x1f);
+          dist_t = SHFL1(dist_t, (n + t) & 0x1f);
           batch_len -= n;
         }
       } while (n >= 4);
     }
     uint32_t current_prefetch_wrpos = s->q.prefetch_wrpos;
     for (int i = 0; i < batch_len; i++) {
-      int32_t blen  = SHFL(blen_t, i);
-      int32_t dist  = SHFL(dist_t, i);
+      int32_t blen  = SHFL1(blen_t, i);
+      int32_t dist  = SHFL1(dist_t, i);
       int32_t blen2 = (i + 1 < batch_len) ? SHFL(blen_t, i + 1) : 32;
       // Try to combine consecutive small entries if they are independent
       if ((uint32_t)dist >= (uint32_t)blen && blen + blen2 <= 32) {
-        int32_t dist2 = SHFL(dist_t, i + 1);
+        int32_t dist2 = SHFL1(dist_t, i + 1);
         if ((uint32_t)dist2 >= (uint32_t)(blen + blen2)) {
           int32_t d;
           if (t < blen) {
@@ -940,30 +943,37 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
 #pragma unroll 1
         for(int k = 0; k < blen / (LITERAL_SECTORS * 32u); ++k) {
           if (dist + LITERAL_SECTORS * 32u < current_prefetch_wrpos) {
+            //: i hides higher-scope i
             for(int i = 0; i < LITERAL_SECTORS; ++i)
               b[i] = READ_BYTE(dist + i * 32u + t);
           } else {
+            //: i hides higher-scope i
             for(int i = 0; i < LITERAL_SECTORS; ++i)
               b[i] = literal_base[dist + i * 32u + t];
           }
           for(int i = 0; i < LITERAL_SECTORS; ++i)
+            //: i hides higher-scope i
             out[i * 32u + t] = b[i];
           dist += LITERAL_SECTORS * 32u;
           out += LITERAL_SECTORS * 32u;
         }
         blen %= LITERAL_SECTORS * 32u;
+        //: similar as above body, but with check `if (i * 32u + t < blen)`
         if (dist + blen < current_prefetch_wrpos) {
           for(int i = 0; i < LITERAL_SECTORS; ++i)
+            //: i hides higher-scope i
             if (i * 32u + t < blen)
               b[i] = READ_BYTE(dist + i * 32u + t);
         } else {
           for(int i = 0; i < LITERAL_SECTORS; ++i)
+            //: i hides higher-scope i
             if (i * 32u + t < blen)
               b[i] = literal_base[dist + i * 32u + t];
         }
         for(int i = 0; i < LITERAL_SECTORS; ++i)
           if (i * 32u + t < blen)
             out[i * 32u + t] = b[i];
+        //: end similar as above 
       }
       out += blen;
     }
