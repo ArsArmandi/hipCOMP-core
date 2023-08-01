@@ -22,6 +22,7 @@
 namespace hipcomp {
 
 #define HASH_BITS 12
+//: results in 4096 hash map entries a 2 Byte
 
 // TBD: Tentatively limits to 2-byte codes to prevent long copy search followed by long literal
 // encoding
@@ -107,7 +108,7 @@ static __device__ uint8_t *StoreLiterals(
     }
     dst += 5;
   }
-  for (uint32_t i = t; i <= len_minus1; i += 32) { //: 32 is warpsize
+  for (uint32_t i = t; i <= len_minus1; i += warpSize) {
     if (dst + i < end) dst[i] = src[i];
   }
   return dst + len_minus1 + 1;
@@ -150,20 +151,20 @@ static __device__ uint8_t *StoreCopy(uint8_t *dst,
  * @brief Returns mask of any thread in the warp that has a hash value
  * equal to that of the calling thread
  **/
-static inline __device__ uint32_t HashMatchAny(uint32_t v, uint32_t t)  //: warp size dependent datatype
+static inline __device__ lane_mask_t HashMatchAny(uint32_t v, uint32_t t)  //: warp size dependent datatype
 {
 #if (__CUDA_ARCH__ >= 700)
   return __match_any_sync(~0, v);
 #else
   //: applies to AMD too
   //: TODO looks very expensive (32 ballots), use implementation derived from warp primitives (shfl from calling thread + ballot if the result matches)
-  uint32_t err_map = 0;  //: warp size dependent datatype
+  lane_mask_t err_map = 0;
   for (uint32_t i = 0; i < HASH_BITS; i++, v >>= 1) {
     uint32_t b       = v & 1;
-    uint32_t match_b = BALLOT1(b); //: warp size dependent datatype
-    err_map |= match_b ^ -(int32_t)b;
+    lane_mask_t match_b = BALLOT1(b);
+    err_map |= match_b ^ -(signed_lane_mask_t)b;
   }
-  return ~err_map;  //: warp size dependent datatype
+  return ~err_map;
 #endif
 }
 
@@ -186,21 +187,16 @@ static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
   uint32_t len    = s->src_len;
   uint32_t pos    = pos0;
   uint32_t maxpos = pos0 + MAX_LITERAL_LENGTH - 31;
-  uint32_t match_mask, literal_cnt;
+  uint32_t literal_cnt;
+  lane_mask_t match_mask;
   if (t == 0) { s->copy_length = 0; }
   do {
     bool valid4               = (pos + t + 4 <= len);
     uint32_t data32           = (valid4) ? unaligned_load32(src + pos + t) : 0;
     uint32_t hash             = (valid4) ? snap_hash(data32) : 0;
-    uint32_t local_match      = HashMatchAny(hash, t);
-    #ifdef __HIP_PLATFORM_AMD__
-    #warning debug(hip/amd): code appears to depend on warpsize 32: uint32_t local_match_lane = 31 - __clz(local_match & ((1 << t) - 1));
-    #endif
-    uint32_t local_match_lane = 31 - __clz(local_match & ((1 << t) - 1));
-    #ifdef __HIP_PLATFORM_AMD__
-    #warning debug(hip/amd): code appears to depend on warpsize 32: uint32_t local_match_data = SHFL(data32, min(local_match_lane, t));
-    #endif
-    uint32_t local_match_data = SHFL(data32, min(local_match_lane, t));
+    lane_mask_t local_match      = HashMatchAny(hash, t);
+    uint32_t local_match_lane = (warpSize-1) - CLZ(local_match & ((1 << t) - 1));
+    uint32_t local_match_data = SHFL1(data32, min(local_match_lane, t));
     uint32_t offset, match;
     if (valid4) {
       if (local_match_lane < t && local_match_data == data32) {
@@ -219,19 +215,19 @@ static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
     }
     match_mask = BALLOT1(match);  //: warp size dependent datatype
     if (match_mask != 0) {
-      literal_cnt = __ffs(match_mask) - 1;
+      literal_cnt = FFS(match_mask) - 1;
       if (t == literal_cnt) {
         s->copy_distance = pos + t - offset;
         s->copy_length   = 4;
       }
     } else {
-      literal_cnt = 32;
+      literal_cnt = warpSize;
     }
     // Update hash up to the first 4 bytes of the copy length
     local_match &= (0x2 << literal_cnt) - 1;
-    if (t <= literal_cnt && t == 31 - __clz(local_match)) { s->hash_map[hash] = pos + t; }
+    if (t <= literal_cnt && t == (warpSize-1) - CLZ(local_match)) { s->hash_map[hash] = pos + t; }
     pos += literal_cnt;
-  } while (literal_cnt == 32 && pos < maxpos);
+  } while (literal_cnt == warpSize && pos < maxpos);
   return min(pos, len) - pos0;
 }
 
@@ -243,13 +239,17 @@ static __device__ uint32_t Match60(const uint8_t *src1,
                                    uint32_t len,
                                    uint32_t t)
 { 
-  uint32_t mismatch = BALLOT1(t >= len || src1[t] != src2[t]);  //: warp size dependent datatype
+  lane_mask_t mismatch = BALLOT1(t >= len || src1[t] != src2[t]);
+  #ifdef AMD
+  return FFS(mismatch) - 1;
+  #else
   if (mismatch == 0) {
-    mismatch = BALLOT1(32 + t >= len || src1[32 + t] != src2[32 + t]);  //: warp size dependent datatype
+    mismatch = BALLOT1(32 + t >= len || src1[32 + t] != src2[32 + t]); 
     return 31 + __ffs(mismatch);  // mismatch cannot be zero here if len <= 63
   } else {
     return __ffs(mismatch) - 1;
   }
+  #endif
 }
 
 /**
@@ -313,7 +313,7 @@ snap_kernel(
     uint32_t copy_len    = s->copy_length;
     uint32_t distance    = s->copy_distance;
     __syncthreads();
-    if (t < 32) {
+    if (t < warpSize) {
       // WARP0: Encode literals and copies
       uint8_t *dst = s->dst;
       uint8_t *end = s->end;
@@ -331,7 +331,7 @@ snap_kernel(
       pos += literal_len + copy_len;
       if (t < 32 * 2) {
         // WARP1: Find a match using 12-bit hashes of 4-byte blocks
-        uint32_t t5 = t & 0x1f;
+        uint32_t t5 = t & (warpSize-1);
         literal_len = FindFourByteMatch(s, src, pos, t5);
         if (t5 == 0) { s->literal_length = literal_len; }
         copy_len = s->copy_length;
@@ -1149,7 +1149,7 @@ void gpu_snap(
   int count,
   hipStream_t stream)
 {
-  dim3 dim_block(64, 1);  // 2 warps per stream, 1 stream per block
+  dim3 dim_block(2*warpSize, 1);  // 2 warps per stream, 1 stream per block
   dim3 dim_grid(count, 1);
   if (count > 0) { snap_kernel<<<dim_grid, dim_block, 0, stream>>>(
     device_in_ptr, device_in_bytes, device_out_ptr, device_out_available_bytes,
@@ -1168,7 +1168,7 @@ void gpu_unsnap(
     hipStream_t stream)
 {
   uint32_t count32 = (count > 0) ? count : 0;
-  dim3 dim_block(96, 1);     // 3 warps per stream, 1 stream per block
+  dim3 dim_block(3*warpSize, 1);     // 3 warps per stream, 1 stream per block
   dim3 dim_grid(count32, 1);  // TODO: Check max grid dimensions vs max expected count
 
   unsnap_kernel<<<dim_grid, dim_block, 0, stream>>>(
