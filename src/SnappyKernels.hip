@@ -674,10 +674,11 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
       b0             = READ_BYTE(cur_t + 64);
       v2             = BALLOT1((b0 == 4) || (b0 & 2));
       #if __HIP_PLATFORM_AMD__
-      len3_mask      = SHFL10((t == 0) ? 
+      len3_mask      = SHFL10(
+        (t == 0) ? 
         ( 
           (lane_mask_t)get_len3_mask(lo32(v0), hi32(v0), lo32(v1))
-        | ((lane_mask_t)get_len3_mask(hi32(v1), lo32(v2), hi32(v2))) << 32
+          | (lane_mask_t)get_len3_mask(hi32(v1), lo32(v2), hi32(v2)) << 32
         )
         : 0
       );
@@ -737,7 +738,7 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
           len3_mask = SHFL10((t == 0) ? 
             (
               (lane_mask_t)get_len5_mask(lo32(v0), lo32(v1)) 
-              | ((lane_mask_t)get_len5_mask(hi32(v0), hi32(v1))) << 32 
+              | (lane_mask_t)get_len5_mask(hi32(v0), hi32(v1)) << 32 
             )
             : 0
           );
@@ -905,10 +906,10 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
     }
     // Try to combine as many small entries as possible, but try to avoid doing that
     // if we see a small repeat distance 8 bytes or less
-    if (SHFL10(min((lane_mask_t)dist_t, (lane_mask_t)SHFL1_XOR(dist_t, 1))) > 8) {
+    if (SHFL10(min((uint32_t)dist_t, (uint32_t)SHFL1_XOR(dist_t, 1))) > 8) {
       uint32_t n;
       do {
-        uint32_t bofs       = WarpReducePos(blen_t, t);
+        uint32_t bofs          = WarpReducePos(blen_t, t);
         lane_mask_t stop_mask  = BALLOT1((uint32_t)dist_t < bofs);
         lane_mask_t start_mask = WarpReduceSum((bofs < warpSize && t < batch_len) ? 1 << bofs : 0);
         n = min(min((uint32_t)POPC(start_mask), (uint32_t)(FFS(stop_mask) - 1u)),
