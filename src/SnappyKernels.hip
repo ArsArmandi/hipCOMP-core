@@ -261,13 +261,13 @@ static __device__ uint32_t Match60(const uint8_t *src1,
  * @brief Snappy compression kernel
  * See http://github.com/google/snappy/blob/master/format_description.txt
  *
- * blockDim {128,1,1}
+ * blockDim {2*warpSize,1,1}
  *
  * @param[in] inputs Source/Destination buffer information per block
  * @param[out] outputs Compression status per block
  * @param[in] count Number of blocks to compress
  **/
-__global__ void __launch_bounds__(64)
+__global__ void __launch_bounds__(2*warpSize)
 snap_kernel(
   const void* const* __restrict__ device_in_ptr,
   const uint64_t* __restrict__ device_in_bytes,
@@ -1019,7 +1019,7 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
   } while (1);
 }
 
-__global__ void __launch_bounds__(32)
+__global__ void __launch_bounds__(warpSize)
 get_uncompressed_sizes_kernel(
   const void* const* __restrict__ device_in_ptr,
   const uint64_t* __restrict__ device_in_bytes,
@@ -1075,12 +1075,12 @@ get_uncompressed_sizes_kernel(
  * @brief Snappy decompression kernel
  * See http://github.com/google/snappy/blob/master/format_description.txt
  *
- * blockDim {128,1,1}
+ * blockDim {3*warpSize,1,1}
  *
  * @param[in] inputs Source & destination information per block
  * @param[out] outputs Decompression status per block
  **/
-__global__ void __launch_bounds__(96) unsnap_kernel(
+__global__ void __launch_bounds__(3*warpSize) unsnap_kernel(
     const void* const* __restrict__ device_in_ptr,
     const uint64_t* __restrict__ device_in_bytes,
     void* const* __restrict__ device_out_ptr,
