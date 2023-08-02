@@ -891,7 +891,7 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
     int32_t batch_len, blen_t, dist_t;
 
     if (t == 0) {
-      while ((batch_len = s->q.batch_len[batch]) == 0) { NANOSLEEP(100); }
+      while ((batch_len = s->q.batch_len[batch]) == 0) { NANOSLEEP(PROCESS_SLEEP_NS); }
     } else {
       batch_len = 0;
     }
@@ -905,16 +905,16 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
     }
     // Try to combine as many small entries as possible, but try to avoid doing that
     // if we see a small repeat distance 8 bytes or less
-    if (SHFL10(min((uint32_t)dist_t, (uint32_t)SHFL1_XOR(dist_t, 1))) > 8) {
+    if (SHFL10(min((lane_mask_t)dist_t, (lane_mask_t)SHFL1_XOR(dist_t, 1))) > 8) {
       uint32_t n;
       do {
         uint32_t bofs       = WarpReducePos(blen_t, t);
-        uint32_t stop_mask  = BALLOT1((uint32_t)dist_t < bofs);
-        uint32_t start_mask = WarpReduceSum((bofs < 32 && t < batch_len) ? 1 << bofs : 0);
-        n = min(min((uint32_t)__popc(start_mask), (uint32_t)(__ffs(stop_mask) - 1u)),
+        lane_mask_t stop_mask  = BALLOT1((uint32_t)dist_t < bofs);
+        lane_mask_t start_mask = WarpReduceSum((bofs < warpSize && t < batch_len) ? 1 << bofs : 0);
+        n = min(min((uint32_t)POPC(start_mask), (uint32_t)(FFS(stop_mask) - 1u)),
                 (uint32_t)batch_len);
         if (n != 0) {
-          uint32_t it  = __popc(start_mask & ((2 << t) - 1));
+          uint32_t it  = POPC(start_mask & ((2 << t) - 1));
           uint32_t tr  = t - SHFL1(bofs - blen_t, it);
           int32_t dist = SHFL1(dist_t, it);
           if (it < n) {
@@ -922,8 +922,8 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
             out[t]             = *src;
           }
           out += SHFL1(bofs, n - 1);
-          blen_t = SHFL1(blen_t, (n + t) & 0x1f);
-          dist_t = SHFL1(dist_t, (n + t) & 0x1f);
+          blen_t = SHFL1(blen_t, (n + t) & (uWarpSize-1));
+          dist_t = SHFL1(dist_t, (n + t) & (uWarpSize-1));
           batch_len -= n;
         }
       } while (n >= 4);
@@ -932,9 +932,9 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
     for (int i = 0; i < batch_len; i++) {
       int32_t blen  = SHFL1(blen_t, i);
       int32_t dist  = SHFL1(dist_t, i);
-      int32_t blen2 = (i + 1 < batch_len) ? SHFL(blen_t, i + 1) : 32;
+      int32_t blen2 = (i + 1 < batch_len) ? SHFL(blen_t, i + 1) : warpSize;
       // Try to combine consecutive small entries if they are independent
-      if ((uint32_t)dist >= (uint32_t)blen && blen + blen2 <= 32) {
+      if ((uint32_t)dist >= (uint32_t)blen && blen + blen2 <= warpSize) {
         int32_t dist2 = SHFL1(dist_t, i + 1);
         if ((uint32_t)dist2 >= (uint32_t)(blen + blen2)) {
           int32_t d;
@@ -962,50 +962,50 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
           const uint8_t *src = out + ((pos >= dist) ? (pos % dist) : pos) - dist;
           b0                 = *src;
         }
-        if (32 + t < blen) {
-          uint32_t pos       = 32 + t;
+        if (warpSize + t < blen) {
+          uint32_t pos       = warpSize + t;
           const uint8_t *src = out + ((pos >= dist) ? (pos % dist) : pos) - dist;
           b1                 = *src;
         }
         if (t < blen) { out[t] = b0; }
-        if (32 + t < blen) { out[32 + t] = b1; }
+        if (warpSize + t < blen) { out[warpSize + t] = b1; }
       } else {
         // Literal
         uint8_t b[LITERAL_SECTORS];
         dist = -dist;
 #pragma unroll 1
-        for(int k = 0; k < blen / (LITERAL_SECTORS * 32u); ++k) {
-          if (dist + LITERAL_SECTORS * 32u < current_prefetch_wrpos) {
+        for(int k = 0; k < blen / (LITERAL_SECTORS * uWarpSize); ++k) {
+          if (dist + LITERAL_SECTORS * uWarpSize < current_prefetch_wrpos) {
             //: i hides higher-scope i
             for(int i = 0; i < LITERAL_SECTORS; ++i)
-              b[i] = READ_BYTE(dist + i * 32u + t);
+              b[i] = READ_BYTE(dist + i * uWarpSize + t);
           } else {
             //: i hides higher-scope i
             for(int i = 0; i < LITERAL_SECTORS; ++i)
-              b[i] = literal_base[dist + i * 32u + t];
+              b[i] = literal_base[dist + i * uWarpSize + t];
           }
           for(int i = 0; i < LITERAL_SECTORS; ++i)
             //: i hides higher-scope i
-            out[i * 32u + t] = b[i];
-          dist += LITERAL_SECTORS * 32u;
-          out += LITERAL_SECTORS * 32u;
+            out[i * uWarpSize + t] = b[i];
+          dist += LITERAL_SECTORS * uWarpSize;
+          out += LITERAL_SECTORS * uWarpSize;
         }
-        blen %= LITERAL_SECTORS * 32u;
-        //: similar as above body, but with check `if (i * 32u + t < blen)`
+        blen %= LITERAL_SECTORS * uWarpSize;
+        //: similar as above body, but with check `if (i * uWarpSize + t < blen)`
         if (dist + blen < current_prefetch_wrpos) {
           for(int i = 0; i < LITERAL_SECTORS; ++i)
             //: i hides higher-scope i
-            if (i * 32u + t < blen)
-              b[i] = READ_BYTE(dist + i * 32u + t);
+            if (i * uWarpSize + t < blen)
+              b[i] = READ_BYTE(dist + i * uWarpSize + t);
         } else {
           for(int i = 0; i < LITERAL_SECTORS; ++i)
             //: i hides higher-scope i
-            if (i * 32u + t < blen)
-              b[i] = literal_base[dist + i * 32u + t];
+            if (i * uWarpSize + t < blen)
+              b[i] = literal_base[dist + i * uWarpSize + t];
         }
         for(int i = 0; i < LITERAL_SECTORS; ++i)
-          if (i * 32u + t < blen)
-            out[i * 32u + t] = b[i];
+          if (i * uWarpSize + t < blen)
+            out[i * uWarpSize + t] = b[i];
         //: end similar as above 
       }
       out += blen;
@@ -1152,15 +1152,15 @@ __global__ void __launch_bounds__(96) unsnap_kernel(
   }
   __syncthreads();
   if (!s->error) {
-    if (t < 32) {
+    if (t < warpSize) {
       // WARP0: decode lengths and offsets
       snappy_decode_symbols(s, t);
-    } else if (t < 64) {
+    } else if (t < 2*warpSize) {
       // WARP1: prefetch byte stream for WARP0
-      snappy_prefetch_bytestream(s, t & 0x1f);
-    } else if (t < 96) {
+      snappy_prefetch_bytestream(s, t & (uWarpSize-1));
+    } else if (t < 3*warpSize) {
       // WARP2: LZ77
-      snappy_process_symbols(s, t & 0x1f);
+      snappy_process_symbols(s, t & (uWarpSize-1));
     }
     __syncthreads();
   }
@@ -1217,7 +1217,7 @@ void gpu_get_uncompressed_sizes(
   int count,
   hipStream_t stream)
 {
-  dim3 dim_block(32, 1);
+  dim3 dim_block(warpSize, 1); // only a single thread is active in any case
   dim3 dim_grid(count, 1);
 
   get_uncompressed_sizes_kernel<<<dim_grid, dim_block, 0, stream>>>(
