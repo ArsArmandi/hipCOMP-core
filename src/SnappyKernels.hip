@@ -736,8 +736,8 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
           //: meaning of the get_len5_mask arguments are different to that of get_len3_mask!
           len3_mask = SHFL10((t == 0) ? 
             (
-              (lanemask_t)get_len5_mask(lo32(v0), lo32(v1)) 
-              | ((lanemask_t)get_len5_mask(hi32(v0), hi32(v1))) << 32 
+              (lane_mask_t)get_len5_mask(lo32(v0), lo32(v1)) 
+              | ((lane_mask_t)get_len5_mask(hi32(v0), hi32(v1))) << 32 
             )
             : 0
           );
@@ -932,7 +932,7 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
     for (int i = 0; i < batch_len; i++) {
       int32_t blen  = SHFL1(blen_t, i);
       int32_t dist  = SHFL1(dist_t, i);
-      int32_t blen2 = (i + 1 < batch_len) ? SHFL(blen_t, i + 1) : warpSize;
+      int32_t blen2 = (i + 1 < batch_len) ? SHFL1(blen_t, i + 1) : warpSize;
       // Try to combine consecutive small entries if they are independent
       if ((uint32_t)dist >= (uint32_t)blen && blen + blen2 <= warpSize) {
         int32_t dist2 = SHFL1(dist_t, i + 1);
