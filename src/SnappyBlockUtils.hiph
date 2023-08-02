@@ -58,6 +58,7 @@ typedef signed_lane_mask_t int64_t;
 
 #define PREFETCH_SLEEP_NS 1600
 #define DECODE_SLEEP_NS 50
+#define PROCESS_SLEEP_NS 100
 #else
 #define uWarpSize 32u
 #typedef lane_mask_t uint32_t;
@@ -69,6 +70,7 @@ typedef signed_lane_mask_t int32_t;
 
 #define PREFETCH_SLEEP_NS 1600
 #define DECODE_SLEEP_NS 50
+#define PROCESS_SLEEP_NS 100
 #endif
 
 
