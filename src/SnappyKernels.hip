@@ -667,11 +667,11 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
       uint32_t b0;
       cur            = SHFL10(cur);
       cur_t          = cur + t;
-      b0             = READ_BYTE(cur_t);
+      b0             = READ_BYTE(cur_t + 0*warpSize);
       v0             = BALLOT1((b0 == 4) || (b0 & 2));
-      b0             = READ_BYTE(cur_t + 32);
+      b0             = READ_BYTE(cur_t + 1*warpSize);
       v1             = BALLOT1((b0 == 4) || (b0 & 2));
-      b0             = READ_BYTE(cur_t + 64);
+      b0             = READ_BYTE(cur_t + 2*warpSize);
       v2             = BALLOT1((b0 == 4) || (b0 & 2));
       #if __HIP_PLATFORM_AMD__
       len3_mask      = SHFL10((t == 0) ? 
