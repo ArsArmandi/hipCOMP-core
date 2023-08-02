@@ -75,9 +75,9 @@ TEST_CASE("IsDevicePointerTest", "[small]")
 
   // check a pinned pointer - false
   size_t* pinned_ptr;
-  HIP_RT_CALL(hipMallocHost((void**)&pinned_ptr, sizeof(*pinned_ptr)));
+  HIP_RT_CALL(hipHostMalloc((void**)&pinned_ptr, sizeof(*pinned_ptr)));
   REQUIRE(!HipUtils::is_device_pointer(pinned_ptr));
-  HIP_RT_CALL(hipFreeHost(pinned_ptr));
+  HIP_RT_CALL(hipHostFree(pinned_ptr));
 
   // check an unregistered pointer - false
   size_t unregistered;
@@ -104,10 +104,10 @@ TEST_CASE("DevicePointerTest", "[small]")
 
   // check a pinned pointer - should succeed and return a device pointer
   size_t* pinned_ptr;
-  HIP_RT_CALL(hipMallocHost((void**)&pinned_ptr, sizeof(*pinned_ptr)));
+  HIP_RT_CALL(hipHostMalloc((void**)&pinned_ptr, sizeof(*pinned_ptr)));
   size_t* pinned_dev_ptr = HipUtils::device_pointer(pinned_ptr);
   HIP_RT_CALL(hipMemset(pinned_dev_ptr, 0, sizeof(*pinned_dev_ptr)));
-  HIP_RT_CALL(hipFreeHost(pinned_ptr));
+  HIP_RT_CALL(hipHostFree(pinned_ptr));
 
   // check an unregistered pointer - should throw an exception
   try {

@@ -67,7 +67,7 @@ namespace
 {
 
 template <typename T>
-__global__ void toGPU(
+void toGPU(
     T* const output,
     T const* const input,
     size_t const num,
@@ -78,7 +78,7 @@ __global__ void toGPU(
 }
 
 template <typename T>
-__global__ void fromGPU(
+void fromGPU(
     T* const output,
     T const* const input,
     size_t const num,
@@ -105,7 +105,7 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
 
   HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
 
-  HIP_RT_CALL(hipMallocHost((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
@@ -128,7 +128,7 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
   T** outputPtr;
 
   HIP_RT_CALL(hipMalloc((void**)&output, numBytes));
-  HIP_RT_CALL(hipMallocHost((void**)&outputHost, numBytes));
+  HIP_RT_CALL(hipHostMalloc((void**)&outputHost, numBytes));
 
   HIP_RT_CALL(hipMalloc((void**)&outputPtr, sizeof(*outputPtr)));
   HIP_RT_CALL(hipMemcpy(
@@ -184,8 +184,8 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
     CHECK(expected[i] == outputHost[i]);
   }
 
-  HIP_RT_CALL(hipFreeHost(outputHost));
+  HIP_RT_CALL(hipHostFree(outputHost));
 
   HIP_RT_CALL(hipFree(input));
-  HIP_RT_CALL(hipFreeHost(inputHost));
+  HIP_RT_CALL(hipHostFree(inputHost));
 }

@@ -189,7 +189,7 @@ TEST_CASE("comp/decomp RLE-Delta-BP", "[hipcomp]")
   HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
 
   size_t* comp_out_bytes_ptr;
-  hipMallocHost((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr));
+  hipHostMalloc((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr));
 
   compressor.compress_async(
       d_in_data,
@@ -203,7 +203,7 @@ TEST_CASE("comp/decomp RLE-Delta-BP", "[hipcomp]")
   HIP_CHECK(hipStreamSynchronize(stream));
   comp_out_bytes = *comp_out_bytes_ptr;
 
-  hipFreeHost(comp_out_bytes_ptr);
+  hipHostFree(comp_out_bytes_ptr);
   hipFree(d_comp_temp);
   hipFree(d_in_data);
 
@@ -271,7 +271,7 @@ TEST_CASE("max_size_test", "[hipcomp]")
   void* d_comp_out = nullptr;
 
   size_t* comp_out_bytes_ptr;
-  hipMallocHost((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr));
+  hipHostMalloc((void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr));
 
   try {
     CascadedCompressor compressor(TypeOf<T>(), RLE, Delta, packing);
@@ -299,7 +299,7 @@ TEST_CASE("max_size_test", "[hipcomp]")
     // we through the right exception, pass
   }
 
-  hipFreeHost(comp_out_bytes_ptr);
+  hipHostFree(comp_out_bytes_ptr);
 
   if (d_comp_temp) {
     hipFree(d_comp_temp);

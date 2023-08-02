@@ -71,7 +71,7 @@ namespace
 {
 
 template <typename T>
-__global__ void toGPU(
+void toGPU(
     T* const output,
     T const* const input,
     size_t const num,
@@ -82,7 +82,7 @@ __global__ void toGPU(
 }
 
 template <typename T>
-__global__ void fromGPU(
+void fromGPU(
     T* const output,
     T const* const input,
     size_t const num,

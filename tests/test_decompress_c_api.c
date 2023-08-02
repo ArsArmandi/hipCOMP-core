@@ -226,8 +226,8 @@ int test_lz4(void)
   hipcompStatus_t status;
 
   size_t* p_comp_out_bytes;
-  HIP_CHECK(
-      hipMallocHost((void**)&p_comp_out_bytes, sizeof(*p_comp_out_bytes)));
+  HIP_CHECK(hipHostMalloc((void**)&p_comp_out_bytes, sizeof(*p_comp_out_bytes),
+                          hipHostMallocDefault));
 
   // Compress on the GPU
   size_t comp_temp_bytes;
@@ -265,7 +265,7 @@ int test_lz4(void)
   int rv = check_decompress(
       input, input_size, d_comp_out, *p_comp_out_bytes, stream);
   HIP_CHECK(hipFree(d_comp_out));
-  HIP_CHECK(hipFreeHost(p_comp_out_bytes));
+  HIP_CHECK(hipHostFree(p_comp_out_bytes));
 
   free(input);
 
