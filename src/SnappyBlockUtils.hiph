@@ -45,21 +45,30 @@
 #endif
 
 # if __HIP_PLATFORM_AMD__
+#define uWarpSize 64u
 typedef lane_mask_t uint64_t;
 typedef signed_lane_mask_t int64_t;
+#define lo32(u64) (uint32_t)u64
+#define hi32(u64) *((uint32_t*)&u64+1)
+
 #define CLZ(x) __clzll(x)
 #define FFS(x) __ffsll(x)
-#define uWarpSize 64u
+#define POPC(x) __popcll(x)
+#define 
 
 #define PREFETCH_SLEEP_NS 1600
+#define DECODE_SLEEP_NS 50
 #else
+#define uWarpSize 32u
 #typedef lane_mask_t uint32_t;
 typedef signed_lane_mask_t int32_t;
+
 #define CLZ(x) __clz(x)
 #define FFS(x) __ffs(x)
-#define uWarpSize 32u
+#define POPC(x) __popc(x)
 
 #define PREFETCH_SLEEP_NS 1600
+#define DECODE_SLEEP_NS 50
 #endif
 
 

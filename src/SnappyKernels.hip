@@ -365,7 +365,13 @@ snap_kernel(
 // Not supporting streams longer than this (not what snappy is intended for)
 #define SNAPPY_MAX_STREAM_SIZE 0x7fffffff
 
+#ifdef __HIP_PLATFORM_AMD___
+//: results in BATCH_SIZE 64
+#define LOG2_BATCH_SIZE 6
+#else
+//: results in BATCH_SIZE 32
 #define LOG2_BATCH_SIZE 5
+#endif
 #define BATCH_SIZE (1 << LOG2_BATCH_SIZE)
 #define LOG2_BATCH_COUNT 2
 #define BATCH_COUNT (1 << LOG2_BATCH_COUNT)
@@ -648,7 +654,7 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
     // Wait for prefetcher
     if (t == 0) {
 #pragma unroll(1)  // We don't want unrolling here
-      while (s->q.prefetch_wrpos < min(cur + 5 * BATCH_SIZE, end)) { NANOSLEEP(50); }
+      while (s->q.prefetch_wrpos < min(cur + 5 * BATCH_SIZE, end)) { NANOSLEEP(DECODE_SLEEP_NS); }
       b = &s->q.batch[batch * BATCH_SIZE];
     }
     // Process small symbols in parallel: for data that does not get good compression,
@@ -656,7 +662,8 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
     // followed by short repeat runs. This results in many 2-byte or 3-byte symbols
     // that can all be decoded in parallel once we know the symbol length.
     {
-      uint32_t v0, v1, v2, len3_mask, cur_t, is_long_sym, short_sym_mask;
+      uint32_t cur_t, is_long_sym;
+      lane_mask_t v0, v1, v2, len3_mask, short_sym_mask;
       uint32_t b0;
       cur            = SHFL10(cur);
       cur_t          = cur + t;
@@ -666,15 +673,25 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
       v1             = BALLOT1((b0 == 4) || (b0 & 2));
       b0             = READ_BYTE(cur_t + 64);
       v2             = BALLOT1((b0 == 4) || (b0 & 2));
+      #if __HIP_PLATFORM_AMD__
+      len3_mask      = SHFL10((t == 0) ? 
+        ( 
+          (lane_mask_t)get_len3_mask(lo32(v0), hi32(v0), lo32(v1))
+        | ((lane_mask_t)get_len3_mask(hi32(v1), lo32(v2), hi32(v2))) << 32
+        )
+        : 0
+      );
+      #else
       len3_mask      = SHFL10((t == 0) ? get_len3_mask(v0, v1, v2) : 0);
-      cur_t          = cur + 2 * t + __popc(len3_mask & ((1 << t) - 1));
+      #endif
+      cur_t          = cur + 2 * t + POPC(len3_mask & ((1 << t) - 1));
       b0             = READ_BYTE(cur_t);
       is_long_sym    = ((b0 & ~4) != 0) && (((b0 + 1) & 2) == 0);
       short_sym_mask = BALLOT1(is_long_sym);
       batch_len      = 0;
       b = reinterpret_cast<volatile unsnap_batch_s *>(SHFL10(reinterpret_cast<uintptr_t>(b)));
       if (!(short_sym_mask & 1)) {
-        batch_len = SHFL10((t == 0) ? (short_sym_mask) ? __ffs(short_sym_mask) - 1 : 32 : 0);
+        batch_len = SHFL10((t == 0) ? (short_sym_mask) ? FFS(short_sym_mask) - 1 : warpSize : 0);
         if (batch_len != 0) {
           uint32_t blen = 0;
           int32_t ofs   = 0;
@@ -687,13 +704,10 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
             b[t].offset = ofs;
             ofs += blen;  // for correct out-of-range detection below
           }
-          blen           = WarpReducePos32(blen, t);
+          blen           = WarpReducePos(blen, t);
           bytes_left     = SHFL10(bytes_left);
           dst_pos        = SHFL10(dst_pos);
-          #ifdef __HIP_PLATFORM_AMD__
-          #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): 'short_sym_mask = __ffs(BALLOT1(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));'
-          // short_sym_mask = __ffs(BALLOT1(blen > bytes_left || ofs > (int32_t)(dst_pos + blen))); // TODO(amd): __ballot produces uint64t (==warpSize)
-          #endif
+          short_sym_mask = FFS(BALLOT1(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
                                                                                   
           if (short_sym_mask != 0) { batch_len = min(batch_len, short_sym_mask - 1); }
           if (batch_len != 0) {
@@ -711,23 +725,37 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
         // If so, run a slower version of the above that can also handle 3/4-byte literal sequences
         uint32_t batch_add;
         do {
-          uint32_t clen, mask_t;
+          uint32_t clen;
+          lane_mask_t mask_t;
           cur_t     = cur + t;
           b0        = READ_BYTE(cur_t);
           clen      = (b0 & 3) ? (b0 & 2) ? 1 : 0 : (b0 >> 2);  // symbol length minus 2
           v0        = BALLOT1(clen & 1);
           v1        = BALLOT1((clen >> 1) & 1);
-          len3_mask = SHFL10((t == 0) ? get_len5_mask(v0, v1) : 0);
-          mask_t    = (1 << (2 * t)) - 1;
-          cur_t     = cur + 2 * t + 2 * __popc((len3_mask & 0xaaaaaaaa) & mask_t) +
-                  __popc((len3_mask & 0x55555555) & mask_t);
-          b0          = READ_BYTE(cur_t);
-          is_long_sym = ((b0 & 3) ? ((b0 & 3) == 3) : (b0 > 3 * 4)) || (cur_t >= cur + 32) ||
-                        (batch_len + t >= BATCH_SIZE);
           #ifdef __HIP_PLATFORM_AMD__
-          #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): batch_add = __ffs(BALLOT1(is_long_sym)) - 1;
-          // batch_add = __ffs(BALLOT1(is_long_sym)) - 1;
+          //: meaning of the get_len5_mask arguments are different to that of get_len3_mask!
+          len3_mask = SHFL10((t == 0) ? 
+            (
+              (lanemask_t)get_len5_mask(lo32(v0), lo32(v1)) 
+              | ((lanemask_t)get_len5_mask(hi32(v0), hi32(v1))) << 32 
+            )
+            : 0
+          );
+          //: amd: below masks are twice as long (warp size=64)
+          #define MASK_EVERY_ODD_BIT  0xaaaaaaaaaaaaaaaa
+          #define MASK_EVERY_EVEN_BIT 0x5555555555555555
+          #else
+          len3_mask = SHFL10((t == 0) ? get_len5_mask(v0, v1) : 0);
+          #define MASK_EVERY_ODD_BIT  0xaaaaaaaa
+          #define MASK_EVERY_EVEN_BIT 0x55555555
           #endif
+          mask_t    = (1 << (2 * t)) - 1;
+          cur_t     = cur + 2 * t + 2 * POPC((len3_mask & MASK_EVERY_ODD_BIT) & mask_t) +
+                  POPC((len3_mask & MASK_EVERY_EVEN_BIT) & mask_t);
+          b0          = READ_BYTE(cur_t);
+          is_long_sym = ((b0 & 3) ? ((b0 & 3) == 3) : (b0 > 3 * 4)) || (cur_t >= cur + warpSize) ||
+                        (batch_len + t >= BATCH_SIZE);
+          batch_add = FFS(BALLOT1(is_long_sym)) - 1;
             //: roughly same as in previous approach, except flow statement conditions and some indices
           if (batch_add != 0) { //: differs
             uint32_t blen = 0;
@@ -741,13 +769,10 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
               b[batch_len + t].offset = ofs;  //: differs
               ofs += blen;  // for correct out-of-range detection below
             }
-            blen           = WarpReducePos32(blen, t);
+            blen           = WarpReducePos(blen, t);
             bytes_left     = SHFL10(bytes_left);
             dst_pos        = SHFL10(dst_pos);
-            #ifdef __HIP_PLATFORM_AMD__
-            #warning debug(hip/amd): line disabled (call to '__ffs' is ambiguous): short_sym_mask = __ffs(BALLOT1(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
-            // short_sym_mask = __ffs(BALLOT1(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
-            #endif
+            short_sym_mask = FFS(BALLOT1(blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
             if (short_sym_mask != 0) { batch_add = min(batch_add, short_sym_mask - 1); } //: differs
             if (batch_add != 0) { //: differs
               blen = SHFL1(blen, batch_add - 1); //: differs
@@ -883,9 +908,9 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
     if (SHFL10(min((uint32_t)dist_t, (uint32_t)SHFL1_XOR(dist_t, 1))) > 8) {
       uint32_t n;
       do {
-        uint32_t bofs       = WarpReducePos32(blen_t, t);
+        uint32_t bofs       = WarpReducePos(blen_t, t);
         uint32_t stop_mask  = BALLOT1((uint32_t)dist_t < bofs);
-        uint32_t start_mask = WarpReduceSum32((bofs < 32 && t < batch_len) ? 1 << bofs : 0);
+        uint32_t start_mask = WarpReduceSum((bofs < 32 && t < batch_len) ? 1 << bofs : 0);
         n = min(min((uint32_t)__popc(start_mask), (uint32_t)(__ffs(stop_mask) - 1u)),
                 (uint32_t)batch_len);
         if (n != 0) {
