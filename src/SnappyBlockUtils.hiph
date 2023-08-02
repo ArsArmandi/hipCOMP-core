@@ -49,12 +49,17 @@ typedef lane_mask_t uint64_t;
 typedef signed_lane_mask_t int64_t;
 #define CLZ(x) __clzll(x)
 #define FFS(x) __ffsll(x)
+#define uWarpSize 64u
+
+#define PREFETCH_SLEEP_NS 1600
 #else
 #typedef lane_mask_t uint32_t;
 typedef signed_lane_mask_t int32_t;
-
 #define CLZ(x) __clz(x)
 #define FFS(x) __ffs(x)
+#define uWarpSize 32u
+
+#define PREFETCH_SLEEP_NS 1600
 #endif
 
 

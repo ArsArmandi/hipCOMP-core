@@ -178,6 +178,11 @@ static inline __device__ lane_mask_t HashMatchAny(uint32_t v, uint32_t t)  //: w
  * @param t thread in warp
  *
  * @return Number of bytes before first match (literal length)
+ * 
+ * \note Side effects:
+ * - Writes to `s(b).copy_distance`
+ * - Writes to `s(b).copy_length`
+ * - Writes to `s(b).hash_map`
  **/
 static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
                                              const uint8_t *src,
@@ -240,7 +245,7 @@ static __device__ uint32_t Match60(const uint8_t *src1,
                                    uint32_t t)
 { 
   lane_mask_t mismatch = BALLOT1(t >= len || src1[t] != src2[t]);
-  #ifdef AMD
+  #ifdef __HIP_PLATFORM_AMD__
   return FFS(mismatch) - 1;
   #else
   if (mismatch == 0) {
@@ -329,17 +334,19 @@ snap_kernel(
       if (t == 0) { s->dst = dst; }
     } else {
       pos += literal_len + copy_len;
-      if (t < 32 * 2) {
+      if (t < warpSize * 2) {
         // WARP1: Find a match using 12-bit hashes of 4-byte blocks
+        //: two-step strategy: first find 4-byte match, 
+        //: then try to find longer match starting from that match's position
         uint32_t t5 = t & (warpSize-1);
-        literal_len = FindFourByteMatch(s, src, pos, t5);
+        literal_len = FindFourByteMatch(s, src, pos, t5); //: side effect: writes to s->copy_length
         if (t5 == 0) { s->literal_length = literal_len; }
         copy_len = s->copy_length;
         if (copy_len != 0) {
           uint32_t match_pos = pos + literal_len + copy_len;  // NOTE: copy_len is always 4 here
           copy_len += Match60(src + match_pos,
                               src + match_pos - s->copy_distance,
-                              min(s->src_len - match_pos, 64 - copy_len),
+                              min(s->src_len - match_pos, 64 - copy_len), //: copy_len is 4 here
                               t5);
           if (t5 == 0) { s->copy_length = copy_len; }
         }
@@ -364,6 +371,7 @@ snap_kernel(
 #define BATCH_COUNT (1 << LOG2_BATCH_COUNT)
 #define LOG2_PREFETCH_SIZE 12
 #define PREFETCH_SIZE (1 << LOG2_PREFETCH_SIZE)  // 4KB, in 32B chunks
+  //: TODO: amd: does it make sense to tune this for AMD to have the same amount of chunks?
 #define PREFETCH_SECTORS 8 // How many loads in flight when prefetching
 #define LITERAL_SECTORS 4 // How many loads in flight when processing the literal
 
@@ -425,10 +433,10 @@ __device__ void snappy_prefetch_bytestream(unsnap_state_s *s, int t)
 {
   const uint8_t *base  = s->base;
   uint32_t end         = (uint32_t)(s->end - base);
-  uint32_t align_bytes = (uint32_t)(0x20 - (0x1f & reinterpret_cast<uintptr_t>(base)));
+  uint32_t align_bytes = (uint32_t)(uWarpSize - ((uWarpSize-1) & reinterpret_cast<uintptr_t>(base)));
   int32_t pos          = min(align_bytes, end);
   int32_t blen;
-  // Start by prefetching up to the next a 32B-aligned location
+  // Start by prefetching up to the next a (warpsize)B-aligned location
   if (t < pos) { s->q.buf[t] = base[t]; }
   blen = 0;
   do {
@@ -436,8 +444,8 @@ __device__ void snappy_prefetch_bytestream(unsnap_state_s *s, int t)
     if (!t) {
       uint32_t minrdpos;
       s->q.prefetch_wrpos = pos;
-      minrdpos            = pos - min(pos, PREFETCH_SIZE - PREFETCH_SECTORS * 32u);
-      blen                = (int)min(PREFETCH_SECTORS * 32u, end - pos);
+      minrdpos            = pos - min(pos, PREFETCH_SIZE - PREFETCH_SECTORS * warpSize);
+      blen                = (int)min(PREFETCH_SECTORS * uWarpSize, end - pos);
       for (;;) {
         uint32_t rdpos = s->q.prefetch_rdpos;
         if (rdpos >= minrdpos) break;
@@ -445,19 +453,19 @@ __device__ void snappy_prefetch_bytestream(unsnap_state_s *s, int t)
           blen = 0;
           break;
         }
-        NANOSLEEP(1600);
+        NANOSLEEP(PREFETCH_SLEEP_NS);
       }
     }
     blen = SHFL10(blen);
-    if (blen == PREFETCH_SECTORS * 32u) {
+    if (blen == PREFETCH_SECTORS * uWarpSize) {
       uint8_t vals[PREFETCH_SECTORS];
       for(int i = 0; i < PREFETCH_SECTORS; ++i)
-        vals[i] = base[pos + t + i * 32u];
+        vals[i] = base[pos + t + i * uWarpSize];
       for(int i = 0; i < PREFETCH_SECTORS; ++i)
-        s->q.buf[(pos + t + i * 32u) & (PREFETCH_SIZE - 1)] = vals[i];
+        s->q.buf[(pos + t + i * uWarpSize) & (PREFETCH_SIZE - 1)] = vals[i];
     } else {
 #pragma unroll 1
-      for(int elem = t; elem < blen; elem += 32) {
+      for(int elem = t; elem < blen; elem += warpSize) {
         s->q.buf[(pos + elem) & (PREFETCH_SIZE - 1)] = base[pos + elem];
       }
     }
