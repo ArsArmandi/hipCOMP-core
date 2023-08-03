@@ -565,9 +565,9 @@ static const uint8_t __device__ __constant__ k_len3lut[1 << 10] = {
   0x98, 0xbd, 0x98, 0xbd, 0xbe, 0xbd, 0xbe, 0xbd, 0x98, 0xcf, 0x98, 0xcf, 0xbe, 0xcf, 0xbe, 0xcf,
   0xac, 0xbd, 0xac, 0xbd, 0xbe, 0xbd, 0xbe, 0xbd, 0xac, 0xcf, 0xac, 0xcf, 0xbe, 0xcf, 0xbe, 0xcf};
 
-#if __HIP_PLATFORM_AMD__
+#ifdef __HIP_PLATFORM_AMD__
 
-#define four_lookups(v1,v2,m_offset)
+#define four_lookups(v1,v2,m_offset) \
   v  = v1; \
   m4 = k_len3lut[v & 0x3ff]; \
   m |= (m4 & 0xf) << (m_offset+0); \
@@ -584,7 +584,7 @@ static const uint8_t __device__ __constant__ k_len3lut[1 << 10] = {
   m4 = k_len3lut[v & 0x3ff]; \
   m |= (m4 & 0xf) << (m_offset+12);
 
-#define pair_transition(v1,v2)
+#define pair_transition(v1,v2) \
   n  = (n + (m4 >> 4)) & 0x1f;     \
   v1 = __funnelshift_r(v1, v2, n); \
   v2 >>= n;
@@ -599,21 +599,26 @@ static const uint8_t __device__ __constant__ k_len3lut[1 << 10] = {
  *       uint32_t type v0 ... v5 as the __funnelshift_r operation only
  *       works with uin32_t inputs. Therefore, we need to add more lookups and transitions between
  *       registers/register pairs compared to the warpsize 32 implementation:
- *       (v0,v1)->(v1,v2)->(v2,v3)->(v3,v4)->(v4,v5)
+ *       (v0,v1)->(v1,v2)->(v2,v3)->(v3,v4)
+ * \note Each `four_lookups` adds 4x 4 bit to the mask, so we can only make 4x four_lookups
+ *       if our result must fit into a 64-bit mask. Hence, only the lower 32-bit of dv2 are actually 
+ *       used.
  **/
 inline __device__ lane_mask_t get_len3_mask(lane_mask_t dv0, lane_mask_t dv1, lane_mask_t dv2)
 {
-  uint32t v0,v1,v2,v3,v4,v5;
+  uint32_t v0,v1,v2,v3,v4,v5;
   v0 = lo32(dv0);
   v1 = hi32(dv0);
   v2 = lo32(dv1);
   v3 = hi32(dv1);
   v4 = lo32(dv2);
-  v5 = hi32(dv2);
+  //: below not needed as the 64-bit mask is full
+  // v5 = hi32(dv2);
 
   lane_mask_t m; // result
-  uint32_t m4, n;
-  
+  lane_mask_t m4;
+  uint32_t v, n;
+
   four_lookups(v0,v1,0)
   pair_transition(v1,v2)
   four_lookups(v1,v2,16) //: m_offset <- m_offset + 16
@@ -621,8 +626,10 @@ inline __device__ lane_mask_t get_len3_mask(lane_mask_t dv0, lane_mask_t dv1, la
   four_lookups(v2,v3,32) //: m_offset <- m_offset + 16
   pair_transition(v3,v4)
   four_lookups(v3,v4,48) //: m_offset <- m_offset + 16
-  pair_transition(v4,v5)
-  four_lookups(v4,v5,64) //: m_offset <- m_offset + 16
+  //: below not needed as the 64-bit mask is full
+  //: Each four_lookups adds 4x4bit to the mask, so we can only make 4 four_lookups.
+  // pair_transition(v4,v5)
+  // four_lookups(v4,v5,64) //: m_offset <- m_offset + 16
   return m;
 }
 
@@ -669,7 +676,7 @@ inline __device__ uint32_t get_len3_mask(uint32_t v0, uint32_t v1, uint32_t v2)
   m |= (m4 & 0xf) << 8;            //: get the next 4-bit from mask4 and put it into the right spot in the result m
   n += m4 >> 4;  // 24..36         //: add the len information from m4 (8..12_ to the total len n
   v >>= (m4 >> 4);                 //: shift: Shift by the len information (8..12) fron m4 (not with n as this is the total len)
-  m4 = k_len3lut[v & 0x3ff];       
+  m4 = k_len3lut[v & 0x3ff];
   m |= (m4 & 0xf) << 12;
   n  = (n + (m4 >> 4)) & 0x1f;  // (32..48) % 32 = 0..16  //: Attention(Transition to next variable): 
                                                           //: Total len n would now be bigger than v0. We need to access the next registers and shift by the v1 bits consumed previously
