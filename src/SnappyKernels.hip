@@ -565,6 +565,88 @@ static const uint8_t __device__ __constant__ k_len3lut[1 << 10] = {
   0x98, 0xbd, 0x98, 0xbd, 0xbe, 0xbd, 0xbe, 0xbd, 0x98, 0xcf, 0x98, 0xcf, 0xbe, 0xcf, 0xbe, 0xcf,
   0xac, 0xbd, 0xac, 0xbd, 0xbe, 0xbd, 0xbe, 0xbd, 0xac, 0xcf, 0xac, 0xcf, 0xbe, 0xcf, 0xbe, 0xcf};
 
+#if __HIP_PLATFORM_AMD__
+
+#define four_lookups(v1,v2,m_offset)
+  v  = v1; \
+  m4 = k_len3lut[v & 0x3ff]; \
+  m |= (m4 & 0xf) << (m_offset+0); \
+  n  = m4 >> 4;   \
+  v  = v1 >> n; \
+  m4 = k_len3lut[v & 0x3ff]; \
+  m |= (m4 & 0xf) << (m_offset+4); \
+  n += m4 >> 4;  \
+  v  = __funnelshift_r(v1, v2, n); \
+  m4 = k_len3lut[v & 0x3ff]; \
+  m |= (m4 & 0xf) << (m_offset+8); \
+  n += m4 >> 4;  \
+  v >>= (m4 >> 4); \
+  m4 = k_len3lut[v & 0x3ff]; \
+  m |= (m4 & 0xf) << (m_offset+12);
+
+#define pair_transition(v1,v2)
+  n  = (n + (m4 >> 4)) & 0x1f;     \
+  v1 = __funnelshift_r(v1, v2, n); \
+  v2 >>= n;
+
+/**
+ * @brief Returns a 64-bit mask where 1 means 3-byte code length and 0 means 2-byte
+ * code length, given an input mask of up to 192 bits.
+ *
+ * Implemented by doing 8 consecutive lookups, building the result 4-bit at a time
+ * 
+ * \note For the warpsize 64 implementation, we need six inputs of 
+ *       uint32_t type v0 ... v5 as the __funnelshift_r operation only
+ *       works with uin32_t inputs. Therefore, we need to add more lookups and transitions between
+ *       registers/register pairs compared to the warpsize 32 implementation:
+ *       (v0,v1)->(v1,v2)->(v2,v3)->(v3,v4)->(v4,v5)
+ **/
+inline __device__ lane_mask_t get_len3_mask(lane_mask_t dv0, lane_mask_t dv1, lane_mask_t dv2)
+{
+  uint32t v0,v1,v2,v3,v4,v5;
+  v0 = lo32(dv0);
+  v1 = hi32(dv0);
+  v2 = lo32(dv1);
+  v3 = hi32(dv1);
+  v4 = lo32(dv2);
+  v5 = hi32(dv2);
+
+  lane_mask_t m; // result
+  uint32_t m4, n;
+  
+  four_lookups(v0,v1,0)
+  pair_transition(v1,v2)
+  four_lookups(v1,v2,16) //: m_offset <- m_offset + 16
+  pair_transition(v2,v3)
+  four_lookups(v2,v3,32) //: m_offset <- m_offset + 16
+  pair_transition(v3,v4)
+  four_lookups(v3,v4,48) //: m_offset <- m_offset + 16
+  pair_transition(v4,v5)
+  four_lookups(v4,v5,64) //: m_offset <- m_offset + 16
+  return m;
+}
+
+/**
+ * @brief Returns a 64-bit mask where each 2-bit pair contains the symbol length
+ * minus 2, given two input masks each containing bit0 or bit1 of the corresponding
+ * code length minus 2 for up to 64 bytes
+ **/
+inline __device__ lane_mask_t get_len5_mask(lane_mask_t v0, lane_mask_t v1)
+{
+  lane_mask_t m;
+  m = (v1 & 1) * 2 + (v0 & 1); //: m[0:2] <- [v1[0], v0[0]], m in [0,3] => len in [2,5]
+  v0 >>= (m + 2);              //: +2 to get actual code len
+  v1 >>= (m + 1);              //: TODO: Not sure why m+1 instead of m+2 ??
+  for (uint32_t i = 1; i < uWarpSize/2; i++) {
+    lane_mask_t m2 = (v1 & 2) | (v0 & 1);
+    lane_mask_t n  = m2 + 2;
+    m |= m2 << (i * 2);
+    v0 >>= n;
+    v1 >>= n;
+  }
+  return m;
+}
+#else
 /**
  * @brief Returns a 32-bit mask where 1 means 3-byte code length and 0 means 2-byte
  * code length, given an input mask of up to 96 bits.
@@ -575,23 +657,24 @@ inline __device__ uint32_t get_len3_mask(uint32_t v0, uint32_t v1, uint32_t v2)
 {
   uint32_t m, v, m4, n;
   v  = v0;
-  m4 = k_len3lut[v & 0x3ff];     //: k_len3lut[v % 1024]
-  m  = m4 & 0xf;                 //: extract lower 4 bits (mask for 3 byte codes)
-  n  = m4 >> 4;  // 8..12        //: n stores upper 4 bits (bytes to code for four lengths in mask)
-  v  = v0 >> n;
-  m4 = k_len3lut[v & 0x3ff];
-  m |= (m4 & 0xf) << 4;
-  n += m4 >> 4;  // 16..24
-  v  = __funnelshift_r(v0, v1, n);
-  m4 = k_len3lut[v & 0x3ff];
-  m |= (m4 & 0xf) << 8;
-  n += m4 >> 4;  // 24..36
-  v >>= (m4 >> 4);
-  m4 = k_len3lut[v & 0x3ff];
+  m4 = k_len3lut[v & 0x3ff];       //: m4 = k_len3lut[v % 1024]
+  m  = m4 & 0xf;                   //: extract lower 4 bits (mask for 3 byte codes), m is the final mask!
+  n  = m4 >> 4;  // 8..12          //: n stores upper 4 bits (bytes to code for four lengths in mask, 8..12)
+  v  = v0 >> n;                    //: shift: shifts 8..12 lower bits away, we have 8..12 upper bit zeros now in v!
+  m4 = k_len3lut[v & 0x3ff];       //: analyze next lower 10 bits
+  m |= (m4 & 0xf) << 4;            //: get the next 4-bit from mask4 and put it into the right spot in the result m
+  n += m4 >> 4;  // 16..24         //: add the len information from m4 (8..12) to the total len n
+  v  = __funnelshift_r(v0, v1, n); //: shift: we need to use a funnel shift now, as we have 8..12 upper bit zeros in v, v1 gives us the respective missing bits => after every shift, we need to a funnelshit
+  m4 = k_len3lut[v & 0x3ff];       //: Look up next m4
+  m |= (m4 & 0xf) << 8;            //: get the next 4-bit from mask4 and put it into the right spot in the result m
+  n += m4 >> 4;  // 24..36         //: add the len information from m4 (8..12_ to the total len n
+  v >>= (m4 >> 4);                 //: shift: Shift by the len information (8..12) fron m4 (not with n as this is the total len)
+  m4 = k_len3lut[v & 0x3ff];       
   m |= (m4 & 0xf) << 12;
-  n  = (n + (m4 >> 4)) & 0x1f;  // (32..48) % 32 = 0..16
-  v1 = __funnelshift_r(v1, v2, n);
-  v2 >>= n;
+  n  = (n + (m4 >> 4)) & 0x1f;  // (32..48) % 32 = 0..16  //: Attention(Transition to next variable): 
+                                                          //: Total len n would now be bigger than v0. We need to access the next registers and shift by the v1 bits consumed previously
+  v1 = __funnelshift_r(v1, v2, n);                        //: We shift the previously consumed v1 bits away
+  v2 >>= n;                                               //: We shift the funneled v2 bits away as they are now stored in v
   v  = v1;
   m4 = k_len3lut[v & 0x3ff];
   m |= (m4 & 0xf) << 16;
@@ -618,18 +701,19 @@ inline __device__ uint32_t get_len3_mask(uint32_t v0, uint32_t v1, uint32_t v2)
 inline __device__ uint32_t get_len5_mask(uint32_t v0, uint32_t v1)
 {
   uint32_t m;
-  m = (v1 & 1) * 2 + (v0 & 1);
-  v0 >>= (m + 2);
-  v1 >>= (m + 1);
+  m = (v1 & 1) * 2 + (v0 & 1); //: m contains the code len - 2
+  v0 >>= (m + 2);              //: +2 to get actual code len
+  v1 >>= (m + 1);              //: TODO: Not sure why m+1 instead of m+2 ??
   for (uint32_t i = 1; i < 16; i++) {
     uint32_t m2 = (v1 & 2) | (v0 & 1);
-    uint32_t n  = m2 + 2;
+    uint32_t n  = m2 + 2;      //: n is code len
     m |= m2 << (i * 2);
     v0 >>= n;
     v1 >>= n;
   }
   return m;
 }
+#endif
 
 #define READ_BYTE(pos) s->q.buf[(pos) & (PREFETCH_SIZE - 1)]
 
@@ -673,18 +757,7 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
       v1             = BALLOT1((b0 == 4) || (b0 & 2));
       b0             = READ_BYTE(cur_t + 2*warpSize);
       v2             = BALLOT1((b0 == 4) || (b0 & 2));
-      #if __HIP_PLATFORM_AMD__
-      len3_mask      = SHFL10(
-        (t == 0) ? 
-        ( 
-          (lane_mask_t)get_len3_mask(lo32(v0), hi32(v0), lo32(v1))
-          | (lane_mask_t)get_len3_mask(hi32(v1), lo32(v2), hi32(v2)) << 32
-        )
-        : 0
-      );
-      #else
       len3_mask      = SHFL10((t == 0) ? get_len3_mask(v0, v1, v2) : 0);
-      #endif
       cur_t          = cur + 2 * t + POPC(len3_mask & ((1 << t) - 1));
       b0             = READ_BYTE(cur_t);
       is_long_sym    = ((b0 & ~4) != 0) && (((b0 + 1) & 2) == 0);
@@ -734,22 +807,13 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
           v0        = BALLOT1(clen & 1);
           v1        = BALLOT1((clen >> 1) & 1);
           #ifdef __HIP_PLATFORM_AMD__
-          //: meaning of the get_len5_mask arguments are different to that of get_len3_mask!
-          len3_mask = SHFL10((t == 0) ? 
-            (
-              (lane_mask_t)get_len5_mask(lo32(v0), lo32(v1)) 
-              | (lane_mask_t)get_len5_mask(hi32(v0), hi32(v1)) << 32 
-            )
-            : 0
-          );
-          //: amd: below masks are twice as long (warp size=64)
           #define MASK_EVERY_ODD_BIT  0xaaaaaaaaaaaaaaaa
           #define MASK_EVERY_EVEN_BIT 0x5555555555555555
           #else
-          len3_mask = SHFL10((t == 0) ? get_len5_mask(v0, v1) : 0);
           #define MASK_EVERY_ODD_BIT  0xaaaaaaaa
           #define MASK_EVERY_EVEN_BIT 0x55555555
           #endif
+          len3_mask = SHFL10((t == 0) ? get_len5_mask(v0, v1) : 0);
           mask_t    = (1 << (2 * t)) - 1;
           cur_t     = cur + 2 * t + 2 * POPC((len3_mask & MASK_EVERY_ODD_BIT) & mask_t) +
                   POPC((len3_mask & MASK_EVERY_EVEN_BIT) & mask_t);
