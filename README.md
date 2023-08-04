@@ -35,9 +35,9 @@ The code is based on `nvCOMP` release branch [`branch-2.1`](https://github.com/N
 cd hipcomp-core/
 mkdir build/
 cd build/
-cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake
+CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake cmake ../
 # To build with tests, append `-D BUILD_TESTS=1`:
-# cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake -D BUILD_TESTS=1
+# CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake cmake ../ -D BUILD_TESTS=1
 make
 ```
 
@@ -49,10 +49,24 @@ Like HIP/AMD but with additional `-D CUDA_BACKEND=1` option:
 cd hipcomp-core/
 mkdir build/
 cd build/
-cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake -D CUDA_BACKEND=1 
+CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake cmake ../ -D CUDA_BACKEND=1
 # To build with tests, append `-D BUILD_TESTS=1`:
-# cmake ../ -D CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake -D CUDA_BACKEND=1 -D BUILD_TESTS=1
+# CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake cmake ../ -D BUILD_TESTS=1 -D CUDA_BACKEND=1
 make
+```
+
+#### Debugging
+
+To debug the host code append the following option:
+
+```
+-D CMAKE_BUILD_TYPE=Debug
+```
+
+To debug the device code append the following option:
+
+```
+-D CMAKE_HIP_FLAGS=" -ggdb"
 ```
 
 <!-- REMOVE BELOW BEFORE RELEASE -->
