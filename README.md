@@ -63,6 +63,8 @@ To debug the host code append the following option:
 -D CMAKE_BUILD_TYPE=Debug
 ```
 
+##### AMD Devices
+
 To debug the device code append the following option:
 
 ```
