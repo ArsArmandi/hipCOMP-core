@@ -572,7 +572,7 @@ static const uint8_t __device__ __constant__ k_len3lut[1 << 10] = {
 #define lo4(m4) ((m4) & 0xf)
 #define hi4(m4) ((m4) >> 4)
 #define lo10(v) ((v) & 0x3ff)
-#define lo_n(v) ((v) & ((1lu << n) - 1))
+#define lo_n(v) ((v) & ((1ull << n) - 1))
 /**
  * @brief Returns a 64-bit mask where 1 means 3-byte code length and 0 means 2-byte
  * code length, given an input mask of up to 192 bits.
@@ -588,7 +588,7 @@ static const uint8_t __device__ __constant__ k_len3lut[1 << 10] = {
  * The lookup then adds the 4 mask bits to result mask and shifts the input registers v0+v1+v2 by the
  * aggregrated symbol length.
  *
- * The whole process consumes 120 .. 180 bits of the three input registers v0+v1+v2.
+ * The whole process consumes 128 .. 192 bits of the three input registers v0+v1+v2.
  **/
 inline __device__ lane_mask_t get_len3_mask(lane_mask_t v0, lane_mask_t v1, lane_mask_t v2)
 {
@@ -655,12 +655,16 @@ inline __device__ lane_mask_t get_len3_mask(lane_mask_t v0, lane_mask_t v1, lane
     n  += hi4(m4);
     v = v0 >> n;
   }
+  // State:
   // 60=3*5*4 m bits written at this stage
   // 120 .. 180 v0+v1/v0+v1+v2 bits consumed at this stage
   v |= lo_n(v1) << n;
   constexpr int i = 15;
   m4 = k_len3lut[lo10(v)];
   m  |= lo4(m4) << (i*4); // write last 4 bits
+  // State:
+  // 64=16*4 m bits written at this stage
+  // 128 .. 192 v0+v1/v0+v1+v2 bits consumed at this stage
   return m;
 }
 #undef lo4
@@ -852,8 +856,8 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
           v0        = BALLOT1(clen & 1);
           v1        = BALLOT1((clen >> 1) & 1);
           #ifdef __HIP_PLATFORM_AMD__
-          #define MASK_EVERY_ODD_BIT  0xaaaaaaaaaaaaaaaalu
-          #define MASK_EVERY_EVEN_BIT 0x5555555555555555lu
+          #define MASK_EVERY_ODD_BIT  0xaaaaaaaaaaaaaaaaull
+          #define MASK_EVERY_EVEN_BIT 0x5555555555555555ull
           #else
           #define MASK_EVERY_ODD_BIT  0xaaaaaaaa
           #define MASK_EVERY_EVEN_BIT 0x55555555
