@@ -157,7 +157,6 @@ static inline __device__ lane_mask_t HashMatchAny(uint32_t v, uint32_t t)  //: w
   return __match_any_sync(~0, v);
 #else
   //: applies to AMD too
-  //: TODO looks very expensive (32 ballots), use implementation derived from warp primitives (shfl from calling thread + ballot if the result matches)
   lane_mask_t err_map = 0;
   for (uint32_t i = 0; i < HASH_BITS; i++, v >>= 1) {
     uint32_t b       = v & 1;
@@ -191,7 +190,7 @@ static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
 {
   uint32_t len    = s->src_len;
   uint32_t pos    = pos0;
-  uint32_t maxpos = pos0 + MAX_LITERAL_LENGTH - 31;
+  uint32_t maxpos = pos0 + MAX_LITERAL_LENGTH - (uWarpSize - 1);
   uint32_t literal_cnt;
   lane_mask_t match_mask;
   if (t == 0) { s->copy_length = 0; }
@@ -200,7 +199,7 @@ static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
     uint32_t data32           = (valid4) ? unaligned_load32(src + pos + t) : 0;
     uint32_t hash             = (valid4) ? snap_hash(data32) : 0;
     lane_mask_t local_match      = HashMatchAny(hash, t);
-    uint32_t local_match_lane = (warpSize-1) - CLZ(local_match & ((1 << t) - 1));
+    uint32_t local_match_lane = (warpSize-1) - CLZ(local_match & ((LANE_MASK_ONE << t) - 1));
     uint32_t local_match_data = SHFL1(data32, min(local_match_lane, t));
     uint32_t offset, match;
     if (valid4) {
@@ -218,7 +217,7 @@ static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
       local_match = 0;
       offset      = pos + t;
     }
-    match_mask = BALLOT1(match);  //: warp size dependent datatype
+    match_mask = BALLOT1(match);
     if (match_mask != 0) {
       literal_cnt = FFS(match_mask) - 1;
       if (t == literal_cnt) {
@@ -229,7 +228,7 @@ static __device__ uint32_t FindFourByteMatch(snap_state_s *s,
       literal_cnt = warpSize;
     }
     // Update hash up to the first 4 bytes of the copy length
-    local_match &= (0x2 << literal_cnt) - 1;
+    local_match &= (LANE_MASK_TWO << literal_cnt) - 1;
     if (t <= literal_cnt && t == (warpSize-1) - CLZ(local_match)) { s->hash_map[hash] = pos + t; }
     pos += literal_cnt;
   } while (literal_cnt == warpSize && pos < maxpos);
@@ -307,7 +306,10 @@ snap_kernel(
     s->copy_length    = 0;
     s->copy_distance  = 0;
   }
-  for (uint32_t i = t; i < sizeof(s->hash_map) / sizeof(uint32_t); i += 128) {
+  //: NOTE: We interpreted the code below as initializing the hashmap entries to zero by means of uint32_t operations.
+  //: NOTE: The original CUDA implementation incremented with `i += 4*uWarpSize=128`, which
+  //: might leave some hashmap entries unitialized, e.g. those with index `i*2` in [128,255].
+  for (uint32_t i = t; i < sizeof(s->hash_map) / (2*sizeof(uint16_t)); i += 2*uWarpSize) {
     *reinterpret_cast<volatile uint32_t *>(&s->hash_map[i * 2]) = 0;
   }
   __syncthreads();
@@ -338,7 +340,7 @@ snap_kernel(
         // WARP1: Find a match using 12-bit hashes of 4-byte blocks
         //: two-step strategy: first find 4-byte match, 
         //: then try to find longer match starting from that match's position
-        uint32_t t5 = t & (warpSize-1);
+        uint32_t t5 = t & (uWarpSize-1);
         literal_len = FindFourByteMatch(s, src, pos, t5); //: side effect: writes to s->copy_length
         if (t5 == 0) { s->literal_length = literal_len; }
         copy_len = s->copy_length;
@@ -365,7 +367,7 @@ snap_kernel(
 // Not supporting streams longer than this (not what snappy is intended for)
 #define SNAPPY_MAX_STREAM_SIZE 0x7fffffff
 
-#ifdef __HIP_PLATFORM_AMD___
+#ifdef __HIP_PLATFORM_AMD__
 //: results in BATCH_SIZE 64
 #define LOG2_BATCH_SIZE 6
 #else
@@ -463,12 +465,12 @@ __device__ void snappy_prefetch_bytestream(unsnap_state_s *s, int t)
       }
     }
     blen = SHFL10(blen);
-    if (blen == PREFETCH_SECTORS * uWarpSize) {
+    if (blen == PREFETCH_SECTORS * warpSize) {
       uint8_t vals[PREFETCH_SECTORS];
       for(int i = 0; i < PREFETCH_SECTORS; ++i)
-        vals[i] = base[pos + t + i * uWarpSize];
+        vals[i] = base[pos + t + i * warpSize];
       for(int i = 0; i < PREFETCH_SECTORS; ++i)
-        s->q.buf[(pos + t + i * uWarpSize) & (PREFETCH_SIZE - 1)] = vals[i];
+        s->q.buf[(pos + t + i * warpSize) & (PREFETCH_SIZE - 1)] = vals[i];
     } else {
 #pragma unroll 1
       for(int elem = t; elem < blen; elem += warpSize) {
@@ -567,71 +569,104 @@ static const uint8_t __device__ __constant__ k_len3lut[1 << 10] = {
 
 #ifdef __HIP_PLATFORM_AMD__
 
-#define four_lookups(v1,v2,m_offset) \
-  v  = v1; \
-  m4 = k_len3lut[v & 0x3ff]; \
-  m |= (m4 & 0xf) << (m_offset+0); \
-  n  = m4 >> 4;   \
-  v  = v1 >> n; \
-  m4 = k_len3lut[v & 0x3ff]; \
-  m |= (m4 & 0xf) << (m_offset+4); \
-  n += m4 >> 4;  \
-  v  = __funnelshift_r(v1, v2, n); \
-  m4 = k_len3lut[v & 0x3ff]; \
-  m |= (m4 & 0xf) << (m_offset+8); \
-  n += m4 >> 4;  \
-  v >>= (m4 >> 4); \
-  m4 = k_len3lut[v & 0x3ff]; \
-  m |= (m4 & 0xf) << (m_offset+12);
-
-#define pair_transition(v1,v2) \
-  n  = (n + (m4 >> 4)) & 0x1f;     \
-  v1 = __funnelshift_r(v1, v2, n); \
-  v2 >>= n;
-
+#define lo4(m4) ((m4) & 0xf)
+#define hi4(m4) ((m4) >> 4)
+#define lo10(v) ((v) & 0x3ff)
+#define lo_n(v) ((v) & ((1lu << n) - 1))
 /**
  * @brief Returns a 64-bit mask where 1 means 3-byte code length and 0 means 2-byte
  * code length, given an input mask of up to 192 bits.
  *
- * Implemented by doing 8 consecutive lookups, building the result 4-bit at a time
- * 
- * \note For the warpsize 64 implementation, we need six inputs of 
- *       uint32_t type v0 ... v5 as the __funnelshift_r operation only
- *       works with uin32_t inputs. Therefore, we need to add more lookups and transitions between
- *       registers/register pairs compared to the warpsize 32 implementation:
- *       (v0,v1)->(v1,v2)->(v2,v3)->(v3,v4)
- * \note Each `four_lookups` adds 4x 4 bit to the mask, so we can only make 4x four_lookups
- *       if our result must fit into a 64-bit mask. Hence, only the lower 32-bit of dv2 are actually 
- *       used.
+ * Implemented by doing 16 consecutive lookups, building the result 4-bit at a time.
+ *
+ * Each lookup reads 10 bits from v0+v1+v2 and passes them to the k_len3lut lookup table.
+ * The 8-bit lookup table entries encodes a 4-bit mask about the length of the next 4 LZ77 symbols (1: 3 bytes, 0: 2 bytes)
+ * in the lower 4 bits and the aggregated length of the 4 LZ77 symbols (in bytes) in its upper 4 bits.
+ * As four 2-bytes symbols would have a length of 0=0b0000 while four 3-bytes symbols would have a length of 12=0b1100=0xc,
+ * the possible aggregated lengths are 8 ... 12 (0x8 ... 0xc).
+ *
+ * The lookup then adds the 4 mask bits to result mask and shifts the input registers v0+v1+v2 by the
+ * aggregrated symbol length.
+ *
+ * The whole process consumes 120 .. 180 bits of the three input registers v0+v1+v2.
  **/
-inline __device__ lane_mask_t get_len3_mask(lane_mask_t dv0, lane_mask_t dv1, lane_mask_t dv2)
+inline __device__ lane_mask_t get_len3_mask(lane_mask_t v0, lane_mask_t v1, lane_mask_t v2)
 {
-  uint32_t v0,v1,v2,v3,v4,v5;
-  v0 = lo32(dv0);
-  v1 = hi32(dv0);
-  v2 = lo32(dv1);
-  v3 = hi32(dv1);
-  v4 = lo32(dv2);
-  //: below not needed as the 64-bit mask is full
-  // v5 = hi32(dv2);
-
   lane_mask_t m; // result
   lane_mask_t m4;
-  uint32_t v, n;
+  uint64_t v;
+  uint32_t n;
 
-  four_lookups(v0,v1,0)
-  pair_transition(v1,v2)
-  four_lookups(v1,v2,16) //: m_offset <- m_offset + 16
-  pair_transition(v2,v3)
-  four_lookups(v2,v3,32) //: m_offset <- m_offset + 16
-  pair_transition(v3,v4)
-  four_lookups(v3,v4,48) //: m_offset <- m_offset + 16
-  //: below not needed as the 64-bit mask is full
-  //: Each four_lookups adds 4x4bit to the mask, so we can only make 4 four_lookups.
-  // pair_transition(v4,v5)
-  // four_lookups(v4,v5,64) //: m_offset <- m_offset + 16
+  v  = v0;
+  // Five lookups within register v=v0:
+  m4 = k_len3lut[lo10(v)];
+  m  = lo4(m4);
+  n  = hi4(m4);
+  v  = v0 >> n; // 8 .. 12
+  for (int i = 1; i < 5; i++) { // 40 .. 60
+    m4 = k_len3lut[lo10(v)];
+    m  |= lo4(m4) << (i*4);
+    n  += hi4(m4);
+    v = v0 >> n;
+  }
+  // State:
+  // * m: 20=5*4 bits written at this stage
+  // * n=40 .. 60 orig. v0 bits consumed
+
+  // Shift across register boundaries v(v0) <-> v1 and v1 <-> v2:
+  v |= lo_n(v1) << (64-n); // n=40...60
+  v0 = v;
+  v1 >>= n;
+  v1 |= lo_n(v2) << (64-n);
+  v2 >>= n;
+  // State:
+  // * v/v0 is now a mix of 24 .. 4 bits from orig. v0 and 40 .. 60 bits from orig. v1
+  // * v1 is now a mix of 24 .. 4 bits from orig. v1 and 40 .. 60 bits from orig. v2
+
+  // Five lookups within register v
+  n = 0;
+  for (int i = 5; i < 10; i++) { // 40 .. 60
+    m4 = k_len3lut[lo10(v)];
+    m  |= lo4(m4) << (i*4);
+    n  += hi4(m4);
+    v = v0 >> n;
+  }
+  // State:
+  // * m: 40=2*5*4 bits written at this stage
+  // * 80 .. 120 v0+v1 bits consumed:
+  //   * All 64 orig. v0 bits consumed
+  //   * 16 .. 56 orig. v1 bits consumed
+
+  // Shift across register boundaries v(v1) <-> v1(v1,v2) and v1(v1,v2) <-> v2:
+  v |= lo_n(v1) << (64-n); // n = 40 .. 60
+  v0 = v;
+  v1 >>= n;
+  v1 |= lo_n(v2) << (64-n);
+  // State:
+  // * v/v0 is now a mix of 8 .. 48 bits from orig. v1 plus 56 .. 16 bits from orig. v2
+  // * v1 now contains 8 .. 48 bits from orig. v2
+  // Implication:
+  // * All orig. v2 bits have been shifted to v1 and v/v0. Thus, var v2 can be ignored
+  //   from now on.
+  n = 0;
+  for (int i = 10; i < 15; i++) { // 40 .. 60
+    m4 = k_len3lut[lo10(v)];
+    m  |= lo4(m4) << (i*4);
+    n  += hi4(m4);
+    v = v0 >> n;
+  }
+  // 60=3*5*4 m bits written at this stage
+  // 120 .. 180 v0+v1/v0+v1+v2 bits consumed at this stage
+  v |= lo_n(v1) << n;
+  constexpr int i = 15;
+  m4 = k_len3lut[lo10(v)];
+  m  |= lo4(m4) << (i*4); // write last 4 bits
   return m;
 }
+#undef lo4
+#undef hi4
+#undef lo10
+#undef lo_n
 
 /**
  * @brief Returns a 64-bit mask where each 2-bit pair contains the symbol length
@@ -745,7 +780,7 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
     // Wait for prefetcher
     if (t == 0) {
 #pragma unroll(1)  // We don't want unrolling here
-      while (s->q.prefetch_wrpos < min(cur + 5 * BATCH_SIZE, end)) { NANOSLEEP(DECODE_SLEEP_NS); }
+      while (s->q.prefetch_wrpos < min(cur + 5 * BATCH_SIZE, end)) { NANOSLEEP(DECODE_SLEEP_NS); } //: opt: performance var: 5*BATCH_SIZE
       b = &s->q.batch[batch * BATCH_SIZE];
     }
     // Process small symbols in parallel: for data that does not get good compression,
@@ -758,20 +793,23 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
       uint32_t b0;
       cur            = SHFL10(cur);
       cur_t          = cur + t;
-      b0             = READ_BYTE(cur_t + 0*warpSize);
+      b0             = READ_BYTE(cur_t + 0*uWarpSize);
       v0             = BALLOT1((b0 == 4) || (b0 & 2));
-      b0             = READ_BYTE(cur_t + 1*warpSize);
+      b0             = READ_BYTE(cur_t + 1*uWarpSize);
       v1             = BALLOT1((b0 == 4) || (b0 & 2));
-      b0             = READ_BYTE(cur_t + 2*warpSize);
+      b0             = READ_BYTE(cur_t + 2*uWarpSize);
       v2             = BALLOT1((b0 == 4) || (b0 & 2));
-      len3_mask      = SHFL10((t == 0) ? get_len3_mask(v0, v1, v2) : 0);
-      cur_t          = cur + 2 * t + POPC(len3_mask & ((1 << t) - 1));
+      //: identical: len3_mask      = get_len3_mask(v0, v1, v2);
+      len3_mask      = SHFL10((t == 0) ? get_len3_mask(v0, v1, v2) : LANE_MASK_ZERO);
+      cur_t          = cur + 2 * t + POPC(len3_mask & ((LANE_MASK_ONE << t) - LANE_MASK_ONE));
       b0             = READ_BYTE(cur_t);
       is_long_sym    = ((b0 & ~4) != 0) && (((b0 + 1) & 2) == 0);
       short_sym_mask = BALLOT1(is_long_sym);
       batch_len      = 0;
       b = reinterpret_cast<volatile unsnap_batch_s *>(SHFL10(reinterpret_cast<uintptr_t>(b)));
+      
       if (!(short_sym_mask & 1)) {
+        //: identical: batch_len = short_sym_mask ? (FFS(short_sym_mask) - 1): warpSize;
         batch_len = SHFL10((t == 0) ? (short_sym_mask) ? FFS(short_sym_mask) - 1 : warpSize : 0);
         if (batch_len != 0) {
           uint32_t blen = 0;
@@ -814,18 +852,19 @@ __device__ void snappy_decode_symbols(unsnap_state_s *s, uint32_t t)
           v0        = BALLOT1(clen & 1);
           v1        = BALLOT1((clen >> 1) & 1);
           #ifdef __HIP_PLATFORM_AMD__
-          #define MASK_EVERY_ODD_BIT  0xaaaaaaaaaaaaaaaa
-          #define MASK_EVERY_EVEN_BIT 0x5555555555555555
+          #define MASK_EVERY_ODD_BIT  0xaaaaaaaaaaaaaaaalu
+          #define MASK_EVERY_EVEN_BIT 0x5555555555555555lu
           #else
           #define MASK_EVERY_ODD_BIT  0xaaaaaaaa
           #define MASK_EVERY_EVEN_BIT 0x55555555
           #endif
+          //: identical len3_mask = get_len5_mask(v0, v1);
           len3_mask = SHFL10((t == 0) ? get_len5_mask(v0, v1) : 0);
-          mask_t    = (1 << (2 * t)) - 1;
+          mask_t    = (LANE_MASK_ONE << (2 * t)) - 1;
           cur_t     = cur + 2 * t + 2 * POPC((len3_mask & MASK_EVERY_ODD_BIT) & mask_t) +
                   POPC((len3_mask & MASK_EVERY_EVEN_BIT) & mask_t);
           b0          = READ_BYTE(cur_t);
-          is_long_sym = ((b0 & 3) ? ((b0 & 3) == 3) : (b0 > 3 * 4)) || (cur_t >= cur + warpSize) ||
+          is_long_sym = ((b0 & 3) ? ((b0 & 3) == 3) : (b0 > 3 * 4)) || (cur_t >= cur + uWarpSize) ||
                         (batch_len + t >= BATCH_SIZE);
           batch_add = FFS(BALLOT1(is_long_sym)) - 1;
             //: roughly same as in previous approach, except flow statement conditions and some indices
@@ -982,11 +1021,11 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
       do {
         uint32_t bofs          = WarpReducePos(blen_t, t);
         lane_mask_t stop_mask  = BALLOT1((uint32_t)dist_t < bofs);
-        lane_mask_t start_mask = WarpReduceSum((bofs < warpSize && t < batch_len) ? 1 << bofs : 0);
+        lane_mask_t start_mask = WarpReduceSum((bofs < warpSize && t < batch_len) ? LANE_MASK_ONE << bofs : LANE_MASK_ZERO);
         n = min(min((uint32_t)POPC(start_mask), (uint32_t)(FFS(stop_mask) - 1u)),
                 (uint32_t)batch_len);
         if (n != 0) {
-          uint32_t it  = POPC(start_mask & ((2 << t) - 1));
+          uint32_t it  = POPC(start_mask & ((LANE_MASK_TWO << t) - 1));
           uint32_t tr  = t - SHFL1(bofs - blen_t, it);
           int32_t dist = SHFL1(dist_t, it);
           if (it < n) {
@@ -1046,38 +1085,38 @@ __device__ void snappy_process_symbols(unsnap_state_s *s, int t)
         uint8_t b[LITERAL_SECTORS];
         dist = -dist;
 #pragma unroll 1
-        for(int k = 0; k < blen / (LITERAL_SECTORS * uWarpSize); ++k) {
-          if (dist + LITERAL_SECTORS * uWarpSize < current_prefetch_wrpos) {
+        for(int k = 0; k < blen / (LITERAL_SECTORS * warpSize); ++k) {
+          if (dist + LITERAL_SECTORS * warpSize < current_prefetch_wrpos) {
             //: i hides higher-scope i
             for(int i = 0; i < LITERAL_SECTORS; ++i)
-              b[i] = READ_BYTE(dist + i * uWarpSize + t);
+              b[i] = READ_BYTE(dist + i * warpSize + t);
           } else {
             //: i hides higher-scope i
             for(int i = 0; i < LITERAL_SECTORS; ++i)
-              b[i] = literal_base[dist + i * uWarpSize + t];
+              b[i] = literal_base[dist + i * warpSize + t];
           }
           for(int i = 0; i < LITERAL_SECTORS; ++i)
             //: i hides higher-scope i
-            out[i * uWarpSize + t] = b[i];
-          dist += LITERAL_SECTORS * uWarpSize;
-          out += LITERAL_SECTORS * uWarpSize;
+            out[i * warpSize + t] = b[i];
+          dist += LITERAL_SECTORS * warpSize;
+          out += LITERAL_SECTORS * warpSize;
         }
-        blen %= LITERAL_SECTORS * uWarpSize;
-        //: similar as above body, but with check `if (i * uWarpSize + t < blen)`
+        blen %= LITERAL_SECTORS * warpSize;
+        //: similar as above body, but with check `if (i * warpSize + t < blen)`
         if (dist + blen < current_prefetch_wrpos) {
           for(int i = 0; i < LITERAL_SECTORS; ++i)
             //: i hides higher-scope i
-            if (i * uWarpSize + t < blen)
-              b[i] = READ_BYTE(dist + i * uWarpSize + t);
+            if (i * warpSize + t < blen)
+              b[i] = READ_BYTE(dist + i * warpSize + t);
         } else {
           for(int i = 0; i < LITERAL_SECTORS; ++i)
             //: i hides higher-scope i
-            if (i * uWarpSize + t < blen)
-              b[i] = literal_base[dist + i * uWarpSize + t];
+            if (i * warpSize + t < blen)
+              b[i] = literal_base[dist + i * warpSize + t];
         }
         for(int i = 0; i < LITERAL_SECTORS; ++i)
-          if (i * uWarpSize + t < blen)
-            out[i * uWarpSize + t] = b[i];
+          if (i * warpSize + t < blen)
+            out[i * warpSize + t] = b[i];
         //: end similar as above 
       }
       out += blen;
