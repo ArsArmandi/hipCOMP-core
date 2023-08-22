@@ -24,54 +24,91 @@
 #  define INDEPENDENT_THREAD_SCHEDULING
 #endif
 #ifdef INDEPENDENT_THREAD_SCHEDULING
-#  define SHFL0(v)        __shfl_sync(~0, v, 0)
-#  define SHFL(v, t)      __shfl_sync(~0, v, t)
-#  define SHFL_XOR(v, m)  __shfl_xor_sync(~0, v, m)
+#  define SHFL10(v)        __shfl_sync(~0, v, 0)
+#  define SHFL1(v, t)      __shfl_sync(~0, v, t)
+#  define SHFL1_XOR(v, m)  __shfl_xor_sync(~0, v, m)
 #  define SYNCWARP()      __syncwarp()
-#  define BALLOT(v)       __ballot_sync(~0, v)
+#  define BALLOT1(v)       __ballot_sync(~0, v)
 #else
-#  define SHFL0(v)        __shfl(v, 0)
-#  define SHFL(v, t)      __shfl(v, t)
-#  define SHFL_XOR(v, m)  __shfl_xor(v, m)
+#  define SHFL10(v)        __shfl(v, 0)
+#  define SHFL1(v, t)      __shfl(v, t)
+#  define SHFL1_XOR(v, m)  __shfl_xor(v, m)
 #  define SYNCWARP()
-#  define BALLOT(v)       __ballot(v)
+#  define BALLOT1(v)       __ballot(v)
 #endif
 
 #if (__CUDA_ARCH__ >= 700)
 #  define NANOSLEEP(d)  __nanosleep(d)
 #else
-// includes the _​_HIP_​PLATFORM_​AMD_​_ case
+//: includes the _​_HIP_​PLATFORM_​AMD_​_ case
 #  define NANOSLEEP(d)  clock()
 #endif
 
-// Warp reduction helpers
-template <typename T> inline __device__ T WarpReduceSum2(T acc)     { return acc + SHFL_XOR(acc, 1); }
-template <typename T> inline __device__ T WarpReduceSum4(T acc)     { acc = WarpReduceSum2(acc); return acc + SHFL_XOR(acc, 2); }
-template <typename T> inline __device__ T WarpReduceSum8(T acc)     { acc = WarpReduceSum4(acc); return acc + SHFL_XOR(acc, 4); }
-template <typename T> inline __device__ T WarpReduceSum16(T acc)    { acc = WarpReduceSum8(acc); return acc + SHFL_XOR(acc, 8); }
-/**
- * \note (07/12/23) used in:
- *   \verbatim
- *   src\SnappyKernels.hip:
- *   858,31:         uint32_t start_mask = WarpReduceSum32((bofs < 32 && t < batch_len) ? 1 << bofs : 0);
- *   \endverbatim 
- */
-template <typename T> inline __device__ T WarpReduceSum32(T acc)    { acc = WarpReduceSum16(acc); return acc + SHFL_XOR(acc, 16); }
+#ifdef __HIP_PLATFORM_AMD__
+constexpr uint32_t uWarpSize = 64u;
+typedef uint64_t lane_mask_t;
+typedef int64_t signed_lane_mask_t;
 
-template <typename T> inline __device__ T WarpReducePos2(T pos, uint32_t t) { T tmp = SHFL(pos, t & 0x1e); pos += (t & 1) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos4(T pos, uint32_t t) { T tmp; pos = WarpReducePos2(pos, t); tmp = SHFL(pos, (t & 0x1c) | 1); pos += (t & 2) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos8(T pos, uint32_t t) { T tmp; pos = WarpReducePos4(pos, t); tmp = SHFL(pos, (t & 0x18) | 3); pos += (t & 4) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos16(T pos, uint32_t t) { T tmp; pos = WarpReducePos8(pos, t); tmp = SHFL(pos, (t & 0x10) | 7); pos += (t & 8) ? tmp : 0; return pos; }
-/**
- * \note (07/12/23) used in:
- *   \verbatim
- *   src\SnappyKernels.hip:
- *   672,28:           blen           = WarpReducePos32(blen, t);
- *   718,30:             blen           = WarpReducePos32(blen, t);
- *   856,31:         uint32_t bofs       = WarpReducePos32(blen_t, t);
- *   \endverbatim 
- */
-template <typename T> inline __device__ T WarpReducePos32(T pos, uint32_t t) { T tmp; pos = WarpReducePos16(pos, t); tmp = SHFL(pos, 0xf); pos += (t & 16) ? tmp : 0; return pos; }
+#define CLZ(x) __clzll(x)
+#define FFS(x) __ffsll(static_cast<unsigned long long int>(x))
+#define POPC(x) __popcll(x)
+
+#define PREFETCH_SLEEP_NS 1600
+#define DECODE_SLEEP_NS 50
+#define PROCESS_SLEEP_NS 100
+#else
+constexpr uint32_t uWarpSize = 32u;
+typedef uint32_t lane_mask_t;
+typedef int32_t signed_lane_mask_t;
+
+#define CLZ(x) __clz(x)
+#define FFS(x) __ffs(x)
+#define POPC(x) __popc(x)
+
+#define PREFETCH_SLEEP_NS 1600
+#define DECODE_SLEEP_NS 50
+#define PROCESS_SLEEP_NS 100
+#endif
+
+//: Quantities for bit shift operations
+constexpr lane_mask_t LANE_MASK_ZERO = 0;
+constexpr lane_mask_t LANE_MASK_ONE  = 1;
+constexpr lane_mask_t LANE_MASK_TWO  = 2;
+
+// Warp reduction helpers
+#ifdef __HIP_PLATFORM_AMD__
+template <typename T> inline __device__ T WarpReduceSum2(T acc)     { return acc + SHFL1_XOR(acc, 1); }
+template <typename T> inline __device__ T WarpReduceSum4(T acc)     { acc = WarpReduceSum2(acc); return acc + SHFL1_XOR(acc, 2); }
+template <typename T> inline __device__ T WarpReduceSum8(T acc)     { acc = WarpReduceSum4(acc); return acc + SHFL1_XOR(acc, 4); }
+template <typename T> inline __device__ T WarpReduceSum16(T acc)    { acc = WarpReduceSum8(acc); return acc + SHFL1_XOR(acc, 8); }
+template <typename T> inline __device__ T WarpReduceSum32(T acc)    { acc = WarpReduceSum16(acc); return acc + SHFL1_XOR(acc, 16); }
+template <typename T> inline __device__ T WarpReduceSum64(T acc)    { acc = WarpReduceSum32(acc); return acc + SHFL1_XOR(acc, 32); }
+
+template <typename T> inline __device__ T WarpReducePos2(T pos, uint32_t t) { T tmp = SHFL1(pos, t & 0x3e); pos += (t & 1) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos4(T pos, uint32_t t) { T tmp; pos = WarpReducePos2(pos, t); tmp = SHFL1(pos, (t & 0x3c) | 1); pos += (t & 2) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos8(T pos, uint32_t t) { T tmp; pos = WarpReducePos4(pos, t); tmp = SHFL1(pos, (t & 0x38) | 3); pos += (t & 4) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos16(T pos, uint32_t t) { T tmp; pos = WarpReducePos8(pos, t); tmp = SHFL1(pos, (t & 0x30) | 7); pos += (t & 8) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos32(T pos, uint32_t t) { T tmp; pos = WarpReducePos16(pos, t); tmp = SHFL1(pos, (t & 0x20) | 15); pos += (t & 16) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos64(T pos, uint32_t t) { T tmp; pos = WarpReducePos32(pos, t); tmp = SHFL1(pos, 0x1f); pos += (t & 32) ? tmp : 0; return pos; }
+
+#define WarpReduceSum(pos) WarpReduceSum64(pos)
+#define WarpReducePos(pos,t) WarpReducePos64(pos,t)
+#else
+template <typename T> inline __device__ T WarpReduceSum2(T acc)     { return acc + SHFL1_XOR(acc, 1); }
+template <typename T> inline __device__ T WarpReduceSum4(T acc)     { acc = WarpReduceSum2(acc); return acc + SHFL1_XOR(acc, 2); }
+template <typename T> inline __device__ T WarpReduceSum8(T acc)     { acc = WarpReduceSum4(acc); return acc + SHFL1_XOR(acc, 4); }
+template <typename T> inline __device__ T WarpReduceSum16(T acc)    { acc = WarpReduceSum8(acc); return acc + SHFL1_XOR(acc, 8); }
+template <typename T> inline __device__ T WarpReduceSum32(T acc)    { acc = WarpReduceSum16(acc); return acc + SHFL1_XOR(acc, 16); }
+
+template <typename T> inline __device__ T WarpReducePos2(T pos, uint32_t t) { T tmp = SHFL1(pos, t & 0x1e); pos += (t & 1) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos4(T pos, uint32_t t) { T tmp; pos = WarpReducePos2(pos, t); tmp = SHFL1(pos, (t & 0x1c) | 1); pos += (t & 2) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos8(T pos, uint32_t t) { T tmp; pos = WarpReducePos4(pos, t); tmp = SHFL1(pos, (t & 0x18) | 3); pos += (t & 4) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos16(T pos, uint32_t t) { T tmp; pos = WarpReducePos8(pos, t); tmp = SHFL1(pos, (t & 0x10) | 7); pos += (t & 8) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos32(T pos, uint32_t t) { T tmp; pos = WarpReducePos16(pos, t); tmp = SHFL1(pos, 0xf); pos += (t & 16) ? tmp : 0; return pos; }
+
+#define WarpReduceSum(pos) WarpReduceSum32(pos)
+#define WarpReducePos(pos,t) WarpReducePos32(pos,t)
+#endif
 
 #ifndef __HIP_PLATFORM_AMD__
 /**
@@ -95,7 +132,7 @@ inline __device__ double Int128ToDouble_rn(uint64_t lo, int64_t hi)
 /**
  * \note (07/12/23) used in:
  *   \verbatim
- *   src\SnappyKernels.hip
+ *   src\SnappyKernels.cu
  *   191,44:     uint32_t data32           = (valid4) ? unaligned_load32(src + pos + t) : 0;
  *   205,69:           (offset < pos && offset + MAX_COPY_DISTANCE >= pos + t && unaligned_load32(src + offset) == data32);
  *   \endverbatim
