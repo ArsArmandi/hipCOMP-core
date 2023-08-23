@@ -160,7 +160,7 @@ void lz4BatchCompress(
   }
 
   const dim3 grid(batch_size);
-  const dim3 block(LZ4_COMP_THREADS_PER_CHUNK);
+  const dim3 block(LZ4_COMP_THREADS_PER_CHUNK); //: 32
 
   switch (data_type) {
     case HIPCOMP_TYPE_BITS:
@@ -213,8 +213,8 @@ void lz4BatchDecompress(
     hipcompStatus_t* device_status_ptrs,
     hipStream_t stream)
 {
-  const dim3 grid(roundUpDiv(batch_size, LZ4_DECOMP_CHUNKS_PER_BLOCK));
-  const dim3 block(LZ4_DECOMP_THREADS_PER_CHUNK, LZ4_DECOMP_CHUNKS_PER_BLOCK);
+  const dim3 grid(roundUpDiv(batch_size, LZ4_DECOMP_CHUNKS_PER_BLOCK)); //: chunks per block: 2
+  const dim3 block(LZ4_DECOMP_THREADS_PER_CHUNK, LZ4_DECOMP_CHUNKS_PER_BLOCK); //: threads per chunk, chunks per block: 32,2
 
   lz4DecompressBatchKernel<<<grid, block, 0, stream>>>(
       device_in_ptrs,
@@ -235,8 +235,8 @@ void lz4BatchGetDecompressSizes(
     size_t batch_size,
     hipStream_t stream)
 {
-  const dim3 grid(roundUpDiv(batch_size, LZ4_DECOMP_CHUNKS_PER_BLOCK));
-  const dim3 block(LZ4_DECOMP_THREADS_PER_CHUNK, LZ4_DECOMP_CHUNKS_PER_BLOCK);
+  const dim3 grid(roundUpDiv(batch_size, LZ4_DECOMP_CHUNKS_PER_BLOCK)); //: chunks per block: 2
+  const dim3 block(LZ4_DECOMP_THREADS_PER_CHUNK, LZ4_DECOMP_CHUNKS_PER_BLOCK); //: threads per chunk, chunks per block: 32,2
 
   lz4DecompressBatchKernel<<<grid, block, 0, stream>>>(
       device_compressed_ptrs,

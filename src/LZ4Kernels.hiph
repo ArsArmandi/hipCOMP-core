@@ -58,6 +58,28 @@
 #  define BALLOT1(v)       __ballot(v)
 #endif
 
+#if defined(__HIP_PLATFORM_AMD__) or defined(__HIP_PLATFORM_HCC__)
+typedef uint64_t lane_mask_t;
+typedef int64_t signed_lane_mask_t;
+constexpr lane_mask_t LANE_MASK_FULL = ~0ULL;
+constexpr int32_t warpsize = 64;
+constexpr uint32_t uwarpsize = 64U;
+#define BREV(x) __brevll(x)
+#define CLZ(x) __clzll(x)
+#else
+typedef uint32_t lane_mask_t;
+typedef int32_t signed_lane_mask_t;
+constexpr lane_mask_t LANE_MASK_FULL = ~0U;
+constexpr int32_t warpsize = 32;
+constexpr uint32_t uwarpsize = 32U;
+#define BREV(x) __brev(x)
+#define CLZ(x) __clz(x)
+#endif
+
+constexpr lane_mask_t LANE_MASK_ZERO = 0;
+constexpr lane_mask_t LANE_MASK_ONE = 1;
+constexpr lane_mask_t LANE_MASK_TWO = 2;
+
 namespace {
   // Detail type helpers -- used to reference 4 / 8-byte values
   using word_type = uint32_t;
@@ -67,12 +89,12 @@ namespace {
 /**
  * @brief The number of threads to use per chunk in compression.
  */
-const int LZ4_COMP_THREADS_PER_CHUNK = 32;
+const int LZ4_COMP_THREADS_PER_CHUNK = warpsize;
 
 /**
  * @brief The number of threads to use per chunk in decompression.
  */
-const int LZ4_DECOMP_THREADS_PER_CHUNK = 32;
+const int LZ4_DECOMP_THREADS_PER_CHUNK = warpsize;
 
 /**
  * @brief The number of chunks to decompression concurrently per threadblock.
@@ -155,38 +177,38 @@ inline __device__ __host__ size_t maxSizeOfStream(const size_t size)
 
 inline __device__ void syncCTA()
 {
-  if (LZ4_DECOMP_THREADS_PER_CHUNK > 32) {
+  if (LZ4_DECOMP_THREADS_PER_CHUNK > warpsize) {
     __syncthreads();
   } else {
     SYNCWARP1();
   }
 }
 
-inline __device__ int warpBallot(int vote)
+inline __device__ lane_mask_t warpBallot(int vote)
 {
   return BALLOT1(vote);
 }
 
 template <typename T>
-inline __device__ int warpMatchAny(const int participants, T val)
+inline __device__ signed_lane_mask_t warpMatchAny(const signed_lane_mask_t participants, T val)
 {
 #if __CUDA_ARCH__ >= 700
   return __match_any_sync(participants, val);
 #else
-  int mask = 0;
+  signed_lane_mask_t mask = 0;
 
   // full search
-  __shared__ T values[32];
-  assert(blockDim.x == 32);
+  __shared__ T values[warpsize];
+  assert(blockDim.x == warpsize);
   assert(blockDim.y == 1);
-  if ((1 << threadIdx.x) & participants) {
+  if ((LANE_MASK_ONE << threadIdx.x) & participants) {
     values[threadIdx.x] = val;
     SYNCWARP(participants);
-    for (int d = 0; d < 32; ++d) {
-      const int nbr_id = (threadIdx.x + d) & 31;
-      if ((1 << nbr_id) & participants) {
+    for (int d = 0; d < warpsize; ++d) {
+      const int nbr_id = (threadIdx.x + d) & (uwarpsize-1);
+      if ((LANE_MASK_ONE << nbr_id) & participants) {
         const T nbr_val = values[nbr_id];
-        mask |= (val == nbr_val) << nbr_id;
+        mask |= static_cast<lane_mask_t>(val == nbr_val) << nbr_id;
       }
     }
     SYNCWARP(participants);
@@ -322,10 +344,10 @@ public:
       // most likely case
       const uint8_t byte = rawAt(idx)[threadIdx.x];
 
-      uint32_t mask = warpBallot(byte != 0xff);
-      mask = __brev(mask);
+      lane_mask_t mask = warpBallot(byte != 0xff);
+      mask = BREV(mask);
 
-      const position_type fullBytes = __clz(mask);
+      const position_type fullBytes = CLZ(mask);
 
       if (fullBytes < LZ4_DECOMP_THREADS_PER_CHUNK) {
         return fullBytes * 0xff + rawAt(idx)[fullBytes];
@@ -340,13 +362,13 @@ public:
         byte = m_compData[idx + threadIdx.x];
       }
 
-      uint32_t mask = warpBallot(byte != 0xff);
-      mask = __brev(mask);
+      lane_mask_t mask = warpBallot(byte != 0xff);
+      mask = BREV(mask);
 
-      const position_type fullBytes = __clz(mask);
+      const position_type fullBytes = CLZ(mask);
 
       if (fullBytes < LZ4_DECOMP_THREADS_PER_CHUNK) {
-        return fullBytes * 0xff + __shfl_sync(0xffffffff, byte, fullBytes);
+        return fullBytes * 0xff + SHFL1(byte, fullBytes);
       } else {
         return LZ4_DECOMP_THREADS_PER_CHUNK * 0xff;
       }
@@ -509,7 +531,7 @@ inline __device__ void coopCopyOverlap(
 inline __device__ position_type hash(const word_type key, position_type hash_table_size)
 {
   // needs to be 12 bits
-  return (__brev(key) + (key ^ 0xc375)) & (hash_table_size - 1);
+  return (__brev(key) + (key ^ 0xc375)) & (hash_table_size - 1); //: key type is not depending on warpsize
 }
 
 inline __device__ uint8_t encodePair(const uint8_t t1, const uint8_t t2)
@@ -555,12 +577,12 @@ inline __device__ position_type lengthOfMatch(
   position_type match_length = length - next_location - min_ending_literals;
   for (position_type j = 0; j + next_location + min_ending_literals < length; j += blockDim.x) {
     const position_type i = threadIdx.x + j;
-    int no_matches = i + next_location + min_ending_literals < length
+    signed_lane_mask_t no_matches = i + next_location + min_ending_literals < length
                     ? (data[prev_location + i] != data[next_location + i])
                     : 1;
     no_matches = warpBallot(no_matches);
     if (no_matches) {
-      match_length = j + __clz(__brev(no_matches));
+      match_length = j + CLZ(BREV(no_matches));
       break;
     }
   }
@@ -668,7 +690,7 @@ inline __device__ void writeSequenceData(
 
 inline __device__ int numValidThreadsToMask(const int numValidThreads)
 {
-  return 0xffffffff >> (32 - numValidThreads);
+  return LANE_MASK_FULL >> (warpsize - numValidThreads);
 }
 
 inline __device__ void insertHashTableWarp(
@@ -683,7 +705,7 @@ inline __device__ void insertHashTableWarp(
   if (threadIdx.x < numValidThreads) {
     const int match
         = warpMatchAny(numValidThreadsToMask(numValidThreads), hashPos);
-    if (!match || 31 - __clz(match) == threadIdx.x) {
+    if (!match || (warpsize-1) - CLZ(match) == threadIdx.x) {
       // I'm the last match -- can insert
       hashTable[hashPos] = pos & MAX_OFFSET;
     }
@@ -695,6 +717,7 @@ inline __device__ void insertHashTableWarp(
 template<typename ALIGNMENT>
 inline __device__ word_type shuffleLiterals(word_type literals);
 
+//: warpsize64: potential warpsize32 dependency named in comment.
 /**
  * Each thread needs a four byte word, but only separated by sizeof(ALIGNMENT)
  * e.g.: for two threads, the five bytes [ 0x12 0x34 0x56 0x78 0x9a ] would
@@ -708,12 +731,13 @@ inline __device__ word_type shuffleLiterals<uint8_t>(word_type literals)
   // collect first byte
   word_type next = literals;
   // collect second byte
-    next |= SHFL1_DOWN(next, 1) << 8;
+  next |= SHFL1_DOWN(next, 1) << 8;
   // collect third and fourth bytes
-    next |= SHFL1_DOWN(next, 2) << 16;
+  next |= SHFL1_DOWN(next, 2) << 16;
   return next;
 }
 
+//: warpsize64: potential warpsize32 dependency named in comment.
 /**
  * We shuffle on 16-bit alignment, so six bytes [ 0x12 0x34 0x56 0x78 0x9a 0x0b ]
  * would be assigned [0x78563412 0x0b9a7856 ] to the two threads. We only fill
@@ -726,7 +750,7 @@ inline __device__ word_type shuffleLiterals<uint16_t>(word_type literals)
   // collect first and second bytes
   word_type next = literals;
   // collect third and fourth byte
-    next |= SHFL1_DOWN(next, 1) << 16;
+  next |= SHFL1_DOWN(next, 1) << 16;
   return next;
 }
 
@@ -754,7 +778,7 @@ __device__ void compressStream(
   static_assert(sizeof(T) <= 4, "Max alignment support is 4 bytes");
 
   static_assert(
-      LZ4_COMP_THREADS_PER_CHUNK <= 32,
+      LZ4_COMP_THREADS_PER_CHUNK <= warpsize,
       "Compression can be done with at "
       "most one warp");
 
@@ -763,7 +787,7 @@ __device__ void compressStream(
   const position_type typed_length = divRoundUp(length, sizeof(T));
 
   for (position_type i = threadIdx.x; i < hash_table_size;
-       i += LZ4_COMP_THREADS_PER_CHUNK) {
+    i += LZ4_COMP_THREADS_PER_CHUNK) {
     hashTable[i] = NULL_OFFSET;
   }
 
@@ -805,6 +829,9 @@ __device__ void compressStream(
 
       // the number of threads which won't have enough literals - read
       // shuffleLiterals comment for more details.
+      //: warpsize64: ma require extra care
+      //: invalid_threads:
+      //: uint8_t: 3/1 = 3, uint16_t: 3/2 = 1, uint32_t: 3/4 = 0
       constexpr int invalid_threads = 3 / sizeof(T);
       // if we're at the end of the data, mark them as inactive.
       const int numValidThreads = min(
@@ -813,7 +840,7 @@ __device__ void compressStream(
 
       // first try to find a local match
       position_type match_location = typed_length;
-      int match_mask_self = 0;
+      signed_lane_mask_t match_mask_self = 0;
       if (threadIdx.x < numValidThreads) {
         match_mask_self
             = warpMatchAny(numValidThreadsToMask(numValidThreads), next);
@@ -821,17 +848,17 @@ __device__ void compressStream(
 
       // each thread has a mask of other threads with matches, next we need
       // to find the first thread with a match before it
-      const int match_mask_warp = warpBallot(
-          match_mask_self && __clz(__brev(match_mask_self)) != threadIdx.x);
+      const signed_lane_mask_t match_mask_warp = warpBallot(
+          match_mask_self && CLZ(BREV(match_mask_self)) != threadIdx.x);
 
       int first_match_thread;
       if (match_mask_warp) {
         // find the byte offset (thread id) within the warp where the first
         // match is located
-        first_match_thread = __clz(__brev(match_mask_warp));
+        first_match_thread = CLZ(BREV(match_mask_warp));
 
         // determine the global position for the finding thread
-        match_location = __clz(__brev(match_mask_self)) + decomp_idx;
+        match_location = CLZ(BREV(match_mask_self)) + decomp_idx;
 
         // comunicate the global position of the match to other threads
         match_location
@@ -855,8 +882,8 @@ __device__ void compressStream(
                                     : 0;
 
         // determine the first thread to find a match
-        const int match = warpBallot(match_found);
-        const int candidate_first_match_thread = __clz(__brev(match));
+        const signed_lane_mask_t match = warpBallot(match_found);
+        const int candidate_first_match_thread = CLZ(BREV(match));
 
         assert(candidate_first_match_thread != threadIdx.x || match_found);
         assert(!match_found || candidate_first_match_thread <= threadIdx.x);
