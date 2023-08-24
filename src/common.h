@@ -44,9 +44,11 @@
 using ssize_t = ptrdiff_t;
 #endif
 
-namespace hipcomp
-{
+namespace hipcomp {
 
+namespace {
+//: DELETED
+#if 0
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -80,9 +82,9 @@ gbs(const std::chrono::time_point<std::chrono::steady_clock>& start,
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
+#endif
+//: END DELETED
 
-namespace
-{
 template <typename T>
 T* align(T* const ptr, const size_t alignment)
 {
@@ -160,7 +162,7 @@ struct make_larger
 template <typename U, typename T>
 using larger_t = typename make_larger<U, T>::type;
 
-} // namespace
+} // namespace 
 
 __inline__ size_t sizeOfhipcompType(hipcompType_t type)
 {
