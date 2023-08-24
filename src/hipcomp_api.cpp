@@ -28,20 +28,29 @@
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "Check.h"
+//: DELETED
+#if 0
 #include "highlevel/BitcompMetadata.h"
 #include "highlevel/CascadedMetadata.h"
 #include "highlevel/LZ4Metadata.h"
 #include "highlevel/Metadata.h"
+#endif 
+//: END DELETED
 
 #include "hipcomp.h"
 #include "hipcomp/cascaded.h"
 #include "hipcomp/lz4.h"
 #include "hipcomp/bitcomp.h"
 
+#include "hipcomp/hipcompManager.hpp"
+#include "hipcomp/hipcompManagerFactory.hpp"
+
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 
+//: DELETED
+#if 0
 using namespace hipcomp;
 using namespace hipcomp::highlevel;
 
@@ -287,3 +296,5 @@ hipcompStatus_t hipcompDecompressAsync(
         stream);
   }
 }
+#endif 
+//: END DELETED
