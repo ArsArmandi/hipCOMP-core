@@ -60,6 +60,8 @@ typedef struct
   int use_bp;
 } hipcompCascadedFormatOpts;
 
+//: DELETED
+#if 0
 /**
  * @brief Configure the Cascaded compressor and return temp and output
  * sizes needed to perform the compression.  If no format is provided (i.e.,
@@ -268,6 +270,9 @@ hipcompStatus_t hipcompCascadedSelectorRun(
     double* est_ratio,
     hipStream_t stream);
 
+
+#endif
+//: END DELETED
 /******************************************************************************
  * Batched compression/decompression interface
  *****************************************************************************/
