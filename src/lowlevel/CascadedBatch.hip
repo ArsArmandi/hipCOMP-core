@@ -31,8 +31,9 @@
 #include "hipcomp.h"
 #include "hipcomp/cascaded.h"
 #include "type_macros.h"
-
-#include <hipcub/hipcub.hpp>
+#include "CascadedKernels.hiph"
+#include "Check.h"
+#include "HipUtils.h"
 
 #include <cstdint>
 
@@ -40,7 +41,16 @@ using hipcomp::larger_t;
 using hipcomp::roundUpDiv;
 using hipcomp::roundUpTo;
 using hipcomp::roundUpToAlignment;
+using hipcomp::default_chunk_size;
+using hipcomp::cascaded_compress_threadblock_size;
+using hipcomp::cascaded_decompress_threadblock_size;
+using hipcomp::partition_metadata_size;
+using hipcomp::compute_smem_size;
+using hipcomp::Check;
+using hipcomp::HipUtils;
 
+//: DELETED
+#if 0
 template <typename T>
 __device__ inline hipcompType_t d_TypeOf()
 {
@@ -72,9 +82,12 @@ constexpr int default_chunk_size = 4096;
 // compression layers and another 4B for uncompressed bytes.
 constexpr size_t partition_metadata_size = 8;
 constexpr size_t num_bits_per_byte = 8;
-
+#endif
+//: END DELETED
 namespace
 {
+//: DELETED
+#if 0
 
 /**
  * Helper function to calculate the size in byte of the chunk metadata. The size
@@ -715,6 +728,8 @@ __device__ BlockIOStatus block_read(
 
   return BlockIOStatus::success;
 }
+# endif
+//: END DELETED
 
 /**
  * @brief Batched cascaded compression kernel.
@@ -751,6 +766,8 @@ __global__ void cascaded_compression_kernel(
     size_type* compressed_bytes,
     hipcompBatchedCascadedOpts_t comp_opts)
 {
+  //: DELETED
+  #if 0
   using run_type = uint16_t;
   constexpr int chunk_num_elements = chunk_size / sizeof(data_type);
 
@@ -1033,8 +1050,25 @@ __global__ void cascaded_compression_kernel(
           = static_cast<uint32_t>(num_input_elements * sizeof(data_type));
     }
   }
+  #endif
+  //: END DELETED
+  nvcomp::do_cascaded_compression_kernel<
+      data_type,
+      size_type,
+      threadblock_size,
+      chunk_size>(
+      batch_size,
+      blockIdx.x,
+      gridDim.x,
+      uncompressed_data,
+      uncompressed_bytes,
+      compressed_data,
+      compressed_bytes,
+      comp_opts);
 }
 
+//: DELETED
+#if 0
 /**
  * @brief Helper function to determine the shared memory requirement
  * based on the chunk size and datatype...
@@ -1096,7 +1130,6 @@ __device__ void cascaded_decompression_fcn(
     void* shmem,
     hipcompStatus_t* statuses)
 {
-
   using run_type = uint16_t;
   constexpr int chunk_num_elements = chunk_size / sizeof(data_type);
 
@@ -1409,6 +1442,8 @@ __device__ void cascaded_decompression_fcn(
     }
   }
 }
+# endif
+//: END DELETED
 
 /**
  * @brief Kernel to perform batched cascaded decompression. Extracts the
@@ -1462,8 +1497,13 @@ __global__ void cascaded_decompression_kernel_type_check(
       const int shmem_size = compute_smem_size<chunk_size, 1, 4>();
       __shared__ uint8_t shmem[shmem_size];
 
-      cascaded_decompression_fcn<uint8_t, size_type, threadblock_size>(
+      hipcomp::template cascaded_decompression_fcn<
+          uint8_t,
+          size_type,
+          threadblock_size>(
           batch_size,
+          blockIdx.x,
+          gridDim.x,
           compressed_data,
           compressed_bytes,
           decompressed_data,
@@ -1479,8 +1519,13 @@ __global__ void cascaded_decompression_kernel_type_check(
       const int shmem_size = compute_smem_size<chunk_size, 2, 4>();
       __shared__ uint8_t shmem[shmem_size];
 
-      cascaded_decompression_fcn<uint16_t, size_type, threadblock_size>(
+      hipcomp::template cascaded_decompression_fcn<
+          uint16_t,
+          size_type,
+          threadblock_size>(
           batch_size,
+          blockIdx.x,
+          gridDim.x,
           compressed_data,
           compressed_bytes,
           decompressed_data,
@@ -1496,8 +1541,13 @@ __global__ void cascaded_decompression_kernel_type_check(
       const int shmem_size = compute_smem_size<chunk_size, 4, 4>();
       __shared__ uint8_t shmem[shmem_size];
 
-      cascaded_decompression_fcn<uint32_t, size_type, threadblock_size>(
+      hipcomp::template cascaded_decompression_fcn<
+          uint32_t,
+          size_type,
+          threadblock_size>(
           batch_size,
+          blockIdx.x,
+          gridDim.x,
           compressed_data,
           compressed_bytes,
           decompressed_data,
@@ -1513,8 +1563,13 @@ __global__ void cascaded_decompression_kernel_type_check(
       const int shmem_size = compute_smem_size<chunk_size, 8, 8>();
       __shared__ uint8_t shmem[shmem_size];
 
-      cascaded_decompression_fcn<uint64_t, size_type, threadblock_size>(
+      hipcomp::template cascaded_decompression_fcn<
+          uint64_t,
+          size_type,
+          threadblock_size>(
           batch_size,
+          blockIdx.x,
+          gridDim.x,
           compressed_data,
           compressed_bytes,
           decompressed_data,
@@ -1558,7 +1613,7 @@ void cascaded_batched_compression_typed(
     size_t* device_compressed_bytes,
     hipStream_t stream)
 {
-  constexpr int threadblock_size = 128;
+  constexpr int threadblock_size = cascaded_compress_threadblock_size;
   cascaded_compression_kernel<data_type, size_t, threadblock_size>
       <<<batch_size, threadblock_size, 0, stream>>>(
           batch_size,
@@ -1606,16 +1661,20 @@ hipcompStatus_t hipcompBatchedCascadedCompressAsync(
     const hipcompBatchedCascadedOpts_t format_opts,
     hipStream_t stream)
 {
-  HIPCOMP_TYPE_ONE_SWITCH(
-      format_opts.type,
-      cascaded_batched_compression_typed,
-      format_opts,
-      device_uncompressed_ptrs,
-      device_uncompressed_bytes,
-      batch_size,
-      device_compressed_ptrs,
-      device_compressed_bytes,
-      stream);
+  try {
+    HIPCOMP_TYPE_ONE_SWITCH(
+        format_opts.type,
+        cascaded_batched_compression_typed,
+        format_opts,
+        device_uncompressed_ptrs,
+        device_uncompressed_bytes,
+        batch_size,
+        device_compressed_ptrs,
+        device_compressed_bytes,
+        stream);
+  } catch (const std::exception& e) {
+    return Check::exception_to_error(e, "hipcompBatchedCascadedCompressAsync()");
+  }
 
   return hipcompSuccess;
 }
@@ -1639,54 +1698,62 @@ hipcompStatus_t hipcompBatchedCascadedDecompressAsync(
     hipcompStatus_t* device_statuses,
     hipStream_t stream)
 {
+  try {
+    // Just call kernel to perform compression. Macro for datatype happens
+    // within kernel
+    constexpr int threadblock_size = cascaded_decompress_threadblock_size;
 
-  // Just call kernel to perform compression. Macro for datatype happens within
-  // kernel
-  constexpr int threadblock_size = 128;
+    // call for all 4 possible sizes, all except the correct one will
+    // immediately exit.
 
-  // call for all 4 possible sizes, all except the correct one will immediately
-  // exit.
-
-  // CHAR or UCHAR
-  cascaded_decompression_kernel_type_check<1, size_t, threadblock_size>
-      <<<batch_size, threadblock_size, 0, stream>>>(
-          batch_size,
-          device_compressed_ptrs,
-          device_compressed_bytes,
-          device_uncompressed_ptrs,
-          device_uncompressed_bytes,
-          device_actual_uncompressed_bytes,
-          device_statuses);
-  // SHORT or USHORT
-  cascaded_decompression_kernel_type_check<2, size_t, threadblock_size>
-      <<<batch_size, threadblock_size, 0, stream>>>(
-          batch_size,
-          device_compressed_ptrs,
-          device_compressed_bytes,
-          device_uncompressed_ptrs,
-          device_uncompressed_bytes,
-          device_actual_uncompressed_bytes,
-          device_statuses);
-  // INT or UINT
-  cascaded_decompression_kernel_type_check<4, size_t, threadblock_size>
-      <<<batch_size, threadblock_size, 0, stream>>>(
-          batch_size,
-          device_compressed_ptrs,
-          device_compressed_bytes,
-          device_uncompressed_ptrs,
-          device_uncompressed_bytes,
-          device_actual_uncompressed_bytes,
-          device_statuses);
-  // LONGLONG or ULONGLONG
-  cascaded_decompression_kernel_type_check<8, size_t, threadblock_size>
-      <<<batch_size, threadblock_size, 0, stream>>>(
-          batch_size,
-          device_compressed_ptrs,
-          device_compressed_bytes,
-          device_uncompressed_ptrs,
-          device_uncompressed_bytes,
-          device_actual_uncompressed_bytes,
-          device_statuses);
+    // CHAR or UCHAR
+    cascaded_decompression_kernel_type_check<1, size_t, threadblock_size>
+        <<<batch_size, threadblock_size, 0, stream>>>(
+            batch_size,
+            device_compressed_ptrs,
+            device_compressed_bytes,
+            device_uncompressed_ptrs,
+            device_uncompressed_bytes,
+            device_actual_uncompressed_bytes,
+            device_statuses);
+    HipUtils::check_last_error();
+    // SHORT or USHORT
+    cascaded_decompression_kernel_type_check<2, size_t, threadblock_size>
+        <<<batch_size, threadblock_size, 0, stream>>>(
+            batch_size,
+            device_compressed_ptrs,
+            device_compressed_bytes,
+            device_uncompressed_ptrs,
+            device_uncompressed_bytes,
+            device_actual_uncompressed_bytes,
+            device_statuses);
+    HipUtils::check_last_error();
+    // INT or UINT
+    cascaded_decompression_kernel_type_check<4, size_t, threadblock_size>
+        <<<batch_size, threadblock_size, 0, stream>>>(
+            batch_size,
+            device_compressed_ptrs,
+            device_compressed_bytes,
+            device_uncompressed_ptrs,
+            device_uncompressed_bytes,
+            device_actual_uncompressed_bytes,
+            device_statuses);
+    HipUtils::check_last_error();
+    // LONGLONG or ULONGLONG
+    cascaded_decompression_kernel_type_check<8, size_t, threadblock_size>
+        <<<batch_size, threadblock_size, 0, stream>>>(
+            batch_size,
+            device_compressed_ptrs,
+            device_compressed_bytes,
+            device_uncompressed_ptrs,
+            device_uncompressed_bytes,
+            device_actual_uncompressed_bytes,
+            device_statuses);
+    HipUtils::check_last_error();
+  } catch (const std::exception& e) {
+    return Check::exception_to_error(
+        e, "hipcompBatchedCascadedDecompressAsync()");
+  }
 
   return hipcompSuccess;
 }
@@ -1698,10 +1765,21 @@ hipcompStatus_t hipcompBatchedCascadedGetDecompressSizeAsync(
     size_t batch_size,
     hipStream_t stream)
 {
-  get_decompress_size_kernel<<<roundUpDiv(batch_size, 128), 128, 0, stream>>>(
-      device_compressed_ptrs,
-      device_compressed_bytes,
-      device_uncompressed_bytes,
-      batch_size);
+  try {
+    get_decompress_size_kernel<<<
+        roundUpDiv(batch_size, cascaded_decompress_threadblock_size),
+        cascaded_decompress_threadblock_size,
+        0,
+        stream>>>(
+        device_compressed_ptrs,
+        device_compressed_bytes,
+        device_uncompressed_bytes,
+        batch_size);
+    HipUtils::check_last_error();
+  } catch (const std::exception& e) {
+    return Check::exception_to_error(
+        e, "hipcompBatchedCascadedGetDecompressSizeAsync()");
+  }
+
   return hipcompSuccess;
 }
