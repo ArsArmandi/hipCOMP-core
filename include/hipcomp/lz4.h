@@ -63,6 +63,8 @@ typedef struct
 
 static const hipcompBatchedLZ4Opts_t hipcompBatchedLZ4DefaultOpts = {HIPCOMP_TYPE_CHAR};
 
+//: DELETED
+#ifdef 0
 /**
  * @brief Check if a given chunk of compressed data on the GPU is LZ4.
  *
@@ -198,6 +200,8 @@ hipcompStatus_t hipcompLZ4DecompressAsync(
  * @param metadata_ptr The pointer to destroy.
  */
 void hipcompLZ4DestroyMetadata(void* metadata_ptr);
+#endif
+//: END DELETED
 
 /******************************************************************************
  * Batched compression/decompression interface
