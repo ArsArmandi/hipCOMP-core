@@ -27,6 +27,26 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
+#include "hipcompManager.hpp"
+
+namespace hipcomp {
+
+struct BitcompFormatSpecHeader {
+  hipcompType_t data_type;
+  int algo;
+};
+
+struct BitcompManager : PimplManager {
+
+  BitcompManager(hipcompType_t data_type, int bitcomp_algo = 0, cudaStream_t user_stream = 0, const int device_id = 0);
+
+  ~BitcompManager();
+};
+
+} // namespace hipcomp
+
+//: DELETED
+#if 0
 #ifndef HIPCOMP_BITCOMP_HPP
 #define HIPCOMP_BITCOMP_HPP
 
@@ -278,3 +298,5 @@ inline void BitcompDecompressor::decompress_async(
 #endif // ENABLE_BITCOMP
 
 #endif
+#endif
+//: DELETED
