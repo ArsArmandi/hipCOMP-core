@@ -122,7 +122,9 @@ hipcompStatus_t hipcompBatchedBitcompCompressAsync(
 // Need to convert them to hipcompStatus_t.
 __global__ void convertOutputStatuses (hipcompStatus_t *statuses, size_t batch_size)
 {
-  static_assert (sizeof (hipcompStatus_t) == sizeof (bitcompResult_t));
+  static_assert(
+      sizeof(hipcompStatus_t) == sizeof(bitcompResult_t),
+      "bitcomp and nvcomp statuses must be the same size");
   size_t index = (size_t)blockIdx.x * (size_t)blockDim.x + (size_t)threadIdx.x;
   if (index >= batch_size)
       return;
@@ -219,6 +221,61 @@ hipcompStatus_t hipcompBatchedBitcompDecompressGetTempSize(
 {
   *temp_bytes = 0;
   return hipcompSuccess;
+}
+
+#else
+
+hipcompStatus_t hipcompBatchedBitcompCompressGetMaxOutputChunkSize(
+    size_t, hipcompBatchedBitcompFormatOpts, size_t*)
+{
+  return hipcompErrorNotSupported;
+}
+
+hipcompStatus_t hipcompBatchedBitcompCompressAsync(
+    const void* const*,
+    const size_t*,
+    size_t,
+    size_t,
+    void*,
+    size_t,
+    void* const*,
+    size_t*,
+    const hipcompBatchedBitcompFormatOpts,
+    hipStream_t)
+{
+  return hipcompErrorNotSupported;
+}
+
+hipcompStatus_t hipcompBatchedBitcompDecompressAsync(
+    const void* const*,
+    const size_t*,
+    const size_t*,
+    size_t*,
+    size_t,
+    void* const,
+    size_t,
+    void* const*,
+    hipcompStatus_t*,
+    hipStream_t)
+{
+  return hipcompErrorNotSupported;
+}
+
+hipcompStatus_t hipcompBatchedBitcompGetDecompressSizeAsync(
+    const void* const*, const size_t*, size_t*, size_t, hipStream_t)
+{
+  return hipcompErrorNotSupported;
+}
+
+hipcompStatus_t hipcompBatchedBitcompCompressGetTempSize(
+    size_t, size_t, hipcompBatchedBitcompFormatOpts, size_t*)
+{
+  return hipcompErrorNotSupported;
+}
+
+hipcompStatus_t hipcompBatchedBitcompDecompressGetTempSize(size_t, size_t, size_t*)
+{
+  return hipcompErrorNotSupported;
 }
 
 #endif
