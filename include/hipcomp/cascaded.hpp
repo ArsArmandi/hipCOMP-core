@@ -27,6 +27,28 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
+#include "cascaded.h"
+#include "hipcompManager.hpp"
+
+namespace hipcomp {
+
+struct CascadedFormatSpecHeader {
+  hipcompBatchedCascadedOpts_t options;
+};
+
+struct CascadedManager : PimplManager {
+  CascadedManager(
+      const hipcompBatchedCascadedOpts_t& options = hipcompBatchedCascadedDefaultOpts,
+      hipStream_t user_stream = 0,
+      int device_id = 0);
+
+  virtual ~CascadedManager();
+};
+
+} // namespace hipcomp
+
+//: DELETED
+#if 0
 #ifndef HIPCOMP_CASCADED_HPP
 #define HIPCOMP_CASCADED_HPP
 
@@ -423,3 +445,5 @@ inline hipcompCascadedFormatOpts CascadedSelector<T>::select_config(
 
 } // namespace hipcomp
 #endif
+#endif
+//: END DELETED
