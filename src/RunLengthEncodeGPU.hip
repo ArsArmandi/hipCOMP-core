@@ -27,7 +27,11 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
+//: DELETED
+#if 0
 #include "highlevel/CascadedCommon.h"
+#endif 
+//: END DELETED
 
 #include "HipUtils.h"
 #include "RunLengthEncodeGPU.h"
@@ -200,19 +204,6 @@ __global__ void rleInitKernel(
   }
 }
 
-/**
- * The algorithm here is to keep reducing "chunks" to a start and end marker.
- * 
- * @tparam VALUE The value type.
- * @tparam RUN The run count type.
- * @param[in] in The input data.
- * @param[in] numInDevice The size of the input data.
- * @param[in] blockPrefix
- * @param[out] valsPtr Its pointee is out parameter.
- * @param[out] runsPtr Its pointee is out parameter.
- * @param[out] blockStart
- * @param[out] numOutDevice
- */
 template <typename VALUE, typename RUN, int BLOCK_SIZE, int TILE_SIZE>
 __global__ void rleReduceKernel(
     const VALUE* const in,
