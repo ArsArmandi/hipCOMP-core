@@ -27,6 +27,26 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
+#include <memory>
+
+#include "hipcompManager.hpp"
+
+namespace hipcomp {
+
+struct LZ4FormatSpecHeader {
+  hipcompType_t data_type;
+};
+
+struct LZ4Manager : PimplManager {
+
+  LZ4Manager(size_t uncomp_chunk_size, hipcompType_t data_type, hipStream_t user_stream = 0, const int device_id = 0);
+
+  ~LZ4Manager();
+};
+
+} // namespace hipcomp
+//: DELETED
+#if 0
 #ifndef HIPCOMP_LZ4_HPP
 #define HIPCOMP_LZ4_HPP
 
@@ -265,3 +285,5 @@ inline void LZ4Decompressor::decompress_async(
 
 } // namespace hipcomp
 #endif
+#endif
+//: END DELETED
