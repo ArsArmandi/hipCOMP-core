@@ -98,7 +98,7 @@ void compressAsyncTestRandom(const size_t n)
 
   HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
-  float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
+  float const totalGB = numBytes / (1024.0f * 1024.0f * 1024.0f);
 
   hipStream_t stream;
   HIP_RT_CALL(hipStreamCreate(&stream));
@@ -250,7 +250,7 @@ TEST_CASE("compress_10Million_Test", "[small]")
 
   HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
-  float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
+  float const totalGB = numBytes / (1024.0f * 1024.0f * 1024.0f);
 
   hipStream_t stream;
   HIP_RT_CALL(hipStreamCreate(&stream));
@@ -362,7 +362,7 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
 
   HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
-  float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
+  float const totalGB = numBytes / (1024.0f * 1024.0f * 1024.0f);
 
   hipStream_t stream;
   HIP_RT_CALL(hipStreamCreate(&stream));
