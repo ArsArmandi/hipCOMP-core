@@ -35,7 +35,11 @@
 #include "hipcomp.hpp"
 #include "unpack.h"
 
+//: DELETED
+#if 0
 #include "highlevel/CascadedCommon.h"
+#endif
+//: END DELETED
 
 #include "hip/hip_runtime.h"
 
@@ -61,7 +65,7 @@
   }
 #endif
 
-using namespace hipcomp;
+using namespace nvcomp;
 
 /******************************************************************************
  * HELPER FUNCTIONS ***********************************************************
@@ -95,9 +99,9 @@ template <typename T>
 void runBitPackingOnGPU(
     T const* const inputHost,
     void* const outputHost,
-    int const numBitsMax,
+    size_t const numBitsMax,
     size_t const n,
-    int* const numBitsOut,
+    size_t* const numBitsOut,
     T* const minValOut)
 {
   T* input;
@@ -187,7 +191,7 @@ void runBitPackingOnGPU(
 template<typename T>
 void typeRangeTest()
 {
-  const int numBits = 8*sizeof(T);
+  const size_t numBits = 8 * sizeof(T);
   size_t const n = 72351;
   std::vector<T> inputHost;
   inputHost.reserve(n);
@@ -203,7 +207,7 @@ void typeRangeTest()
   HIP_RT_CALL(hipHostMalloc(&outputHost, numBytes));
 
   T minValue;
-  int numBitsAct;
+  size_t numBitsAct;
   runBitPackingOnGPU(inputHost.data(), outputHost, numBits, n, &numBitsAct, &minValue);
 
   REQUIRE(numBitsAct == numBits);
@@ -263,7 +267,7 @@ TEST_CASE("compressInt16VarBitTest", "[small]")
     }
 
     T minValueAct;
-    int numBitsAct;
+    size_t numBitsAct;
     runBitPackingOnGPU(
         inputHost, outputHost, numBits, n, &numBitsAct, &minValueAct);
 
@@ -319,7 +323,7 @@ TEST_CASE("compressUint32VarBitTest", "[small]")
     }
 
     T minValueAct;
-    int numBitsAct;
+    size_t numBitsAct;
     runBitPackingOnGPU(
         inputHost, outputHost, numBits, n, &numBitsAct, &minValueAct);
 
@@ -371,7 +375,7 @@ TEST_CASE("compressInt64VarBitTest", "[small]")
     }
 
     T minValue;
-    int numBitsAct;
+    size_t numBitsAct;
     runBitPackingOnGPU(
         inputHost, outputHost, numBits, n, &numBitsAct, &minValue);
 
@@ -398,7 +402,7 @@ TEST_CASE("compressInt64VarBitTest", "[small]")
 TEST_CASE("compressInt32VarSizeTest", "[large]")
 {
   int const offset = 87231;
-  int const numBits = 13;
+  size_t const numBits = 13;
 
   // unpack doesn't handle 0 bits
   std::vector<size_t> const sizes{2, 123, 3411, 83621, 872163, 100000001};
@@ -425,7 +429,7 @@ TEST_CASE("compressInt32VarSizeTest", "[large]")
     }
 
     T minValue;
-    int numBitsAct;
+    size_t numBitsAct;
     runBitPackingOnGPU(
         inputHost, outputHost, numBits, n, &numBitsAct, &minValue);
 
@@ -458,7 +462,7 @@ TEST_CASE("compressInt64WideTest", "[small]")
 {
   using T = int64_t;
 
-  const int numBits = 40;
+  const size_t numBits = 40;
 
   // generate a variety of random numbers
   std::vector<T> source{
@@ -480,7 +484,7 @@ TEST_CASE("compressInt64WideTest", "[small]")
   memcpy(inputHost, source.data(), sizeof(*inputHost) * source.size());
 
   T minValue;
-  int numBitsAct;
+  size_t numBitsAct;
   runBitPackingOnGPU(inputHost, outputHost, numBits, n, &numBitsAct, &minValue);
 
   REQUIRE(numBitsAct == numBits);
