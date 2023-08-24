@@ -27,38 +27,38 @@
  */
 
 #include "common.h"
-#include "nvcomp.h"
-#include "nvcomp/cascaded.h"
+#include "hipcomp.h"
+#include "hipcomp/cascaded.h"
 
 #include <assert.h>
 #include <stdint.h>
 
-#include <cub/cub.cuh>
+#include <hipcub/hipcub.hpp>
 
-namespace nvcomp
+namespace hipcomp
 {
 
 template <typename T>
-__device__ inline nvcompType_t d_TypeOf()
+__device__ inline hipcompType_t d_TypeOf()
 {
   if (std::is_same<T, int8_t>::value) {
-    return NVCOMP_TYPE_CHAR;
+    return HIPCOMP_TYPE_CHAR;
   } else if (std::is_same<T, uint8_t>::value) {
-    return NVCOMP_TYPE_UCHAR;
+    return HIPCOMP_TYPE_UCHAR;
   } else if (std::is_same<T, int16_t>::value) {
-    return NVCOMP_TYPE_SHORT;
+    return HIPCOMP_TYPE_SHORT;
   } else if (std::is_same<T, uint16_t>::value) {
-    return NVCOMP_TYPE_USHORT;
+    return HIPCOMP_TYPE_USHORT;
   } else if (std::is_same<T, int32_t>::value) {
-    return NVCOMP_TYPE_INT;
+    return HIPCOMP_TYPE_INT;
   } else if (std::is_same<T, uint32_t>::value) {
-    return NVCOMP_TYPE_UINT;
+    return HIPCOMP_TYPE_UINT;
   } else if (std::is_same<T, int64_t>::value) {
-    return NVCOMP_TYPE_LONGLONG;
+    return HIPCOMP_TYPE_LONGLONG;
   } else if (std::is_same<T, uint64_t>::value) {
-    return NVCOMP_TYPE_ULONGLONG;
+    return HIPCOMP_TYPE_ULONGLONG;
   } else {
-    return NVCOMP_TYPE_CHAR;
+    return HIPCOMP_TYPE_CHAR;
   }
 
   // TODO - perform error checking and notify user if incorrect type is given
@@ -133,7 +133,7 @@ __device__ void block_rle_compress(
   // Note: `tmp_buffer` is used because we cannot calculate adjacent differences
   // in place.
 
-  typedef cub::BlockScan<size_type, threadblock_size> BlockScan;
+  typedef hipcub::BlockScan<size_type, threadblock_size> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
 
   const size_type num_inputs_per_thread
@@ -249,7 +249,7 @@ __device__ void block_rle_decompress(
   // first use prefix sum to calculate the output offsets, and then each thread
   // stores the value of the run into the output locations.
 
-  typedef cub::BlockScan<run_type, threadblock_size> BlockScan;
+  typedef hipcub::BlockScan<run_type, threadblock_size> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
 
   *output_num_elements = 0;
@@ -326,7 +326,7 @@ __device__ void block_delta_decompress(
     size_type input_num_elements,
     data_type* output_buffer)
 {
-  typedef cub::BlockScan<data_type, threadblock_size> BlockScan;
+  typedef hipcub::BlockScan<data_type, threadblock_size> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
 
   const int num_rounds = roundUpDiv(input_num_elements, threadblock_size);
@@ -342,7 +342,7 @@ __device__ void block_delta_decompress(
     data_type aggregate;
     BlockScan(temp_storage)
         .ExclusiveScan(
-            input_val, output_val, initial_value, cub::Sum(), aggregate);
+            input_val, output_val, initial_value, hipcub::Sum(), aggregate);
     initial_value += aggregate;
 
     if (idx < input_num_elements)
@@ -387,7 +387,7 @@ __device__ void get_for_bitwidth(
   // process input elements in rounds, where each round processes
   // `threadblock_size` elements, with one element per thread.
 
-  typedef cub::BlockReduce<signed_data_type, threadblock_size> BlockReduce;
+  typedef hipcub::BlockReduce<signed_data_type, threadblock_size> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   signed_data_type thread_data;
@@ -397,10 +397,10 @@ __device__ void get_for_bitwidth(
   }
 
   signed_data_type minimum
-      = BlockReduce(temp_storage).Reduce(thread_data, cub::Min(), num_valid);
+      = BlockReduce(temp_storage).Reduce(thread_data, hipcub::Min(), num_valid);
   __syncthreads();
   signed_data_type maximum
-      = BlockReduce(temp_storage).Reduce(thread_data, cub::Max(), num_valid);
+      = BlockReduce(temp_storage).Reduce(thread_data, hipcub::Max(), num_valid);
   __syncthreads();
 
   const int num_rounds = roundUpDiv(num_elements, threadblock_size);
@@ -414,10 +414,10 @@ __device__ void get_for_bitwidth(
     }
 
     const signed_data_type local_min
-        = BlockReduce(temp_storage).Reduce(thread_data, cub::Min(), num_valid);
+        = BlockReduce(temp_storage).Reduce(thread_data, hipcub::Min(), num_valid);
     __syncthreads();
     const signed_data_type local_max
-        = BlockReduce(temp_storage).Reduce(thread_data, cub::Max(), num_valid);
+        = BlockReduce(temp_storage).Reduce(thread_data, hipcub::Max(), num_valid);
     __syncthreads();
 
     if (threadIdx.x == 0 && local_min < minimum)
@@ -750,7 +750,7 @@ __device__ void do_cascaded_compression_kernel(
     const size_type* uncompressed_bytes,
     void* const* compressed_data,
     size_type* compressed_bytes,
-    nvcompBatchedCascadedOpts_t comp_opts)
+    hipcompBatchedCascadedOpts_t comp_opts)
 {
   using run_type = uint16_t;
   constexpr int chunk_num_elements = chunk_size / sizeof(data_type);
@@ -1097,7 +1097,7 @@ __device__ void cascaded_decompression_fcn(
     const size_type* decompressed_buffer_bytes,
     size_type* actual_decompressed_bytes,
     void* shmem,
-    nvcompStatus_t* statuses)
+    hipcompStatus_t* statuses)
 {
 
   using run_type = uint16_t;
@@ -1164,7 +1164,7 @@ __device__ void cascaded_decompression_fcn(
       // Compressed buffer should at least have enough space for partition
       // metadata.
       if (threadIdx.x == 0) {
-        statuses[partition_idx] = nvcompErrorCannotDecompress;
+        statuses[partition_idx] = hipcompErrorCannotDecompress;
         actual_decompressed_bytes[partition_idx] = 0;
       }
       continue;
@@ -1196,7 +1196,7 @@ __device__ void cascaded_decompression_fcn(
       // elements, so we report failure.
       if (threadIdx.x == 0) {
         actual_decompressed_bytes[partition_idx] = 0;
-        statuses[partition_idx] = nvcompErrorCannotDecompress;
+        statuses[partition_idx] = hipcompErrorCannotDecompress;
       }
       continue;
     }
@@ -1213,7 +1213,7 @@ __device__ void cascaded_decompression_fcn(
         // data, so we report failure.
         if (threadIdx.x == 0) {
           actual_decompressed_bytes[partition_idx] = 0;
-          statuses[partition_idx] = nvcompErrorCannotDecompress;
+          statuses[partition_idx] = hipcompErrorCannotDecompress;
         }
       } else {
         const data_type* direct_compressed_buffer
@@ -1226,7 +1226,7 @@ __device__ void cascaded_decompression_fcn(
         if (threadIdx.x == 0) {
           actual_decompressed_bytes[partition_idx]
               = sizeof(data_type) * num_uncompressed_elements;
-          statuses[partition_idx] = nvcompSuccess;
+          statuses[partition_idx] = hipcompSuccess;
         }
       }
       continue;
@@ -1404,10 +1404,10 @@ __device__ void cascaded_decompression_fcn(
       if (is_decompression_successful) {
         actual_decompressed_bytes[partition_idx]
             = decompressed_num_elements * sizeof(data_type);
-        statuses[partition_idx] = nvcompSuccess;
+        statuses[partition_idx] = hipcompSuccess;
       } else {
         actual_decompressed_bytes[partition_idx] = 0;
-        statuses[partition_idx] = nvcompErrorCannotDecompress;
+        statuses[partition_idx] = hipcompErrorCannotDecompress;
       }
     }
   }
@@ -1415,4 +1415,4 @@ __device__ void cascaded_decompression_fcn(
 
 
 
-} // namespace nvcomp
+} // namespace hipcomp
