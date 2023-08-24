@@ -38,7 +38,7 @@ struct BitcompFormatSpecHeader {
 
 struct BitcompManager : PimplManager {
 
-  BitcompManager(hipcompType_t data_type, int bitcomp_algo = 0, cudaStream_t user_stream = 0, const int device_id = 0);
+  BitcompManager(hipcompType_t data_type, int bitcomp_algo = 0, hipStream_t user_stream = 0, const int device_id = 0);
 
   ~BitcompManager();
 };
