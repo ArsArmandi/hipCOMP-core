@@ -27,39 +27,43 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include <assert.h>
 
-#include "nvcomp/bitcomp.hpp"
-#include "CudaUtils.h"
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
+#include "hipcomp/bitcomp.hpp"
+#include "HipUtils.h"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
 #include "highlevel/ManagerBase.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 struct BitcompSingleStreamManager : ManagerBase<BitcompFormatSpecHeader> {
 private:
   BitcompFormatSpecHeader* format_spec;
 
 public:
-  BitcompSingleStreamManager(nvcompType_t data_type, int bitcomp_algo = 0, cudaStream_t user_stream = 0, const int device_id = 0)
+  BitcompSingleStreamManager(hipcompType_t data_type, int bitcomp_algo = 0, hipStream_t user_stream = 0, const int device_id = 0)
     : ManagerBase(user_stream, device_id),      
       format_spec()
   {
-    CudaUtils::check(cudaHostAlloc(&format_spec, sizeof(BitcompFormatSpecHeader), cudaHostAllocDefault));
+    HipUtils::check(hipHostAlloc(&format_spec, sizeof(BitcompFormatSpecHeader), hipHostAllocDefault));
     format_spec->data_type = data_type;
     format_spec->algo = bitcomp_algo;
     int  major;
-    CudaUtils::check(cudaDeviceGetAttribute (&major, cudaDevAttrComputeCapabilityMajor, device_id));
+    #if defined(__HIP_PLATFORM_NVIDIA__) || defined(__HIP_PLATFORM_NVCC__)
+    //: TODO check if this actually compiles
+    HipUtils::check(hipDeviceGetAttribute (&major, hipDevAttrComputeCapabilityMajor, device_id));
     if (major < 7)
-      throw NVCompException(nvcompErrorNotSupported, "Bitcomp requires GPU architectures >= 70");
-
+      throw HIPCompException(hipcompErrorNotSupported, "Bitcomp requires GPU architectures >= 70");
+    #endif
+    //: TODO decide on behavior for AMD
     finish_init();
   }
 
   virtual ~BitcompSingleStreamManager() 
   {
-    CudaUtils::check(cudaFreeHost(format_spec));
+    HipUtils::check(hipHostFree(format_spec));
   }
 
   BitcompSingleStreamManager(const BitcompSingleStreamManager&) = delete;
@@ -134,20 +138,20 @@ public:
 // BitcompManager implementation
 
 BitcompManager::BitcompManager(
-    nvcompType_t data_type,
+    hipcompType_t data_type,
     int bitcomp_algo,
-    cudaStream_t user_stream,
+    hipStream_t user_stream,
     const int device_id)
 {
 #ifdef ENABLE_BITCOMP
   impl = std::make_unique<BitcompSingleStreamManager>(
       data_type, bitcomp_algo, user_stream, device_id);
 #else
-  throw NVCompException(nvcompErrorNotSupported, "Bitcomp support not available in this build.");
+  throw HIPCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
 #endif
 }
 
 BitcompManager::~BitcompManager() 
 {}
 
-} // namespace nvcomp
+} // namespace hipcomp
