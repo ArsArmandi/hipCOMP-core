@@ -27,19 +27,20 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include <memory>
 
-#include "nvcomp/cascaded.hpp"
+#include "hipcomp/cascaded.hpp"
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "common.h"
-#include "nvcomp/cascaded.h"
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
+#include "hipcomp/cascaded.h"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
 #include "highlevel/CascadedHlifKernels.h"
 #include "highlevel/BatchManager.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 struct CascadedBatchManager : BatchManager<CascadedFormatSpecHeader> {
 private:
@@ -47,14 +48,14 @@ private:
 
 public:
   CascadedBatchManager(
-      const nvcompBatchedCascadedOpts_t& options = nvcompBatchedCascadedDefaultOpts,
-      cudaStream_t user_stream = 0,
+      const hipcompBatchedCascadedOpts_t& options = hipcompBatchedCascadedDefaultOpts,
+      hipStream_t user_stream = 0,
       int device_id = 0) :
       BatchManager(options.chunk_size, user_stream, device_id),
       format_spec(nullptr)
   {
-    CudaUtils::check(cudaHostAlloc(
-        &format_spec, sizeof(CascadedFormatSpecHeader), cudaHostAllocDefault));
+    HipUtils::check(hipHostMalloc(
+        &format_spec, sizeof(CascadedFormatSpecHeader), hipHostMallocDefault));
     format_spec->options = options;
 
     finish_init();
@@ -62,7 +63,7 @@ public:
 
   virtual ~CascadedBatchManager()
   {
-    CudaUtils::check(cudaFreeHost(format_spec));
+    HipUtils::check(hipHostFree(format_spec));
   }
 
   CascadedBatchManager(const CascadedBatchManager&) = delete;
@@ -71,9 +72,9 @@ public:
   size_t compute_max_compressed_chunk_size() final override
   {
     size_t max_comp_chunk_size;
-    nvcompBatchedCascadedCompressGetMaxOutputChunkSize(
+    hipcompBatchedCascadedCompressGetMaxOutputChunkSize(
         get_uncomp_chunk_size(),
-        nvcompBatchedCascadedDefaultOpts,
+        hipcompBatchedCascadedDefaultOpts,
         &max_comp_chunk_size);
     return max_comp_chunk_size;
   }
@@ -110,7 +111,7 @@ public:
       const uint32_t num_chunks,
       const size_t* comp_chunk_offsets,
       const size_t* comp_chunk_sizes,
-      nvcompStatus_t* output_status) final override
+      hipcompStatus_t* output_status) final override
   {
     cascadedHlifBatchDecompress(
         comp_data_buffer,
@@ -131,8 +132,8 @@ public:
 // CascadedManager implementation
 
 CascadedManager::CascadedManager(
-    const nvcompBatchedCascadedOpts_t& options,
-    cudaStream_t user_stream,
+    const hipcompBatchedCascadedOpts_t& options,
+    hipStream_t user_stream,
     int device_id)
 {
   impl = std::make_unique<CascadedBatchManager>(
@@ -143,4 +144,4 @@ CascadedManager::~CascadedManager()
 {
 }
 
-} // namespace nvcomp
+} // namespace hipcomp
