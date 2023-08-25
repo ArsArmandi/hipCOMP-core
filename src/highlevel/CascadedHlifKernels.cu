@@ -27,9 +27,9 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "CascadedKernels.cuh"
+#include "CascadedKernels.hiph"
 #include "highlevel/CascadedHlifKernels.h"
-#include "hipcomp_common_deps/hlif_shared.cuh"
+#include "hipcomp_common_deps/hlif_shared.hiph"
 #include "hipcomp/cascaded.h"
 #include "HipUtils.h"
 

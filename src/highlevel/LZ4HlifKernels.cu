@@ -29,13 +29,13 @@
 
 #include "HipUtils.h"
 #include "LZ4HlifKernels.h"
-#include "LZ4Kernels.cuh"
+#include "LZ4Kernels.hiph"
 #include "TempSpaceBroker.h"
 #include "common.h"
 
-#include "hipcomp_common_deps/hlif_shared.cuh"
+#include "hipcomp_common_deps/hlif_shared.hiph"
 #include "hip_runtime.h"
-#include "hipcomp_cub.cuh"
+#include "hipcomp_cub.hiph"
 
 #include <cassert>
 #include <fstream>

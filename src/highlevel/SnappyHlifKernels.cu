@@ -29,8 +29,8 @@
 
 
 #include "highlevel/SnappyHlifKernels.h"
-#include "hipcomp_common_deps/hlif_shared.cuh"
-#include "SnappyKernels.cuh"
+#include "hipcomp_common_deps/hlif_shared.hiph"
+#include "SnappyKernels.hiph"
 #include "HipUtils.h"
 
 namespace hipcomp {
