@@ -25,13 +25,14 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 #include "common.h"
 
-namespace nvcomp {
+namespace hipcomp {
 
 /**
  * @brief The result of the compression and decompression routines
@@ -40,4 +41,4 @@ struct gpu_snappy_status_s {
   uint32_t status; // Non-zero value indicates an error
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
