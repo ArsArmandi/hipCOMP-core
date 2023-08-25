@@ -27,12 +27,13 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include <memory>
 
-#include "nvcompManager.hpp"
+#include "hipcompManager.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 struct ANSFormatSpecHeader {
   // Empty for now
@@ -40,9 +41,9 @@ struct ANSFormatSpecHeader {
 
 struct ANSManager : PimplManager {
 
-  ANSManager(size_t uncomp_chunk_size, cudaStream_t user_stream = 0, const int device_id = 0);
+  ANSManager(size_t uncomp_chunk_size, hipStream_t user_stream = 0, const int device_id = 0);
 
   ~ANSManager();
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
