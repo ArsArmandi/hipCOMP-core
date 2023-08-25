@@ -32,7 +32,6 @@
 #include "hipcomp.h"
 #include "hipcomp.hpp"
 #include "hipcomp/cascaded.h"
-#include "hipcomp/lz4.hpp"
 
 #include "../src/common.h"
 #include "catch.hpp"
@@ -60,7 +59,7 @@ void random_runs(
     std::vector<valT>& res, const valT max_val, const runT max_run, int seed)
 {
   std::mt19937 eng(seed);
-  std::uniform_int_distribution<> distr(0, max_run);
+  std::uniform_int_distribution<runT> distr(0, max_run);
 
   for (valT val = 0; val < max_val; val++) {
     runT run = distr(eng);
@@ -79,6 +78,8 @@ void dump(const std::string desc, std::vector<T>& data, size_t size)
 #endif
 }
 
+//: DELETED
+#if 0
 // Test method that takes an input data, compresses it (on the CPU),
 // decompresses it on the GPU, and verifies it is correct.
 // Uses Cascaded Compression
@@ -248,3 +249,5 @@ void test(
     REQUIRE(res == data);
   }
 }
+#endif
+//: END DELETED
