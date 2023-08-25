@@ -25,14 +25,15 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "nvcomp/ans.h"
+#include "hipcomp/ans.h"
 
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "common.h"
-#include "nvcomp.h"
-#include "nvcomp.hpp"
+#include "hipcomp.h"
+#include "hipcomp.hpp"
 #include "type_macros.h"
 
 #include <cassert>
@@ -47,11 +48,11 @@
 #include "ans.h"
 #endif
 
-using namespace nvcomp;
+using namespace hipcomp;
 
 #define MAYBE_UNUSED(x) (void)(x)
 
-nvcompStatus_t nvcompBatchedANSDecompressGetTempSize(
+hipcompStatus_t hipcompBatchedANSDecompressGetTempSize(
     const size_t num_chunks,
     const size_t max_uncompressed_chunk_size,
     size_t* const temp_bytes)
@@ -59,18 +60,18 @@ nvcompStatus_t nvcompBatchedANSDecompressGetTempSize(
 #ifdef ENABLE_ANS
   CHECK_NOT_NULL(temp_bytes);
   ans::decompressGetTempSize(num_chunks, max_uncompressed_chunk_size, temp_bytes);
-  return nvcompSuccess;
+  return hipcompSuccess;
 #else
   (void)num_chunks;
   (void)max_uncompressed_chunk_size;
   (void)temp_bytes;
-  std::cerr << "ERROR: nvcomp configured without GPU ANS support\n"
+  std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
             << "Please check the README for configuration instructions" << std::endl;
-  return nvcompErrorNotSupported;
+  return hipcompErrorNotSupported;
 #endif
 }
 
-nvcompStatus_t nvcompBatchedANSDecompressAsync(
+hipcompStatus_t hipcompBatchedANSDecompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     const size_t* device_uncompressed_bytes,
@@ -79,24 +80,24 @@ nvcompStatus_t nvcompBatchedANSDecompressAsync(
     void* const device_temp_ptr,
     const size_t temp_bytes,
     void* const* device_uncompressed_ptr,
-    nvcompStatus_t* device_statuses,
-    cudaStream_t stream)
+    hipcompStatus_t* device_statuses,
+    hipStream_t stream)
 {
 #ifdef ENABLE_ANS
   try {
     ans::decompressAsync(
-      CudaUtils::device_pointer(device_compressed_ptrs),
-      CudaUtils::device_pointer(device_compressed_bytes),
-      CudaUtils::device_pointer(device_uncompressed_bytes),
-      device_actual_uncompressed_bytes ? CudaUtils::device_pointer(device_actual_uncompressed_bytes) : nullptr,
+      HipUtils::device_pointer(device_compressed_ptrs),
+      HipUtils::device_pointer(device_compressed_bytes),
+      HipUtils::device_pointer(device_uncompressed_bytes),
+      device_actual_uncompressed_bytes ? HipUtils::device_pointer(device_actual_uncompressed_bytes) : nullptr,
       0, batch_size, device_temp_ptr, temp_bytes,
-      CudaUtils::device_pointer(device_uncompressed_ptr),
-      device_statuses ? CudaUtils::device_pointer(device_statuses) : nullptr,
+      HipUtils::device_pointer(device_uncompressed_ptr),
+      device_statuses ? HipUtils::device_pointer(device_statuses) : nullptr,
       stream);
   } catch (const std::exception& e) {
-     return Check::exception_to_error(e, "nvcompBatchedANSDecompressAsync()");
+     return Check::exception_to_error(e, "hipcompBatchedANSDecompressAsync()");
   }
-  return nvcompSuccess;
+  return hipcompSuccess;
 #else
   (void)device_compressed_ptrs;
   (void)device_compressed_bytes;
@@ -108,51 +109,51 @@ nvcompStatus_t nvcompBatchedANSDecompressAsync(
   (void)device_uncompressed_ptr;
   (void)device_statuses;
   (void)stream;
-  std::cerr << "ERROR: nvcomp configured without GPU ANS support\n"
+  std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
             << "Please check the README for configuration instructions" << std::endl;
-  return nvcompErrorNotSupported;
+  return hipcompErrorNotSupported;
 #endif
 }
 
-nvcompStatus_t nvcompBatchedANSCompressGetTempSize(
+hipcompStatus_t hipcompBatchedANSCompressGetTempSize(
     size_t batch_size,
     size_t max_chunk_size,
-    nvcompBatchedANSOpts_t /* format_opts */,
+    hipcompBatchedANSOpts_t /* format_opts */,
     size_t* temp_bytes)
 {
 #ifdef ENABLE_ANS
   CHECK_NOT_NULL(temp_bytes);
   ans::compressGetTempSize(batch_size, max_chunk_size, temp_bytes);
-  return nvcompSuccess;
+  return hipcompSuccess;
 #else
   (void)batch_size;
   (void)max_chunk_size;
   (void)temp_bytes;
-  std::cerr << "ERROR: nvcomp configured without GPU ANS support\n"
+  std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
             << "Please check the README for configuration instructions" << std::endl;
-  return nvcompErrorNotSupported;
+  return hipcompErrorNotSupported;
 #endif
 }
 
-nvcompStatus_t nvcompBatchedANSCompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedANSCompressGetMaxOutputChunkSize(
     size_t max_chunk_size,
-    nvcompBatchedANSOpts_t /* format_opts */,
+    hipcompBatchedANSOpts_t /* format_opts */,
     size_t* max_compressed_size)
 {
 #ifdef ENABLE_ANS
   CHECK_NOT_NULL(max_compressed_size);
   ans::compressGetMaxOutputChunkSize(max_chunk_size, max_compressed_size);
-  return nvcompSuccess;
+  return hipcompSuccess;
 #else
   (void)max_chunk_size;
   (void)max_compressed_size;
-  std::cerr << "ERROR: nvcomp configured without GPU ANS support\n"
+  std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
             << "Please check the README for configuration instructions" << std::endl;
-  return nvcompErrorNotSupported;
+  return hipcompErrorNotSupported;
 #endif
 }
 
-nvcompStatus_t nvcompBatchedANSCompressAsync(
+hipcompStatus_t hipcompBatchedANSCompressAsync(
     const void* const* device_uncompressed_ptr,
     const size_t* device_uncompressed_bytes,
     size_t max_uncompressed_chunk_bytes,
@@ -161,30 +162,30 @@ nvcompStatus_t nvcompBatchedANSCompressAsync(
     size_t temp_bytes,
     void* const* device_compressed_ptr,
     size_t* device_compressed_bytes,
-    nvcompBatchedANSOpts_t format_opts,
-    cudaStream_t stream)
+    hipcompBatchedANSOpts_t format_opts,
+    hipStream_t stream)
 {
 #ifdef ENABLE_ANS
-  assert(format_opts.type == nvcompANSType_t::nvcomp_rANS);
+  assert(format_opts.type == hipcompANSType_t::hipcomp_rANS);
   MAYBE_UNUSED(format_opts);
   ans::ansType_t ans_type = ans::ansType_t::rANS;
 
   try {
     ans::compressAsync(
         ans_type,
-        CudaUtils::device_pointer(device_uncompressed_ptr),
-        CudaUtils::device_pointer(device_uncompressed_bytes),
+        HipUtils::device_pointer(device_uncompressed_ptr),
+        HipUtils::device_pointer(device_uncompressed_bytes),
         max_uncompressed_chunk_bytes,
         batch_size,
         device_temp_ptr,
         temp_bytes,
-        CudaUtils::device_pointer(device_compressed_ptr),
-        CudaUtils::device_pointer(device_compressed_bytes),
+        HipUtils::device_pointer(device_compressed_ptr),
+        HipUtils::device_pointer(device_compressed_bytes),
         stream);
   } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "nvcompBatchedANSCompressAsync()");
+    return Check::exception_to_error(e, "hipcompBatchedANSCompressAsync()");
   }
-  return nvcompSuccess;
+  return hipcompSuccess;
 #else
   (void)device_uncompressed_ptr;
   (void)device_uncompressed_bytes;
@@ -196,32 +197,32 @@ nvcompStatus_t nvcompBatchedANSCompressAsync(
   (void)device_compressed_bytes;
   (void)format_opts;
   (void)stream;
-  std::cerr << "ERROR: nvcomp configured without GPU ANS support\n"
+  std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
             << "Please check the README for configuration instructions" << std::endl;
-  return nvcompErrorNotSupported;
+  return hipcompErrorNotSupported;
 #endif
 }
 
-nvcompStatus_t nvcompBatchedANSGetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedANSGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* /* device_compressed_bytes */,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream) {
+    hipStream_t stream) {
 #ifdef ENABLE_ANS
   ans::getDecompressSizeAsync(
       device_compressed_ptrs,
       device_uncompressed_bytes,
       batch_size,
       stream);
-  return nvcompSuccess;
+  return hipcompSuccess;
 #else
   (void)device_compressed_ptrs;
   (void)device_uncompressed_bytes;
   (void)batch_size;
   (void)stream;
-  std::cerr << "ERROR: nvcomp configured without GPU ANS support\n"
+  std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
             << "Please check the README for configuration instructions" << std::endl;
-  return nvcompErrorNotSupported;
+  return hipcompErrorNotSupported;
 #endif
 }
