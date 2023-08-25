@@ -25,18 +25,19 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
-#include "nvcomp.h"
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
+#include "hipcomp.h"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 void snappyHlifBatchCompress(
     const CompressArgs& compress_args,
     const uint32_t max_ctas,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 void snappyHlifBatchDecompress(
     const uint8_t* comp_buffer, 
@@ -47,10 +48,10 @@ void snappyHlifBatchDecompress(
     const size_t* comp_chunk_offsets,
     const size_t* comp_chunk_sizes,
     const uint32_t max_ctas,
-    cudaStream_t stream,
-    nvcompStatus_t* output_status);
+    hipStream_t stream,
+    hipcompStatus_t* output_status);
 
 size_t snappyHlifDecompMaxBlockOccupancy(const int device_id); 
 size_t snappyHlifCompMaxBlockOccupancy(const int device_id);
 
-} // namespace nvcomp
+} // namespace hipcomp
