@@ -25,11 +25,12 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
 #include <stdint.h>
-#include "nvcomp/shared_types.h"
+#include "hipcomp/shared_types.h"
 
 typedef uint64_t ChunkStartOffset_t;
 typedef uint32_t Checksum_t;
@@ -74,6 +75,6 @@ struct CompressArgs {
   size_t max_comp_chunk_size;
   size_t* comp_chunk_offsets;
   size_t* comp_chunk_sizes;
-  nvcompStatus_t* output_status;
+  hipcompStatus_t* output_status;
 };
 
