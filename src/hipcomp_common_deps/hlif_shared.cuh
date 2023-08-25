@@ -25,6 +25,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
@@ -33,7 +34,7 @@
 #include <stdio.h>
 #include <type_traits>
 
-#include "nvcomp/shared_types.h"
+#include "hipcomp/shared_types.h"
 #include "hlif_shared_types.hpp"
 
 namespace cg = cooperative_groups;
@@ -50,10 +51,10 @@ struct hlif_compress_wrapper {
     assert(false); // This must be implemented in the derived class
   }
   
-  __device__ nvcompStatus_t get_output_status()
+  __device__ hipcompStatus_t get_output_status()
   {
     assert(false); // This must be implemented in the derived class
-    return nvcompErrorNotSupported;
+    return hipcompErrorNotSupported;
   } 
 
   __device__ FormatType get_format_type()
@@ -76,10 +77,10 @@ struct hlif_decompress_wrapper {
     assert(false); // This must be implemented in the derived class
   }
       
-  __device__ nvcompStatus_t get_output_status()
+  __device__ hipcompStatus_t get_output_status()
   {
     assert(false); // This must be implemented in the derived class
-    return nvcompErrorNotSupported;
+    return hipcompErrorNotSupported;
   }
   
   __device__ ~hlif_decompress_wrapper() {}
@@ -194,7 +195,7 @@ __device__ inline void HlifCompressBatch(
 
     // Check for errors. Any error should be reported in the global status value
     if (cg_group.thread_rank() == 0) {
-      if (compressor.get_output_status() != nvcompSuccess) {
+      if (compressor.get_output_status() != hipcompSuccess) {
         *compression_args.output_status = compressor.get_output_status();
       }
     }
@@ -219,7 +220,7 @@ HlifCompressBatchKernel(
   uint8_t* free_scratch_buffer = 
       compression_args.scratch_buffer + (compression_args.max_comp_chunk_size * gridDim.x * blockDim.y);
   
-  __shared__ nvcompStatus_t output_status[chunks_per_block];
+  __shared__ hipcompStatus_t output_status[chunks_per_block];
   
   CompressT compressor{compressor_arg, free_scratch_buffer, share_buffer, &output_status[threadIdx.y]};
 
@@ -227,7 +228,7 @@ HlifCompressBatchKernel(
   if (chunks_per_block == 1) {
     HlifCompressBatch<chunks_per_block>(compression_args, compressor, cta_group);
   } else {
-    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cg::tiled_partition<32>(cta_group));
+    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cg::tiled_partition<warpSize>(cta_group));
   }
 }
 
@@ -240,7 +241,7 @@ HlifCompressBatchKernel(CompressArgs compression_args)
   uint8_t* free_scratch_buffer = 
       compression_args.scratch_buffer + (compression_args.max_comp_chunk_size * gridDim.x * blockDim.y);
 
-  __shared__ nvcompStatus_t output_status[chunks_per_block];
+  __shared__ hipcompStatus_t output_status[chunks_per_block];
 
   CompressT compressor{free_scratch_buffer, share_buffer, &output_status[threadIdx.y]};
 
@@ -248,7 +249,7 @@ HlifCompressBatchKernel(CompressArgs compression_args)
   if (chunks_per_block == 1) {
     HlifCompressBatch<chunks_per_block>(compression_args, compressor, cta_group);
   } else {
-    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cg::tiled_partition<32>(cta_group));
+    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cg::tiled_partition<warpSize>(cta_group));
   }
 }
 
@@ -274,7 +275,7 @@ __device__ inline void HlifDecompressBatch(
     const size_t* comp_chunk_offsets,
     const size_t* comp_chunk_sizes,
     uint8_t* share_buffer,
-    nvcompStatus_t* kernel_output_status,
+    hipcompStatus_t* kernel_output_status,
     DecompressT& decompressor,
     GroupT&& cg_group)
 {
@@ -306,7 +307,7 @@ __device__ inline void HlifDecompressBatch(
 
     // Check for errors. Any error should be reported in the global status value
     if (cg_group.thread_rank() == 0) {
-      if (decompressor.get_output_status() != nvcompSuccess) {
+      if (decompressor.get_output_status() != hipcompSuccess) {
         *kernel_output_status = decompressor.get_output_status();
       }
     }
@@ -330,7 +331,7 @@ __device__ void HlifDecompressBatch(
     const size_t* comp_chunk_offsets,
     const size_t* comp_chunk_sizes,
     uint8_t* share_buffer,
-    nvcompStatus_t* kernel_output_status,
+    hipcompStatus_t* kernel_output_status,
     DecompressT& decompressor)
 {
   // Dispatches to get a cooperative group per-chunk
@@ -360,8 +361,8 @@ __device__ void HlifDecompressBatch(
         share_buffer,
         kernel_output_status,
         decompressor,
-        cg::tiled_partition<32>(cta_group));
-    assert(blockDim.x == 32);
+        cg::tiled_partition<warpSize>(cta_group));
+    assert(blockDim.x == warpSize);
   }
 }
 
@@ -377,11 +378,11 @@ HlifDecompressBatchKernel(
     const size_t num_chunks,
     const size_t* comp_chunk_offsets,
     const size_t* comp_chunk_sizes,
-    nvcompStatus_t* kernel_output_status,
+    hipcompStatus_t* kernel_output_status,
     DecompArg decompress_arg)
 {
   extern __shared__ uint8_t share_buffer[];
-  __shared__ nvcompStatus_t output_status[chunks_per_block];
+  __shared__ hipcompStatus_t output_status[chunks_per_block];
   DecompressT decompressor{decompress_arg, share_buffer, &output_status[threadIdx.y]};
   HlifDecompressBatch<DecompressT, chunks_per_block>(
         comp_buffer, 
@@ -407,10 +408,10 @@ HlifDecompressBatchKernel(
     const size_t num_chunks,
     const size_t* comp_chunk_offsets,
     const size_t* comp_chunk_sizes,
-    nvcompStatus_t* kernel_output_status)
+    hipcompStatus_t* kernel_output_status)
 {
   extern __shared__ uint8_t share_buffer[];
-  __shared__ nvcompStatus_t output_status[chunks_per_block];
+  __shared__ hipcompStatus_t output_status[chunks_per_block];
   DecompressT decompressor{share_buffer, &output_status[threadIdx.y]};
 
   HlifDecompressBatch<DecompressT, chunks_per_block>(
