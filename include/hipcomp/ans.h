@@ -25,13 +25,14 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#ifndef NVCOMP_ANS_H
-#define NVCOMP_ANS_H
+#ifndef HIPCOMP_ANS_H
+#define HIPCOMP_ANS_H
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -42,16 +43,16 @@ extern "C" {
  * Batched compression/decompression interface for ANS
  *****************************************************************************/
 
-typedef enum nvcompANSType_t {
-  nvcomp_rANS,
-} nvcompANSType_t;
+typedef enum hipcompANSType_t {
+  hipcomp_rANS,
+} hipcompANSType_t;
 
 typedef struct
 {
-  nvcompANSType_t type;
-} nvcompBatchedANSOpts_t;
+  hipcompANSType_t type;
+} hipcompBatchedANSOpts_t;
 
-static const nvcompBatchedANSOpts_t nvcompBatchedANSDefaultOpts = {nvcomp_rANS};
+static const hipcompBatchedANSOpts_t hipcompBatchedANSDefaultOpts = {hipcomp_rANS};
 
 /**
  * @brief Get temporary space required for compression.
@@ -62,29 +63,29 @@ static const nvcompBatchedANSOpts_t nvcompBatchedANSDefaultOpts = {nvcomp_rANS};
  * @param temp_bytes The size of the required GPU workspace for compression
  * (output).
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedANSCompressGetTempSize(
+hipcompStatus_t hipcompBatchedANSCompressGetTempSize(
     size_t batch_size,
     size_t max_chunk_size,
-    nvcompBatchedANSOpts_t format_opts,
+    hipcompBatchedANSOpts_t format_opts,
     size_t* temp_bytes);
 
 /**
  * @brief Get the maximum size any chunk could compress to in the batch. That
  * is, the minimum amount of output memory required to be given
- * nvcompBatched[R|T|H]ANSCompressAsync() for each batch item.
+ * hipcompBatched[R|T|H]ANSCompressAsync() for each batch item.
  *
  * @param max_chunk_size The maximum size of a chunk in the batch.
  * @param format_opts Compression options.
  * @param max_compressed_size The maximum compressed size of the largest chunk
  * (output).
  *
- * @return The nvcompSuccess unless there is an error.
+ * @return The hipcompSuccess unless there is an error.
  */
-nvcompStatus_t nvcompBatchedANSCompressGetMaxOutputChunkSize(
+hipcompStatus_t hipcompBatchedANSCompressGetMaxOutputChunkSize(
     size_t max_chunk_size,
-    nvcompBatchedANSOpts_t format_opts,
+    hipcompBatchedANSOpts_t format_opts,
     size_t* max_compressed_size);
 
 /**
@@ -104,9 +105,9 @@ nvcompStatus_t nvcompBatchedANSCompressGetMaxOutputChunkSize(
  * @param format_opts Compression options.
  * @param stream The stream to operate on.
  *
- * @return nvcompSuccess if successfully launched, and an error code otherwise.
+ * @return hipcompSuccess if successfully launched, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedANSCompressAsync(
+hipcompStatus_t hipcompBatchedANSCompressAsync(
     const void* const* device_uncompressed_ptr,
     const size_t* device_uncompressed_bytes,
     size_t max_uncompressed_chunk_bytes,
@@ -115,8 +116,8 @@ nvcompStatus_t nvcompBatchedANSCompressAsync(
     size_t temp_bytes,
     void* const* device_compressed_ptr,
     size_t* device_compressed_bytes,
-    nvcompBatchedANSOpts_t format_opts,
-    cudaStream_t stream);
+    hipcompBatchedANSOpts_t format_opts,
+    hipStreamStream_t stream);
 
 /**
  * @brief Get the amount of temp space required on the GPU for decompression.
@@ -127,9 +128,9 @@ nvcompStatus_t nvcompBatchedANSCompressAsync(
  * @param temp_bytes The amount of temporary GPU space that will be required to
  * decompress.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedANSDecompressGetTempSize(
+hipcompStatus_t hipcompBatchedANSDecompressGetTempSize(
     size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t* temp_bytes);
 
 /**
@@ -141,14 +142,14 @@ nvcompStatus_t nvcompBatchedANSDecompressGetTempSize(
  * @param batch_size The number of batch items.
  * @param stream The stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedANSGetDecompressSizeAsync(
+hipcompStatus_t hipcompBatchedANSGetDecompressSizeAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    cudaStream_t stream);
+    hipStreamStream_t stream);
 
 /**
  * @brief Perform decompression.
@@ -164,9 +165,9 @@ nvcompStatus_t nvcompBatchedANSGetDecompressSizeAsync(
  * @param device_statuses The pointers on the GPU, to where to uncompress each chunk (output).
  * @param stream The stream to operate on.
  *
- * @return nvcompSuccess if successful, and an error code otherwise.
+ * @return hipcompSuccess if successful, and an error code otherwise.
  */
-nvcompStatus_t nvcompBatchedANSDecompressAsync(
+hipcompStatus_t hipcompBatchedANSDecompressAsync(
     const void* const* device_compressed_ptrs,
     const size_t* device_compressed_bytes,
     const size_t* device_uncompressed_bytes,
@@ -175,8 +176,8 @@ nvcompStatus_t nvcompBatchedANSDecompressAsync(
     void* const device_temp_ptr,
     const size_t temp_bytes,
     void* const* device_uncompressed_ptr,
-    nvcompStatus_t* device_statuses,
-    cudaStream_t stream);
+    hipcompStatus_t* device_statuses,
+    hipStreamStream_t stream);
 
 #ifdef __cplusplus
 }
