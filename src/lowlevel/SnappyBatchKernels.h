@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,16 +27,20 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
+#pragma once
+
 #include "hipcomp.h"
+#include "SnappyTypes.h"
 
 namespace hipcomp {
-
+//: DELETED
 /**
  * @brief The result of the compression and decompression routines
  **/
 struct gpu_snappy_status_s {
   uint32_t status; // Non-zero value indicates an error
 };
+//: END DELETED
 
 /**
  * @brief Interface for compressing data with Snappy
@@ -130,4 +134,5 @@ void gpu_get_uncompressed_sizes(
   size_t* device_out_bytes,
   int count,
   hipStream_t stream);
+
 } // namespace hipcomp
