@@ -25,22 +25,23 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 
 #include "highlevel/SnappyHlifKernels.h"
-#include "nvcomp_common_deps/hlif_shared.cuh"
+#include "hipcomp_common_deps/hlif_shared.cuh"
 #include "SnappyKernels.cuh"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 
-namespace nvcomp {
+namespace hipcomp {
 
 struct snappy_compress_wrapper : hlif_compress_wrapper {
 
 private:
-  nvcompStatus_t* status;
+  hipcompStatus_t* status;
 
 public:
-  __device__ snappy_compress_wrapper(uint8_t* /*tmp_buffer*/, uint8_t* /*share_buffer*/, nvcompStatus_t* status)
+  __device__ snappy_compress_wrapper(uint8_t* /*tmp_buffer*/, uint8_t* /*share_buffer*/, hipcompStatus_t* status)
    : status(status)
   {}
       
@@ -60,7 +61,7 @@ public:
         comp_chunk_size);
   }
 
-  __device__ nvcompStatus_t get_output_status() {
+  __device__ hipcompStatus_t get_output_status() {
     return *status;
   }
 
@@ -72,10 +73,10 @@ public:
 struct snappy_decompress_wrapper : hlif_decompress_wrapper {
 
 private:
-  nvcompStatus_t* status;
+  hipcompStatus_t* status;
 
 public:
-  __device__ snappy_decompress_wrapper(uint8_t* /*shared_buffer*/, nvcompStatus_t* status)
+  __device__ snappy_decompress_wrapper(uint8_t* /*shared_buffer*/, hipcompStatus_t* status)
     : status(status)
   {}
       
@@ -94,7 +95,7 @@ public:
         nullptr); // device_uncompressed_bytes -- unnecessary for HLIF
   }
 
-  __device__ nvcompStatus_t get_output_status() {
+  __device__ hipcompStatus_t get_output_status() {
     return *status;
   }
 };
@@ -102,7 +103,7 @@ public:
 void snappyHlifBatchCompress(
     const CompressArgs& comp_args,
     const uint32_t max_ctas,
-    cudaStream_t stream) 
+    hipStream_t stream) 
 {
   const dim3 grid(max_ctas);
   const dim3 block(COMP_THREADS_PER_BLOCK);
@@ -120,8 +121,8 @@ void snappyHlifBatchDecompress(
     const size_t* comp_chunk_offsets,
     const size_t* comp_chunk_sizes,
     const uint32_t max_ctas,
-    cudaStream_t stream,
-    nvcompStatus_t* output_status) 
+    hipStream_t stream,
+    hipcompStatus_t* output_status) 
 {
   const dim3 grid(max_ctas);
   const dim3 block(DECOMP_THREADS_PER_BLOCK);
@@ -138,11 +139,11 @@ void snappyHlifBatchDecompress(
 
 size_t snappyHlifCompMaxBlockOccupancy(const int device_id) 
 {
-  cudaDeviceProp device_prop;
-  cudaGetDeviceProperties(&device_prop, device_id);
+  hipDeviceProp_t device_prop;
+  hipGetDeviceProperties(&device_prop, device_id);
   int num_blocks_per_sm;
   constexpr int shmem_size = 0;
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+  hipOccupancyMaxActiveBlocksPerMultiprocessor(
       &num_blocks_per_sm, 
       HlifCompressBatchKernel<snappy_compress_wrapper>, 
       COMP_THREADS_PER_BLOCK,
@@ -153,11 +154,11 @@ size_t snappyHlifCompMaxBlockOccupancy(const int device_id)
 
 size_t snappyHlifDecompMaxBlockOccupancy(const int device_id) 
 {
-  cudaDeviceProp device_prop;
-  cudaGetDeviceProperties(&device_prop, device_id);
+  hipDeviceProp_t device_prop;
+  hipGetDeviceProperties(&device_prop, device_id);
   int num_blocks_per_sm;
   constexpr int shmem_size = 0;
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+  hipOccupancyMaxActiveBlocksPerMultiprocessor(
       &num_blocks_per_sm, 
       HlifDecompressBatchKernel<snappy_decompress_wrapper, 1>, 
       DECOMP_THREADS_PER_BLOCK, 
@@ -166,4 +167,4 @@ size_t snappyHlifDecompMaxBlockOccupancy(const int device_id)
   return device_prop.multiProcessorCount * num_blocks_per_sm;
 }
 
-} // nvcomp namespace
+} // hipcomp namespace
