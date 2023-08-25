@@ -25,12 +25,13 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "lowlevel/SnappyBatchKernels.h"
-#include "SnappyKernels.cuh"
-#include "CudaUtils.h"
+#include "SnappyKernels.hiph"
+#include "HipUtils.h"
 
-namespace nvcomp {
+namespace hipcomp {
 
 /**
  * @brief Snappy compression kernel
@@ -58,7 +59,7 @@ snap_kernel(
       &device_out_bytes[ix_chunk]);
 }
 
-__global__ void __launch_bounds__(32)
+__global__ void __launch_bounds__(warpSize)
 get_uncompressed_sizes_kernel(
   const void* const* __restrict__ device_in_ptr,
   const uint64_t* __restrict__ device_in_bytes,
@@ -124,7 +125,7 @@ __global__ void __launch_bounds__(DECOMP_THREADS_PER_BLOCK) unsnap_kernel(
     const uint64_t* __restrict__ device_in_bytes,
     void* const* __restrict__ device_out_ptr,
     const uint64_t* __restrict__ device_out_available_bytes,
-    nvcompStatus_t* const __restrict__ outputs,
+    hipcompStatus_t* const __restrict__ outputs,
     uint64_t* __restrict__ device_out_bytes)
 {
   const int ix_chunk = blockIdx.x;
@@ -144,14 +145,14 @@ void gpu_snap(
   gpu_snappy_status_s *outputs,
   size_t* device_out_bytes,
   int count,
-  cudaStream_t stream)
+  hipStream_t stream)
 {
   dim3 dim_block(COMP_THREADS_PER_BLOCK, 1);  
   dim3 dim_grid(count, 1);
   if (count > 0) { snap_kernel<<<dim_grid, dim_block, 0, stream>>>(
     device_in_ptr, device_in_bytes, device_out_ptr, device_out_available_bytes,
       outputs, device_out_bytes); }
-  CudaUtils::check_last_error("Failed to launch Snappy compression CUDA kernel gpu_snap");
+  HipUtils::check_last_error("Failed to launch Snappy compression HIP kernel gpu_snap");
 }
 
 void gpu_unsnap(
@@ -159,10 +160,10 @@ void gpu_unsnap(
     const size_t* device_in_bytes,
     void* const* device_out_ptr,
     const size_t* device_out_available_bytes,
-    nvcompStatus_t* outputs,
+    hipcompStatus_t* outputs,
     size_t* device_out_bytes,
     int count,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
   uint32_t count32 = (count > 0) ? count : 0;
   dim3 dim_block(DECOMP_THREADS_PER_BLOCK, 1);     
@@ -171,7 +172,7 @@ void gpu_unsnap(
   unsnap_kernel<<<dim_grid, dim_block, 0, stream>>>(
     device_in_ptr, device_in_bytes, device_out_ptr, device_out_available_bytes,
       outputs, device_out_bytes);
-  CudaUtils::check_last_error("Failed to launch Snappy decompression CUDA kernel gpu_unsnap");
+  HipUtils::check_last_error("Failed to launch Snappy decompression HIP kernel gpu_unsnap");
 }
 
 void gpu_get_uncompressed_sizes(
@@ -179,14 +180,14 @@ void gpu_get_uncompressed_sizes(
   const size_t* device_in_bytes,
   size_t* device_out_bytes,
   int count,
-  cudaStream_t stream)
+  hipStream_t stream)
 {
-  dim3 dim_block(32, 1);
+  dim3 dim_block(warpSize, 1); // only a single thread is active in any case
   dim3 dim_grid(count, 1);
 
   get_uncompressed_sizes_kernel<<<dim_grid, dim_block, 0, stream>>>(
     device_in_ptr, device_in_bytes, device_out_bytes);
-  CudaUtils::check_last_error("Failed to run Snappy kernel gpu_get_uncompressed_sizes");
+  HipUtils::check_last_error("Failed to run Snappy kernel gpu_get_uncompressed_sizes");
 }
 
-} // nvcomp namespace
+} // hipcomp namespace
