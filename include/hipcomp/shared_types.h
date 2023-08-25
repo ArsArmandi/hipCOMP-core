@@ -25,15 +25,16 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
-typedef enum nvcompStatus_t
+typedef enum hipcompStatus_t
 {
-  nvcompSuccess = 0,
-  nvcompErrorInvalidValue = 10,
-  nvcompErrorNotSupported = 11,
-  nvcompErrorCannotDecompress = 12,
-  nvcompErrorCudaError = 1000,
-  nvcompErrorInternal = 10000,
-} nvcompStatus_t;
+  hipcompSuccess = 0,
+  hipcompErrorInvalidValue = 10,
+  hipcompErrorNotSupported = 11,
+  hipcompErrorCannotDecompress = 12,
+  hipcompErrorCudaError = 1000,
+  hipcompErrorInternal = 10000,
+} hipcompStatus_t;
