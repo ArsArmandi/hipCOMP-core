@@ -25,11 +25,12 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #define CATCH_CONFIG_MAIN
 
-#include "nvcomp.hpp"
-#include "nvcomp/cascaded.hpp"
+#include "hipcomp.hpp"
+#include "hipcomp/cascaded.hpp"
 
 #include "catch.hpp"
 
@@ -40,12 +41,12 @@
 // Test GPU decompression with cascaded compression API //
 
 using namespace std;
-using namespace nvcomp;
+using namespace hipcomp;
 
-#define CUDA_CHECK(cond)                                                       \
+#define HIP_CHECK(cond)                                                       \
   do {                                                                         \
-    cudaError_t err = (cond);                                                  \
-    REQUIRE(err == cudaSuccess);                                               \
+    hipError_t err = (cond);                                                  \
+    REQUIRE(err == hipSuccess);                                               \
   } while (false)
 
 /******************************************************************************
@@ -69,71 +70,71 @@ std::vector<T> buildRuns(const size_t numRuns, const size_t runSize)
 }
 
 template <typename T>
-void test_cascaded(const std::vector<T>& input, nvcompType_t data_type)
+void test_cascaded(const std::vector<T>& input, hipcompType_t data_type)
 {
   // create GPU only input buffer
   T* d_in_data;
   const size_t in_bytes = sizeof(T) * input.size();
-  CUDA_CHECK(cudaMalloc((void**)&d_in_data, in_bytes));
-  CUDA_CHECK(
-      cudaMemcpy(d_in_data, input.data(), in_bytes, cudaMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc((void**)&d_in_data, in_bytes));
+  HIP_CHECK(
+      hipMemcpy(d_in_data, input.data(), in_bytes, hipMemcpyHostToDevice));
 
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStream_t stream;
+  hipStreamCreate(&stream);
 
-  nvcompBatchedCascadedOpts_t options = nvcompBatchedCascadedDefaultOpts;
+  hipcompBatchedCascadedOpts_t options = hipcompBatchedCascadedDefaultOpts;
   options.type = data_type;
   CascadedManager manager{options, stream};
   auto comp_config = manager.configure_compression(in_bytes);
 
   // Allocate output buffer
   uint8_t* d_comp_out;
-  CUDA_CHECK(cudaMalloc(&d_comp_out, comp_config.max_compressed_buffer_size));
+  HIP_CHECK(hipMalloc(&d_comp_out, comp_config.max_compressed_buffer_size));
 
   manager.compress(
       reinterpret_cast<const uint8_t*>(d_in_data),
       d_comp_out,
       comp_config);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
 
   size_t comp_out_bytes = manager.get_compressed_output_size(d_comp_out);
 
-  cudaFree(d_in_data);
+  hipFree(d_in_data);
 
   // Test to make sure copying the compressed file is ok
   uint8_t* copied = 0;
-  CUDA_CHECK(cudaMalloc(&copied, comp_out_bytes));
-  CUDA_CHECK(
-      cudaMemcpy(copied, d_comp_out, comp_out_bytes, cudaMemcpyDeviceToDevice));
-  cudaFree(d_comp_out);
+  HIP_CHECK(hipMalloc(&copied, comp_out_bytes));
+  HIP_CHECK(
+      hipMemcpy(copied, d_comp_out, comp_out_bytes, hipMemcpyDeviceToDevice));
+  hipFree(d_comp_out);
   d_comp_out = copied;
 
   auto decomp_config = manager.configure_decompression(d_comp_out);
 
   T* out_ptr;
-  cudaMalloc(&out_ptr, decomp_config.decomp_data_size);
+  hipMalloc(&out_ptr, decomp_config.decomp_data_size);
 
   // make sure the data won't match input if not written to, so we can verify
   // correctness
-  cudaMemset(out_ptr, 0, decomp_config.decomp_data_size);
+  hipMemset(out_ptr, 0, decomp_config.decomp_data_size);
 
   manager.decompress(
       reinterpret_cast<uint8_t*>(out_ptr),
       d_comp_out,
       decomp_config);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
 
   // Copy result back to host
   std::vector<T> res(input.size());
-  cudaMemcpy(
-      &res[0], out_ptr, input.size() * sizeof(T), cudaMemcpyDeviceToHost);
+  hipMemcpy(
+      &res[0], out_ptr, input.size() * sizeof(T), hipMemcpyDeviceToHost);
 
   // Verify correctness
   REQUIRE(res == input);
 
-  cudaFree(d_comp_out);
-  cudaFree(out_ptr);
+  hipFree(d_comp_out);
+  hipFree(out_ptr);
 }
 
 } // namespace
@@ -142,16 +143,16 @@ void test_cascaded(const std::vector<T>& input, nvcompType_t data_type)
  * UNIT TESTS *****************************************************************
  *****************************************************************************/
 
-TEST_CASE("comp/decomp cascaded-small", "[nvcomp]")
+TEST_CASE("comp/decomp cascaded-small", "[hipcomp]")
 {
   using T = int;
 
   std::vector<T> input = {0, 2, 2, 3, 0, 0, 0, 0, 0, 3, 1, 1, 1, 1, 1, 2, 3, 3};
 
-  test_cascaded(input, NVCOMP_TYPE_INT);
+  test_cascaded(input, HIPCOMP_TYPE_INT);
 }
 
-TEST_CASE("comp/decomp cascaded-1", "[nvcomp]")
+TEST_CASE("comp/decomp cascaded-1", "[hipcomp]")
 {
   using T = int;
 
@@ -161,78 +162,78 @@ TEST_CASE("comp/decomp cascaded-1", "[nvcomp]")
     input.push_back(i >> 2);
   }
 
-  test_cascaded(input, NVCOMP_TYPE_INT);
+  test_cascaded(input, HIPCOMP_TYPE_INT);
 }
 
-TEST_CASE("comp/decomp cascaded-all-small-sizes", "[nvcomp][small]")
+TEST_CASE("comp/decomp cascaded-all-small-sizes", "[hipcomp][small]")
 {
   using T = uint8_t;
 
   for (int total = 1; total < 4096; ++total) {
     std::vector<T> input = buildRuns<T>(total, 1);
-    test_cascaded(input, NVCOMP_TYPE_UCHAR);
+    test_cascaded(input, HIPCOMP_TYPE_UCHAR);
   }
 }
 
-TEST_CASE("comp/decomp cascaded-multichunk", "[nvcomp][large]")
+TEST_CASE("comp/decomp cascaded-multichunk", "[hipcomp][large]")
 {
   using T = int;
 
   for (int total = 10; total < (1 << 24); total = total * 2 + 7) {
     std::vector<T> input = buildRuns<T>(total, 10);
-    test_cascaded(input, NVCOMP_TYPE_INT);
+    test_cascaded(input, HIPCOMP_TYPE_INT);
   }
 }
 
-TEST_CASE("comp/decomp cascaded-small-uint8", "[nvcomp][small]")
+TEST_CASE("comp/decomp cascaded-small-uint8", "[hipcomp][small]")
 {
   using T = uint8_t;
 
   for (size_t num = 1; num < 1 << 18; num = num * 2 + 1) {
     std::vector<T> input = buildRuns<T>(num, 3);
-    test_cascaded(input, NVCOMP_TYPE_UCHAR);
+    test_cascaded(input, HIPCOMP_TYPE_UCHAR);
   }
 }
 
-TEST_CASE("comp/decomp cascaded-small-uint16", "[nvcomp][small]")
+TEST_CASE("comp/decomp cascaded-small-uint16", "[hipcomp][small]")
 {
   using T = uint16_t;
 
   for (size_t num = 1; num < 1 << 18; num = num * 2 + 1) {
     std::vector<T> input = buildRuns<T>(num, 3);
-    test_cascaded(input, NVCOMP_TYPE_USHORT);
+    test_cascaded(input, HIPCOMP_TYPE_USHORT);
   }
 }
 
-TEST_CASE("comp/decomp cascaded-small-uint32", "[nvcomp][small]")
+TEST_CASE("comp/decomp cascaded-small-uint32", "[hipcomp][small]")
 {
   using T = uint32_t;
 
   for (size_t num = 1; num < 1 << 18; num = num * 2 + 1) {
     std::vector<T> input = buildRuns<T>(num, 3);
-    test_cascaded(input, NVCOMP_TYPE_UINT);
+    test_cascaded(input, HIPCOMP_TYPE_UINT);
   }
 }
 
-TEST_CASE("comp/decomp cascaded-small-uint64", "[nvcomp][small]")
+TEST_CASE("comp/decomp cascaded-small-uint64", "[hipcomp][small]")
 {
   using T = uint64_t;
 
   for (size_t num = 1; num < 1 << 18; num = num * 2 + 1) {
     std::vector<T> input = buildRuns<T>(num, 3);
-    test_cascaded(input, NVCOMP_TYPE_ULONGLONG);
+    test_cascaded(input, HIPCOMP_TYPE_ULONGLONG);
   }
 }
 
-TEST_CASE("comp/decomp cascaded-none-aligned-sizes", "[nvcomp][small]")
+TEST_CASE("comp/decomp cascaded-none-aligned-sizes", "[hipcomp][small]")
 {
   std::vector<size_t> input_sizes = { 1, 33, 1021 };
 
-  std::vector<nvcompType_t> data_types = {
-    NVCOMP_TYPE_CHAR,
-    NVCOMP_TYPE_SHORT,
-    NVCOMP_TYPE_INT,
-    NVCOMP_TYPE_LONGLONG,
+  std::vector<hipcompType_t> data_types = {
+    HIPCOMP_TYPE_CHAR,
+    HIPCOMP_TYPE_SHORT,
+    HIPCOMP_TYPE_INT,
+    HIPCOMP_TYPE_LONGLONG,
   };
   for (auto size : input_sizes) {
     std::vector<uint8_t> input = buildRuns<uint8_t>(1, size);
