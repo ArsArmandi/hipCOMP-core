@@ -25,29 +25,30 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "CompressionConfigs.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
-CompressionConfig::CompressionConfigImpl::CompressionConfigImpl(PinnedPtrPool<nvcompStatus_t>& pool)
+CompressionConfig::CompressionConfigImpl::CompressionConfigImpl(PinnedPtrPool<hipcompStatus_t>& pool)
   : status(pool.allocate())
 {
-  *get_status() = nvcompSuccess;
+  *get_status() = hipcompSuccess;
 }
 
-nvcompStatus_t* CompressionConfig::CompressionConfigImpl::get_status() const {
+hipcompStatus_t* CompressionConfig::CompressionConfigImpl::get_status() const {
   return status->get_ptr();
 }
 
-CompressionConfig::CompressionConfig(PinnedPtrPool<nvcompStatus_t>& pool, size_t uncompressed_buffer_size)
+CompressionConfig::CompressionConfig(PinnedPtrPool<hipcompStatus_t>& pool, size_t uncompressed_buffer_size)
   : impl(std::make_shared<CompressionConfig::CompressionConfigImpl>(pool)),
     uncompressed_buffer_size(uncompressed_buffer_size),
     max_compressed_buffer_size(0),
     num_chunks(0)
 {}
 
-nvcompStatus_t* CompressionConfig::get_status() const {
+hipcompStatus_t* CompressionConfig::get_status() const {
   return impl->get_status();
 }
 
@@ -86,30 +87,30 @@ CompressionConfig& CompressionConfig::operator=(CompressionConfig&& other)
 }
 
 /**
- * @brief Construct the config given an nvcompStatus_t memory pool
+ * @brief Construct the config given an hipcompStatus_t memory pool
  */
-DecompressionConfig::DecompressionConfigImpl::DecompressionConfigImpl(PinnedPtrPool<nvcompStatus_t>& pool)
+DecompressionConfig::DecompressionConfigImpl::DecompressionConfigImpl(PinnedPtrPool<hipcompStatus_t>& pool)
   : status(pool.allocate()),
     decomp_data_size(),
     num_chunks()
 {
-  *get_status() = nvcompSuccess;
+  *get_status() = hipcompSuccess;
 }
 
 /**
- * @brief Get the raw nvcompStatus_t*
+ * @brief Get the raw hipcompStatus_t*
  */
-nvcompStatus_t* DecompressionConfig::DecompressionConfigImpl::get_status() const {
+hipcompStatus_t* DecompressionConfig::DecompressionConfigImpl::get_status() const {
   return status->get_ptr();
 }
 
-DecompressionConfig::DecompressionConfig(PinnedPtrPool<nvcompStatus_t>& pool)
+DecompressionConfig::DecompressionConfig(PinnedPtrPool<hipcompStatus_t>& pool)
   : impl(std::make_shared<DecompressionConfig::DecompressionConfigImpl>(pool)),
     decomp_data_size(0),
     num_chunks(0)
 {}
 
-nvcompStatus_t* DecompressionConfig::get_status() const {
+hipcompStatus_t* DecompressionConfig::get_status() const {
   return impl->get_status();
 }
 
@@ -143,4 +144,4 @@ DecompressionConfig::DecompressionConfig(const DecompressionConfig& other)
     num_chunks(other.num_chunks)
 {}
 
-} // namespace nvcomp
+} // namespace hipcomp
