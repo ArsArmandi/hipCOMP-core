@@ -25,21 +25,22 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
 
 #include "LZ4Types.h"
 
-namespace nvcomp {
+namespace hipcomp {
 
 void lz4HlifBatchCompress(
     const CompressArgs& compress_args,
     const position_type hash_table_size,
     const uint32_t max_ctas,
-    nvcompType_t data_type,
-    cudaStream_t stream);
+    hipcompType_t data_type,
+    hipStream_t stream);
 
 void lz4HlifBatchDecompress(
     const uint8_t* comp_buffer, 
@@ -50,11 +51,11 @@ void lz4HlifBatchDecompress(
     const size_t* comp_chunk_offsets,
     const size_t* comp_chunk_sizes,
     const uint32_t max_ctas,
-    cudaStream_t stream,
-    nvcompStatus_t* output_status);
+    hipStream_t stream,
+    hipcompStatus_t* output_status);
 
-size_t batchedLZ4DecompMaxBlockOccupancy(nvcompType_t data_type, const int device_id);
+size_t batchedLZ4DecompMaxBlockOccupancy(hipcompType_t data_type, const int device_id);
 
-size_t batchedLZ4CompMaxBlockOccupancy(nvcompType_t data_type, const int device_id);
+size_t batchedLZ4CompMaxBlockOccupancy(hipcompType_t data_type, const int device_id);
 
-} // namespace nvcomp
+} // namespace hipcomp
