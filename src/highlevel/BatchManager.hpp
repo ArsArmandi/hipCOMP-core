@@ -25,24 +25,25 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
 #include "ManagerBase.hpp"
 #include "common.h"
 
-namespace nvcomp {
+namespace hipcomp {
 
 /**
  * Base class for compression formats that are able to use the 
- * nvcomp shared HLIF logic code. 
+ * hipcomp shared HLIF logic code. 
  * 
  * This class does compression by splitting the uncompressed buffer into chunks. 
  * It compresses each chunk independently and outputs the chunks into a gapless 
  * result buffer in arbitrary chunk ordering. The header then includes the information
  * needed to decompress the chunks back into the original ordering.
  * 
- * Generally, the code in hlif_shared.cuh can be used to implement 
+ * Generally, the code in hlif_shared.hiph can be used to implement 
  * do_batch_(compress/decompress). In this case, device code for compression / decompression 
  * can be shared between the low level batch API and the BatchManager extension.
  * 
@@ -61,7 +62,7 @@ private: // members
   size_t uncomp_chunk_size;
 
 public: // API
-  BatchManager(size_t uncomp_chunk_size, cudaStream_t user_stream = 0, int device_id = 0)
+  BatchManager(size_t uncomp_chunk_size, hipStream_t user_stream = 0, int device_id = 0)
     : ManagerBase<FormatSpecHeader>(user_stream, device_id),
       ix_chunk(0),
       max_comp_ctas(0),
@@ -69,11 +70,11 @@ public: // API
       max_comp_chunk_size(0),
       uncomp_chunk_size(uncomp_chunk_size)
   {
-    CudaUtils::check(cudaMalloc(&ix_chunk, sizeof(uint32_t)));
+    HipUtils::check(hipMalloc(&ix_chunk, sizeof(uint32_t)));
   }
 
   virtual ~BatchManager() {
-    CudaUtils::check(cudaFree(ix_chunk));
+    HipUtils::check(hipFree(ix_chunk));
   }
 
   BatchManager& operator=(const BatchManager&) = delete;     
@@ -90,7 +91,7 @@ public: // API
     const uint32_t* decomp_chunk_checksums = comp_chunk_checksums + config.num_chunks;
     const uint8_t* comp_data_buffer = reinterpret_cast<const uint8_t*>(decomp_chunk_checksums + config.num_chunks);
 
-    CudaUtils::check(cudaMemsetAsync(ix_chunk, 0, sizeof(uint32_t), user_stream));
+    HipUtils::check(hipMemsetAsync(ix_chunk, 0, sizeof(uint32_t), user_stream));
     do_batch_decompress(
         comp_data_buffer,
         decomp_buffer,
@@ -109,10 +110,10 @@ public: // API
       DecompressionConfig& decomp_config,
       const CommonHeader* common_header) final override 
   {
-    CudaUtils::check(cudaMemcpyAsync(&decomp_config.num_chunks, 
+    HipUtils::check(hipMemcpyAsync(&decomp_config.num_chunks, 
         &common_header->num_chunks, 
         sizeof(size_t),
-        cudaMemcpyDefault,
+        hipMemcpyDefault,
         user_stream));
   }
 
@@ -157,7 +158,7 @@ private: // pure virtual functions
       const uint32_t num_chunks,
       const size_t* comp_chunk_offsets,
       const size_t* comp_chunk_sizes,
-      nvcompStatus_t* output_status) = 0;
+      hipcompStatus_t* output_status) = 0;
 
 protected: // derived helpers
   void finish_init() {
@@ -230,7 +231,7 @@ private: // helper API overrides
     compress_args.comp_buffer = reinterpret_cast<uint8_t*>(decomp_chunk_checksums + comp_config.num_chunks);
     compress_args.output_status = comp_config.get_status();
 
-    CudaUtils::check(cudaMemsetAsync(ix_chunk, 0, sizeof(uint32_t), user_stream));    
+    HipUtils::check(hipMemsetAsync(ix_chunk, 0, sizeof(uint32_t), user_stream));    
     
     do_batch_compress(compress_args);
   }
@@ -259,4 +260,4 @@ private: // helper API overrides
 
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
