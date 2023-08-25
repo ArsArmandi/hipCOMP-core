@@ -25,14 +25,15 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
 #include <memory>
 #include <vector>
-#include "CudaUtils.h"
+#include "HipUtils.h"
 
-namespace nvcomp {
+namespace hipcomp {
 
 // Static values that should be exposed.
 // These could be static members of the PinnedPtrPool 
@@ -68,7 +69,7 @@ public: // API
 
     pool.reserve(PINNED_POOL_PREALLOC_SIZE);
 
-    CudaUtils::check(cudaHostAlloc(&first_alloc, PINNED_POOL_PREALLOC_SIZE * sizeof(T), cudaHostAllocDefault));
+    HipUtils::check(hipHostMalloc(&first_alloc, PINNED_POOL_PREALLOC_SIZE * sizeof(T), hipHostMallocDefault));
 
     for (size_t ix = 0; ix < PINNED_POOL_PREALLOC_SIZE; ++ix) {
       pool.push_back(first_alloc + ix);
@@ -145,7 +146,7 @@ public: // API
       alloced_buffers.push_back(nullptr);
       T*& new_alloc = alloced_buffers.back();
 
-      CudaUtils::check(cudaHostAlloc(&new_alloc, PINNED_POOL_REALLOC_SIZE * sizeof(T), cudaHostAllocDefault));
+      HipUtils::check(hipHostMalloc(&new_alloc, PINNED_POOL_REALLOC_SIZE * sizeof(T), hipHostMallocDefault));
       for (size_t ix = 0; ix < PINNED_POOL_REALLOC_SIZE; ++ix) {
         pool.push_back(new_alloc + ix);
       }
@@ -158,7 +159,7 @@ public: // API
 
   ~PinnedPtrPool() {
     for (auto alloced_buffer : alloced_buffers) {
-      CudaUtils::check(cudaFreeHost(alloced_buffer));
+      HipUtils::check(hipHostFree(alloced_buffer));
     }
   }
 
@@ -190,4 +191,4 @@ private: // helpers that PoolTestWrapper will use
   friend struct PoolTestWrapper<T>;
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
