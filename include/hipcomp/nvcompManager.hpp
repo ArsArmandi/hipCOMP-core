@@ -27,13 +27,14 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include <memory>
 #include <vector>
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 
-namespace nvcomp {
+namespace hipcomp {
 
 /******************************************************************************
  * CLASSES ********************************************************************
@@ -48,7 +49,7 @@ struct PinnedPtrPool;
 /**
  * @brief Config used to aggregate information about the compression of a particular buffer.
  * 
- * Contains a "PinnedPtrHandle" to an nvcompStatus. After the compression is complete,
+ * Contains a "PinnedPtrHandle" to an hipcompStatus. After the compression is complete,
  * the user can check the result status which resides in pinned host memory.
  */
 struct CompressionConfig {
@@ -63,14 +64,14 @@ public: // API
   size_t num_chunks;
 
   /**
-   * @brief Construct the config given an nvcompStatus_t memory pool
+   * @brief Construct the config given an hipcompStatus_t memory pool
    */
-  CompressionConfig(PinnedPtrPool<nvcompStatus_t>& pool, size_t uncompressed_buffer_size);
+  CompressionConfig(PinnedPtrPool<hipcompStatus_t>& pool, size_t uncompressed_buffer_size);
 
   /**
-   * @brief Get the raw nvcompStatus_t*
+   * @brief Get the raw hipcompStatus_t*
    */
-  nvcompStatus_t* get_status() const;
+  hipcompStatus_t* get_status() const;
   
   CompressionConfig(CompressionConfig&& other);
   CompressionConfig(const CompressionConfig& other);
@@ -83,7 +84,7 @@ public: // API
 /**
  * @brief Config used to aggregate information about a particular decompression.
  * 
- * Contains a "PinnedPtrHandle" to an nvcompStatus. After the decompression is complete,
+ * Contains a "PinnedPtrHandle" to an hipcompStatus. After the decompression is complete,
  * the user can check the result status which resides in pinned host memory.
  */
 struct DecompressionConfig {
@@ -97,14 +98,14 @@ public: // API
   uint32_t num_chunks;
 
   /**
-   * @brief Construct the config given an nvcompStatus_t memory pool
+   * @brief Construct the config given an hipcompStatus_t memory pool
    */
-  DecompressionConfig(PinnedPtrPool<nvcompStatus_t>& pool);
+  DecompressionConfig(PinnedPtrPool<hipcompStatus_t>& pool);
 
   /**
-   * @brief Get the nvcompStatus_t*
+   * @brief Get the hipcompStatus_t*
    */
-  nvcompStatus_t* get_status() const;
+  hipcompStatus_t* get_status() const;
 
   DecompressionConfig(DecompressionConfig&& other);
   DecompressionConfig(const DecompressionConfig& other);
@@ -117,12 +118,12 @@ public: // API
 /**
  * @brief Abstract base class that defines the nvCOMP high level interface
  */
-struct nvcompManagerBase {
+struct hipcompManagerBase {
   /**
    * @brief Configure the compression. 
    *
    * This routine computes the size of the required result buffer. The result config also
-   * contains the nvcompStatus* that allows error checking. Synchronizes the device (cudaMemcpy)
+   * contains the hipcompStatus* that allows error checking. Synchronizes the device (hipMemcpy)
    * 
    * @param decomp_buffer_size The uncompressed input data size.
    * \return comp_config Result
@@ -171,7 +172,7 @@ struct nvcompManagerBase {
    * @param decomp_buffer The location to output the decompressed data to (GPU accessible).
    * @param comp_buffer The compressed input data (GPU accessible).
    * @param decomp_config Resulted from configure_decompression given this decomp_buffer_size.
-   * Contains nvcompStatus* in CPU/GPU-accessible memory to allow error checking.
+   * Contains hipcompStatus* in CPU/GPU-accessible memory to allow error checking.
    */
   virtual void decompress(
       uint8_t* decomp_buffer, 
@@ -211,13 +212,13 @@ struct nvcompManagerBase {
    */ 
   virtual size_t get_compressed_output_size(uint8_t* comp_buffer) = 0;
 
-  virtual ~nvcompManagerBase() = default;
+  virtual ~hipcompManagerBase() = default;
 };
 
-struct PimplManager : nvcompManagerBase {
+struct PimplManager : hipcompManagerBase {
 
 protected:
-  std::unique_ptr<nvcompManagerBase> impl;
+  std::unique_ptr<hipcompManagerBase> impl;
 
 public:
   virtual ~PimplManager() {}
@@ -279,4 +280,4 @@ public:
   }
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
