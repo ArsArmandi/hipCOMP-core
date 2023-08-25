@@ -31,7 +31,7 @@
 
 #include "Check.h"
 #include "HipUtils.h"
-#include "SnappyKernels.h"
+#include "SnappyBatchKernels.h"
 #include "common.h"
 #include "hipcomp.h"
 #include "hipcomp.hpp"
