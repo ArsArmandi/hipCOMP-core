@@ -8,7 +8,7 @@ LICENSE FILE:
 
 This project contains work derived from NVIDIA nvCOMP v2.1 that is licensed under the 3-Clause BSD License:
 
-* LICENSE FILE: [NVCOMP_2_1_LICENSE](NVCOMP_2_1_LICENSE)
+* LICENSE FILE: [NVCOMP_2_2_LICENSE](NVCOMP_2_2_LICENSE)
 * HOMEPAGE: https://github.com/NVIDIA/nvcomp/tree/branch-2.1
 * FILES:
   * CMakeLists.txt
