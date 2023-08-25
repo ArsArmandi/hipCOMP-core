@@ -25,6 +25,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
@@ -32,25 +33,25 @@
 #include <memory>
 
 #include "Check.h"
-#include "CudaUtils.h"
-#include "nvcomp/gdeflate.h"
+#include "HipUtils.h"
+#include "hipcomp/gdeflate.h"
 #include "common.h"
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
 #include "BatchManager.hpp"
 
 #ifdef ENABLE_GDEFLATE
 #include "GdeflateHlifKernels.h"
 #endif
 
-namespace nvcomp {
+namespace hipcomp {
 
-struct GdeflateBatchManager : BatchManager<nvcompBatchedGdeflateOpts_t> {
+struct GdeflateBatchManager : BatchManager<hipcompBatchedGdeflateOpts_t> {
 private:
   size_t hash_table_size;
-  nvcompBatchedGdeflateOpts_t* format_spec;
+  hipcompBatchedGdeflateOpts_t* format_spec;
 
 public:
-  GdeflateBatchManager(size_t uncomp_chunk_size, int algo, cudaStream_t user_stream = 0, const int device_id = 0)
+  GdeflateBatchManager(size_t uncomp_chunk_size, int algo, hipStream_t user_stream = 0, const int device_id = 0)
     : BatchManager(uncomp_chunk_size, user_stream, device_id),      
       hash_table_size(),
       format_spec()
@@ -68,7 +69,7 @@ public:
         throw std::invalid_argument("Invalid format_opts.algo value (not 0, 1 or 2)");
     }
 
-    CudaUtils::check(cudaHostAlloc(&format_spec, sizeof(nvcompBatchedGdeflateOpts_t), cudaHostAllocDefault));
+    HipUtils::check(hipHostMalloc(&format_spec, sizeof(hipcompBatchedGdeflateOpts_t), hipHostMallocDefault));
     format_spec->algo = algo;
 
     finish_init();
@@ -76,7 +77,7 @@ public:
 
   virtual ~GdeflateBatchManager() 
   {
-    CudaUtils::check(cudaFreeHost(format_spec));
+    HipUtils::check(hipHostFree(format_spec));
   }
 
   GdeflateBatchManager(const GdeflateBatchManager&) = delete;
@@ -85,7 +86,7 @@ public:
   size_t compute_max_compressed_chunk_size() final override 
   {
     size_t max_comp_chunk_size;
-    nvcompBatchedGdeflateCompressGetMaxOutputChunkSize(
+    hipcompBatchedGdeflateCompressGetMaxOutputChunkSize(
         get_uncomp_chunk_size(), *format_spec, &max_comp_chunk_size);
     return max_comp_chunk_size;
   }
@@ -95,7 +96,7 @@ public:
 #ifdef ENABLE_GDEFLATE
     return gdeflate::hlif::batchedGdeflateCompMaxBlockOccupancy(device_id);
 #else
-    throw std::runtime_error("nvcomp configured without gdeflate support. Please check the README for configuration instructions");
+    throw std::runtime_error("hipcomp configured without gdeflate support. Please check the README for configuration instructions");
     return 0;
 #endif
   }
@@ -105,12 +106,12 @@ public:
 #ifdef ENABLE_GDEFLATE
     return gdeflate::hlif::batchedGdeflateDecompMaxBlockOccupancy(device_id); 
 #else
-    throw std::runtime_error("nvcomp configured without gdeflate support. Please check the README for configuration instructions");
+    throw std::runtime_error("hipcomp configured without gdeflate support. Please check the README for configuration instructions");
     return 0;
 #endif
   }
 
-  nvcompBatchedGdeflateOpts_t* get_format_header() final override 
+  hipcompBatchedGdeflateOpts_t* get_format_header() final override 
   {
     return format_spec;
   }
@@ -124,7 +125,7 @@ public:
         user_stream);
 #else
     (void)compress_args;
-    throw std::runtime_error("nvcomp configured without gdeflate support. Please check the README for configuration instructions");
+    throw std::runtime_error("hipcomp configured without gdeflate support. Please check the README for configuration instructions");
 #endif
   }
 
@@ -134,7 +135,7 @@ public:
       const uint32_t num_chunks,
       const size_t* comp_chunk_offsets,
       const size_t* comp_chunk_sizes,
-      nvcompStatus_t* output_status) final override
+      hipcompStatus_t* output_status) final override
   {        
 #ifdef ENABLE_GDEFLATE
     gdeflate::hlif::gdeflateHlifBatchDecompress(
@@ -155,7 +156,7 @@ public:
     (void)comp_chunk_offsets;
     (void)comp_chunk_sizes;
     (void)output_status;
-    throw std::runtime_error("nvcomp configured without gdeflate support. Please check the README for configuration instructions");
+    throw std::runtime_error("hipcomp configured without gdeflate support. Please check the README for configuration instructions");
 #endif
   }
 
@@ -178,4 +179,4 @@ private: // helper overrides
   void format_specific_init() final override {}
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
