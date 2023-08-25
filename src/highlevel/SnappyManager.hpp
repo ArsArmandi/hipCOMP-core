@@ -25,40 +25,41 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
 #include <memory>
 
-#include "nvcomp/snappy.h"
-#include "nvcomp/snappy.hpp"
+#include "hipcomp/snappy.h"
+#include "hipcomp/snappy.hpp"
 
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "common.h"
 #include "highlevel/BatchManager.hpp"
 #include "highlevel/SnappyHlifKernels.h"
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 struct SnappyBatchManager : BatchManager<SnappyFormatSpecHeader> {
 private:
   SnappyFormatSpecHeader* format_spec;
 
 public:
-  SnappyBatchManager(size_t uncomp_chunk_size, cudaStream_t user_stream = 0, int device_id = 0)
+  SnappyBatchManager(size_t uncomp_chunk_size, hipStream_t user_stream = 0, int device_id = 0)
     : BatchManager(uncomp_chunk_size, user_stream, device_id),      
       format_spec()
   {
-    CudaUtils::check(cudaHostAlloc(&format_spec, sizeof(SnappyFormatSpecHeader), cudaHostAllocDefault));
+    HipUtils::check(hipHostMalloc(&format_spec, sizeof(SnappyFormatSpecHeader), hipHostMallocDefault));
 
     finish_init();
   }
 
   virtual ~SnappyBatchManager() 
   {
-    CudaUtils::check(cudaFreeHost(format_spec));
+    HipUtils::check(hipHostFree(format_spec));
   }
 
   SnappyBatchManager& operator=(const SnappyBatchManager&) = delete;     
@@ -67,8 +68,8 @@ public:
   size_t compute_max_compressed_chunk_size() final override 
   {
     size_t max_comp_chunk_size;
-    nvcompBatchedSnappyCompressGetMaxOutputChunkSize(
-        get_uncomp_chunk_size(), nvcompBatchedSnappyDefaultOpts, &max_comp_chunk_size);
+    hipcompBatchedSnappyCompressGetMaxOutputChunkSize(
+        get_uncomp_chunk_size(), hipcompBatchedSnappyDefaultOpts, &max_comp_chunk_size);
     return max_comp_chunk_size;
   }
 
@@ -101,7 +102,7 @@ public:
       const uint32_t num_chunks,
       const size_t* comp_chunk_offsets,
       const size_t* comp_chunk_sizes,
-      nvcompStatus_t* output_status) final override
+      hipcompStatus_t* output_status) final override
   {        
     snappyHlifBatchDecompress(
         comp_data_buffer,
@@ -118,7 +119,7 @@ public:
 };
 
 // SnappyManager implementation
-SnappyManager::SnappyManager(size_t uncomp_chunk_size, cudaStream_t user_stream, int device_id)
+SnappyManager::SnappyManager(size_t uncomp_chunk_size, hipStream_t user_stream, int device_id)
 {
   impl = std::make_unique<SnappyBatchManager>(
       uncomp_chunk_size,
@@ -129,4 +130,4 @@ SnappyManager::SnappyManager(size_t uncomp_chunk_size, cudaStream_t user_stream,
 SnappyManager::~SnappyManager() 
 {}
 
-} // namespace nvcomp
+} // namespace hipcomp
