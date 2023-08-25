@@ -27,20 +27,21 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include <memory>
 
-#include "nvcompManager.hpp"
+#include "hipcompManager.hpp"
 #include "gdeflate.h"
 
-namespace nvcomp {
+namespace hipcomp {
 
 struct GdeflateManager : PimplManager {
 
-  GdeflateManager(size_t uncomp_chunk_size, int algo, cudaStream_t user_stream = 0, const int device_id = 0);
+  GdeflateManager(size_t uncomp_chunk_size, int algo, hipStream_t user_stream = 0, const int device_id = 0);
 
   ~GdeflateManager();
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
 
