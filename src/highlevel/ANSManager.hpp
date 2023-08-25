@@ -25,17 +25,18 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
-#include "nvcomp/ans.h"
-#include "nvcomp/ans.hpp"
+#include "hipcomp/ans.h"
+#include "hipcomp/ans.hpp"
 #include "BatchManager.hpp"
 #ifdef ENABLE_ANS
 #include "ans_hlif.h"
 #endif
 
-namespace nvcomp {
+namespace hipcomp {
 
 #ifdef ENABLE_ANS
 
@@ -47,18 +48,18 @@ private:
 public:
   ANSBatchManager(
       size_t uncomp_chunk_size,
-      cudaStream_t user_stream = 0,
+      hipStream_t user_stream = 0,
       const int device_id = 0)
    : BatchManager(uncomp_chunk_size, user_stream, device_id)
   {
-    CudaUtils::check(cudaHostAlloc(
-        &format_spec, sizeof(ANSFormatSpecHeader), cudaHostAllocDefault));
+    HipUtils::check(hipHostMalloc(
+        &format_spec, sizeof(ANSFormatSpecHeader), hipHostMallocDefault));
     finish_init();
   }
 
   virtual ~ANSBatchManager()
   {
-    CudaUtils::check(cudaFreeHost(format_spec));
+    HipUtils::check(hipHostFree(format_spec));
   }
 
   ANSBatchManager(const ANSBatchManager&) = delete;
@@ -67,9 +68,9 @@ public:
   size_t compute_max_compressed_chunk_size() final override
   {
     size_t max_comp_chunk_size;
-    nvcompBatchedANSCompressGetMaxOutputChunkSize(
+    hipcompBatchedANSCompressGetMaxOutputChunkSize(
         get_uncomp_chunk_size(),
-        nvcompBatchedANSDefaultOpts,
+        hipcompBatchedANSDefaultOpts,
         &max_comp_chunk_size);
     return max_comp_chunk_size;
   }
@@ -100,7 +101,7 @@ public:
       const uint32_t num_chunks,
       const size_t* comp_chunk_offsets,
       const size_t* comp_chunk_sizes,
-      nvcompStatus_t* output_status) final override
+      hipcompStatus_t* output_status) final override
   {
     ans::hlif::batchDecompress(
         comp_data_buffer,
@@ -129,7 +130,7 @@ private:
 
 ANSManager::ANSManager(
     size_t uncomp_chunk_size,
-    cudaStream_t user_stream,
+    hipStream_t user_stream,
     const int device_id)
 {
 #ifdef ENABLE_ANS
@@ -140,11 +141,11 @@ ANSManager::ANSManager(
   (void)uncomp_chunk_size;
   (void)user_stream;
   (void)device_id;
-  throw std::runtime_error("nvcomp configured without ANS support. Please check the README for configuration instructions");
+  throw std::runtime_error("hipcomp configured without ANS support. Please check the README for configuration instructions");
 #endif
 }
 
 ANSManager::~ANSManager()
 {}
 
-} // namespace nvcomp
+} // namespace hipcomp
