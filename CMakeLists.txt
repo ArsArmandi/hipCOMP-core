@@ -36,6 +36,9 @@ option(BUILD_STATIC "Build a static library." OFF)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_HIP_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+include(GNUInstallDirs)
 
 list( APPEND CMAKE_MODULE_PATH
   ${CMAKE_SOURCE_DIR}/cmake
@@ -149,7 +152,8 @@ if(DEFINED DEVEL AND NOT DEVEL EQUAL 0)
 endif()
 
 if (MSVC)
-  add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/W3>")
+  # Use "/permissive-" in order to be closer to GCC/Clang in what the MSVC compiler accepts.
+  add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/W3>" "$<$<COMPILE_LANGUAGE:CXX>:/permissive->")
 endif()
 
 
@@ -159,8 +163,15 @@ endif()
 
 if( DEFINED HIPCOMP_EXTS_ROOT )
   unset( HIPCOMP_FIND_QUIET )
+  set( ENV{ans_ROOT} ${HIPCOMP_EXTS_ROOT} )
   set( ENV{gdeflate_ROOT} ${HIPCOMP_EXTS_ROOT} )
   set( ENV{bitcomp_ROOT} ${HIPCOMP_EXTS_ROOT} )
+endif()
+
+find_package(ans ${HIPCOMP_FIND_QUIET})
+if (ans_FOUND)
+  message (STATUS "Found ans")
+  add_definitions(-DENABLE_ANS)
 endif()
 
 find_package(bitcomp ${HIPCOMP_FIND_QUIET})
@@ -200,14 +211,14 @@ if (BUILD_TESTS)
   enable_testing()
 endif()
 
+if (UNIX)
+  include(GNUInstallDirs)
+endif()
+
 add_subdirectory(src)
 
 if (BUILD_TESTS)
   add_subdirectory(tests)
-endif()
-
-if (UNIX)
-  include(GNUInstallDirs)
 endif()
 
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/hipcomp)
