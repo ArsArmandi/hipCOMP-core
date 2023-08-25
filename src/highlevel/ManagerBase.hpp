@@ -25,23 +25,24 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
 #include <memory>
 #include <vector>
 
-#include "nvcomp/nvcompManager.hpp"
+#include "hipcomp/hipcompManager.hpp"
 
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "PinnedPtrs.hpp"
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 /**
- * @brief ManagerBase contains shared functionality amongst the different nvcompManager types
+ * @brief ManagerBase contains shared functionality amongst the different hipcompManager types
  * 
  * - Intended that all Managers will inherit from this class directly or indirectly.
  *
@@ -57,15 +58,15 @@ namespace nvcomp {
 #include <assert.h>
 
 template <typename FormatSpecHeader>
-struct ManagerBase : nvcompManagerBase {
+struct ManagerBase : hipcompManagerBase {
 
 protected: // members
   CommonHeader* common_header_cpu;
-  cudaStream_t user_stream;
+  hipStream_t user_stream;
   uint8_t* scratch_buffer;
   size_t scratch_buffer_size;
   int device_id;
-  PinnedPtrPool<nvcompStatus_t> status_pool;
+  PinnedPtrPool<hipcompStatus_t> status_pool;
   bool manager_filled_scratch_buffer;
 
 private: // members
@@ -81,7 +82,7 @@ public: // API
    * @param user_stream The stream to use for all operations. Optional, defaults to the default stream
    * @param device_id The default device ID to use for all operations. Optional, defaults to the default device
    */
-  ManagerBase(cudaStream_t user_stream = 0, int device_id = 0) 
+  ManagerBase(hipStream_t user_stream = 0, int device_id = 0) 
     : common_header_cpu(),
       user_stream(user_stream),
       scratch_buffer(nullptr),
@@ -92,7 +93,7 @@ public: // API
       scratch_buffer_filled(false),
       finished_init(false)
   {
-    CudaUtils::check(cudaHostAlloc(&common_header_cpu, sizeof(CommonHeader), cudaHostAllocDefault));
+    HipUtils::check(hipHostMalloc(&common_header_cpu, sizeof(CommonHeader), hipHostMallocDefault));
   }
 
   size_t get_required_scratch_buffer_size() final override {
@@ -107,19 +108,19 @@ public: // API
   size_t get_compressed_output_size(uint8_t* comp_buffer) final override {
     CommonHeader* common_header = reinterpret_cast<CommonHeader*>(comp_buffer);
     
-    CudaUtils::check(cudaMemcpy(common_header_cpu, 
+    HipUtils::check(hipMemcpy(common_header_cpu, 
         common_header, 
         sizeof(CommonHeader),
-        cudaMemcpyDefault));
+        hipMemcpyDefault));
 
     return common_header_cpu->comp_data_size + common_header_cpu->comp_data_offset;
   };
   
   virtual ~ManagerBase() {
-    CudaUtils::check(cudaFreeHost(common_header_cpu));
+    HipUtils::check(hipHostFree(common_header_cpu));
     if (scratch_buffer_filled) {
       if (manager_filled_scratch_buffer) {
-        CudaUtils::check(cudaFree(scratch_buffer));
+        HipUtils::check(hipFree(scratch_buffer));
       }
     }
   }
@@ -140,10 +141,10 @@ public: // API
     const CommonHeader* common_header = reinterpret_cast<const CommonHeader*>(comp_buffer);
     DecompressionConfig decomp_config{status_pool};
     
-    CudaUtils::check(cudaMemcpyAsync(&decomp_config.decomp_data_size, 
+    HipUtils::check(hipMemcpyAsync(&decomp_config.decomp_data_size, 
         &common_header->decomp_data_size, 
         sizeof(size_t),
-        cudaMemcpyDefault,
+        hipMemcpyDefault,
         user_stream));
     
     do_configure_decompression(decomp_config, common_header);
@@ -167,9 +168,9 @@ public: // API
     if (scratch_buffer_filled) {
       if (manager_filled_scratch_buffer) {
         #if CUDART_VERSION >= 11020
-          CudaUtils::check(cudaFreeAsync(scratch_buffer, user_stream));
+          HipUtils::check(hipFreeAsync(scratch_buffer, user_stream));
         #else
-          CudaUtils::check(cudaFree(scratch_buffer));
+          HipUtils::check(hipFree(scratch_buffer));
         #endif
         manager_filled_scratch_buffer = false;
       }
@@ -188,9 +189,9 @@ public: // API
 
     if (!scratch_buffer_filled) {
       #if CUDART_VERSION >= 11020
-        CudaUtils::check(cudaMallocAsync(&scratch_buffer, scratch_buffer_size, user_stream));
+        HipUtils::check(hipMallocAsync(&scratch_buffer, scratch_buffer_size, user_stream));
       #else
-        CudaUtils::check(cudaMalloc(&scratch_buffer, scratch_buffer_size));
+        HipUtils::check(hipMalloc(&scratch_buffer, scratch_buffer_size));
       #endif
       scratch_buffer_filled = true;
       manager_filled_scratch_buffer = true;
@@ -198,9 +199,9 @@ public: // API
 
     CommonHeader* common_header = reinterpret_cast<CommonHeader*>(comp_buffer);
     FormatSpecHeader* comp_format_header = reinterpret_cast<FormatSpecHeader*>(common_header + 1);
-    CudaUtils::check(cudaMemcpyAsync(comp_format_header, get_format_header(), sizeof(FormatSpecHeader), cudaMemcpyDefault, user_stream));
+    HipUtils::check(hipMemcpyAsync(comp_format_header, get_format_header(), sizeof(FormatSpecHeader), hipMemcpyDefault, user_stream));
 
-    CudaUtils::check(cudaMemsetAsync(&common_header->comp_data_size, 0, sizeof(uint64_t), user_stream));
+    HipUtils::check(hipMemsetAsync(&common_header->comp_data_size, 0, sizeof(uint64_t), user_stream));
 
     uint8_t* new_comp_buffer = comp_buffer + sizeof(CommonHeader) + sizeof(FormatSpecHeader);
     do_compress(common_header, decomp_buffer, new_comp_buffer, comp_config);
@@ -215,9 +216,10 @@ public: // API
 
     if (!scratch_buffer_filled) {
       #if CUDART_VERSION >= 11020
-        CudaUtils::check(cudaMallocAsync(&scratch_buffer, scratch_buffer_size, user_stream));
+        //: TODO check ROCm version for which this is available
+        HipUtils::check(hipMallocAsync(&scratch_buffer, scratch_buffer_size, user_stream));
       #else
-        CudaUtils::check(cudaMalloc(&scratch_buffer, scratch_buffer_size));
+        HipUtils::check(hipMalloc(&scratch_buffer, scratch_buffer_size));
       #endif
       scratch_buffer_filled = true;
       manager_filled_scratch_buffer = true;
@@ -301,4 +303,4 @@ private: // helpers
 
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
