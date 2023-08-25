@@ -25,18 +25,19 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "GdeflateBatchManager.hpp"
-#include "nvcomp/gdeflate.hpp"
+#include "hipcomp/gdeflate.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 // GdeflateManager implementation
 
 GdeflateManager::GdeflateManager(
     size_t uncomp_chunk_size, 
     int algo, 
-    cudaStream_t user_stream, 
+    hipStream_t user_stream, 
     const int device_id)
 {
   impl = std::make_unique<GdeflateBatchManager>(uncomp_chunk_size,
@@ -48,4 +49,4 @@ GdeflateManager::GdeflateManager(
 GdeflateManager::~GdeflateManager() 
 {}
 
-} // namespace nvcomp
+} // namespace hipcomp
