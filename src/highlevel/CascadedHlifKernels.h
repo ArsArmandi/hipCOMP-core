@@ -25,20 +25,21 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "nvcomp.h"
+#include "hipcomp.h"
 #include "common.h"
-#include "nvcomp/cascaded.h"
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
+#include "hipcomp/cascaded.h"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
 
-namespace nvcomp
+namespace hipcomp
 {
 
 void cascadedHlifBatchCompress(
     const CompressArgs& compress_args,
     const uint32_t max_ctas,
-    cudaStream_t stream,
-    const nvcompBatchedCascadedOpts_t* options);
+    hipStream_t stream,
+    const hipcompBatchedCascadedOpts_t* options);
 
 void cascadedHlifBatchDecompress(
     const uint8_t* comp_buffer,
@@ -49,13 +50,13 @@ void cascadedHlifBatchDecompress(
     const size_t* comp_chunk_offsets,
     const size_t* comp_chunk_sizes,
     const uint32_t max_ctas,
-    cudaStream_t stream,
-    nvcompStatus_t* output_status,
-    const nvcompBatchedCascadedOpts_t* options);
+    hipStream_t stream,
+    hipcompStatus_t* output_status,
+    const hipcompBatchedCascadedOpts_t* options);
 
 size_t
-cascadedHlifDecompMaxBlockOccupancy(const int device_id, nvcompType_t type);
+cascadedHlifDecompMaxBlockOccupancy(const int device_id, hipcompType_t type);
 size_t
-cascadedHlifCompMaxBlockOccupancy(const int device_id, nvcompType_t type);
+cascadedHlifCompMaxBlockOccupancy(const int device_id, hipcompType_t type);
 
-} // namespace nvcomp
+} // namespace hipcomp
