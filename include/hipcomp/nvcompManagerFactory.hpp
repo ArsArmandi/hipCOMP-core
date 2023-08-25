@@ -25,12 +25,13 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
 #include <cassert>
 
-#include "nvcompManager.hpp"
+#include "hipcompManager.hpp"
 #include "ans.hpp"
 #include "gdeflate.hpp"
 #include "lz4.hpp"
@@ -38,7 +39,7 @@
 #include "bitcomp.hpp"
 #include "cascaded.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 /** 
  * @brief Construct a ManagerBase from a buffer
@@ -46,6 +47,6 @@ namespace nvcomp {
  * This synchronizes the stream
  * 
  */ 
-std::shared_ptr<nvcompManagerBase> create_manager(const uint8_t* comp_buffer, cudaStream_t stream = 0, const int device_id = 0);
+std::shared_ptr<hipcompManagerBase> create_manager(const uint8_t* comp_buffer, hipStream_t stream = 0, const int device_id = 0);
 
-} // namespace nvcomp
+} // namespace hipcomp
