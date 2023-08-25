@@ -27,16 +27,17 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include <memory>
 #include <vector>
 
-#include "CudaUtils.h"
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
+#include "HipUtils.h"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
 #include "highlevel/PinnedPtrs.hpp"
-#include "nvcomp/nvcompManager.hpp"
+#include "hipcomp/hipcompManager.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 /******************************************************************************
  * CLASSES ********************************************************************
@@ -45,48 +46,48 @@ namespace nvcomp {
 /**
  * @brief Config used to aggregate information about the compression of a particular buffer.
  * 
- * Contains a "PinnedPtrHandle" to an nvcompStatus. After the compression is complete,
+ * Contains a "PinnedPtrHandle" to an hipcompStatus. After the compression is complete,
  * the user can check the result status which resides in pinned host memory.
  */
 struct CompressionConfig::CompressionConfigImpl {
 private: 
-  std::unique_ptr<PinnedPtrPool<nvcompStatus_t>::PinnedPtrHandle> status;
+  std::unique_ptr<PinnedPtrPool<hipcompStatus_t>::PinnedPtrHandle> status;
 
 public:
   /**
-   * @brief Construct the config given an nvcompStatus_t memory pool
+   * @brief Construct the config given an hipcompStatus_t memory pool
    */
-  CompressionConfigImpl(PinnedPtrPool<nvcompStatus_t>& pool);
+  CompressionConfigImpl(PinnedPtrPool<hipcompStatus_t>& pool);
 
   /**
-   * @brief Get the raw nvcompStatus_t*
+   * @brief Get the raw hipcompStatus_t*
    */
-  nvcompStatus_t* get_status() const;
+  hipcompStatus_t* get_status() const;
 };
 
 /**
  * @brief Config used to aggregate information about a particular decompression.
  * 
- * Contains a "PinnedPtrHandle" to an nvcompStatus. After the decompression is complete,
+ * Contains a "PinnedPtrHandle" to an hipcompStatus. After the decompression is complete,
  * the user can check the result status which resides in pinned host memory.
  */
 struct DecompressionConfig::DecompressionConfigImpl {
 private: 
-  std::unique_ptr<PinnedPtrPool<nvcompStatus_t>::PinnedPtrHandle> status;
+  std::unique_ptr<PinnedPtrPool<hipcompStatus_t>::PinnedPtrHandle> status;
 
 public:
   size_t decomp_data_size;
   uint32_t num_chunks;
 
   /**
-   * @brief Construct the config given an nvcompStatus_t memory pool
+   * @brief Construct the config given an hipcompStatus_t memory pool
    */
-  DecompressionConfigImpl(PinnedPtrPool<nvcompStatus_t>& pool);
+  DecompressionConfigImpl(PinnedPtrPool<hipcompStatus_t>& pool);
 
   /**
-   * @brief Get the raw nvcompStatus_t*
+   * @brief Get the raw hipcompStatus_t*
    */
-  nvcompStatus_t* get_status() const;
+  hipcompStatus_t* get_status() const;
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
