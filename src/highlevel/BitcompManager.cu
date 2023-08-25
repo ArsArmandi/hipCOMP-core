@@ -25,47 +25,48 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include <memory>
 
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "common.h"
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
-#include "nvcomp/nvcompManager.hpp"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
+#include "hipcomp/hipcompManager.hpp"
 #include "highlevel/ManagerBase.hpp"
-#include "nvcomp/bitcomp.hpp"
+#include "hipcomp/bitcomp.hpp"
 #include "BitcompManager.hpp"
 
 #ifdef ENABLE_BITCOMP
 
 #include <bitcomp.h>
 
-namespace nvcomp {
+namespace hipcomp {
 
-  // Convert the NVCOMP type to a BITCOMP type
-  bitcompDataType_t bitcomp_data_type (nvcompType_t data_type)
+  // Convert the HIPCOMP type to a BITCOMP type
+  bitcompDataType_t bitcomp_data_type (hipcompType_t data_type)
   {
     switch (data_type) {
-    case NVCOMP_TYPE_CHAR:
+    case HIPCOMP_TYPE_CHAR:
       return BITCOMP_SIGNED_8BIT;
       break;
-    case NVCOMP_TYPE_USHORT:
+    case HIPCOMP_TYPE_USHORT:
       return BITCOMP_UNSIGNED_16BIT;
       break;
-    case NVCOMP_TYPE_SHORT:
+    case HIPCOMP_TYPE_SHORT:
       return BITCOMP_SIGNED_16BIT;
       break;
-    case NVCOMP_TYPE_UINT:
+    case HIPCOMP_TYPE_UINT:
       return BITCOMP_UNSIGNED_32BIT;
       break;
-    case NVCOMP_TYPE_INT:
+    case HIPCOMP_TYPE_INT:
       return BITCOMP_SIGNED_32BIT;
       break;
-    case NVCOMP_TYPE_ULONGLONG:
+    case HIPCOMP_TYPE_ULONGLONG:
       return BITCOMP_UNSIGNED_64BIT;
       break;
-    case NVCOMP_TYPE_LONGLONG:
+    case HIPCOMP_TYPE_LONGLONG:
       return BITCOMP_SIGNED_64BIT;
       break;
     default:
@@ -84,8 +85,8 @@ namespace nvcomp {
   __global__ void bitcomp_header_k (CommonHeader *common_header, uint8_t* comp_buffer, uint64_t decomp_buffer_size)
   {
     common_header->magic_number = 0;
-    common_header->major_version = NVCOMP_MAJOR_VERSION;
-    common_header->minor_version = NVCOMP_MINOR_VERSION;
+    common_header->major_version = HIPCOMP_MAJOR_VERSION;
+    common_header->minor_version = HIPCOMP_MINOR_VERSION;
     common_header->format = FormatType::Bitcomp;
     common_header->decomp_data_size = decomp_buffer_size;
     common_header->num_chunks = 0;
@@ -179,22 +180,22 @@ namespace nvcomp {
     return bitcompMaxBuflen (comp_config.uncompressed_buffer_size);
   }
 
-} // namespace nvcomp
+} // namespace hipcomp
 
 #else // ENABLE_BITCOMP
 
-namespace nvcomp {
+namespace hipcomp {
 void BitcompSingleStreamManager::do_compress(CommonHeader*, const uint8_t*, uint8_t*, const CompressionConfig&)
 {
-  throw NVCompException(nvcompErrorNotSupported, "Bitcomp support not available in this build.");
+  throw HIPCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
 }
 void BitcompSingleStreamManager::do_decompress(uint8_t*, const uint8_t*, const DecompressionConfig&)
 {
-  throw NVCompException(nvcompErrorNotSupported, "Bitcomp support not available in this build.");
+  throw HIPCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
 }
 size_t BitcompSingleStreamManager::calculate_max_compressed_output_size(CompressionConfig&)
 {
-  throw NVCompException(nvcompErrorNotSupported, "Bitcomp support not available in this build.");
+  throw HIPCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
 }
 }
 
