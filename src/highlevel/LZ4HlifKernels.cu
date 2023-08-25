@@ -25,16 +25,17 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "LZ4HlifKernels.h"
 #include "LZ4Kernels.cuh"
 #include "TempSpaceBroker.h"
 #include "common.h"
 
-#include "nvcomp_common_deps/hlif_shared.cuh"
-#include "cuda_runtime.h"
-#include "nvcomp_cub.cuh"
+#include "hipcomp_common_deps/hlif_shared.cuh"
+#include "hip_runtime.h"
+#include "hipcomp_cub.cuh"
 
 #include <cassert>
 #include <fstream>
@@ -46,7 +47,7 @@ using item_type = uint32_t;
 
 #define OOB_CHECKING 1 // Prevent's crashing of corrupt lz4 sequences
 
-namespace nvcomp {
+namespace hipcomp {
 
 struct LZ4CompressorArgs {
   const position_type hash_table_size;
@@ -57,14 +58,14 @@ struct lz4_compress_wrapper : hlif_compress_wrapper {
 private: 
   const position_type hash_table_size;
   offset_type* hash_table;
-  nvcompStatus_t* status;
+  hipcompStatus_t* status;
 
 public:
   __device__ lz4_compress_wrapper(
       const LZ4CompressorArgs input,
       uint8_t* tmp_buffer,
       uint8_t*, /*share_buffer*/
-      nvcompStatus_t* status)
+      hipcompStatus_t* status)
     : hash_table_size(input.hash_table_size),
       status(status)
   {
@@ -89,7 +90,7 @@ public:
         comp_chunk_size);
   }
 
-  __device__ nvcompStatus_t get_output_status() {
+  __device__ hipcompStatus_t get_output_status() {
     return *status;
   }
 
@@ -103,10 +104,10 @@ struct lz4_decompress_wrapper : hlif_decompress_wrapper {
 
 private:
   uint8_t* this_shared_buffer;
-  nvcompStatus_t* status;
+  hipcompStatus_t* status;
 
 public:
-  __device__ lz4_decompress_wrapper(uint8_t* shared_buffer, nvcompStatus_t* status)
+  __device__ lz4_decompress_wrapper(uint8_t* shared_buffer, hipcompStatus_t* status)
     : this_shared_buffer(reinterpret_cast<uint8_t*>(shared_buffer) + threadIdx.y * DECOMP_INPUT_BUFFER_SIZE),
       status(status)
   {}
@@ -128,7 +129,7 @@ public:
         true /* output decompressed */);
   }
 
-  __device__ nvcompStatus_t get_output_status() {
+  __device__ hipcompStatus_t get_output_status() {
     return *status;
   }
 };
@@ -137,28 +138,28 @@ void lz4HlifBatchCompress(
     const CompressArgs& compress_args,
     const position_type hash_table_size,
     const uint32_t max_ctas,
-    nvcompType_t data_type,
-    cudaStream_t stream) 
+    hipcompType_t data_type,
+    hipStream_t stream) 
 {
   const dim3 grid(max_ctas);
   const dim3 block(LZ4_COMP_THREADS_PER_CHUNK);
 
   switch (data_type) {
-    case NVCOMP_TYPE_BITS:
-    case NVCOMP_TYPE_CHAR:
-    case NVCOMP_TYPE_UCHAR:
+    case HIPCOMP_TYPE_BITS:
+    case HIPCOMP_TYPE_CHAR:
+    case HIPCOMP_TYPE_UCHAR:
       HlifCompressBatchKernel<lz4_compress_wrapper<uint8_t>><<<grid, block, 0, stream>>>(
           compress_args,
           LZ4CompressorArgs{hash_table_size});
       break;
-    case NVCOMP_TYPE_SHORT:
-    case NVCOMP_TYPE_USHORT:
+    case HIPCOMP_TYPE_SHORT:
+    case HIPCOMP_TYPE_USHORT:
       HlifCompressBatchKernel<lz4_compress_wrapper<uint16_t>><<<grid, block, 0, stream>>>(
           compress_args,
           LZ4CompressorArgs{hash_table_size});
       break;
-    case NVCOMP_TYPE_INT:
-    case NVCOMP_TYPE_UINT:
+    case HIPCOMP_TYPE_INT:
+    case HIPCOMP_TYPE_UINT:
       HlifCompressBatchKernel<lz4_compress_wrapper<uint32_t>><<<grid, block, 0, stream>>>(
           compress_args,
           LZ4CompressorArgs{hash_table_size});
@@ -167,7 +168,7 @@ void lz4HlifBatchCompress(
       throw std::invalid_argument("Unsupported input data type");
   }
 
-  CudaUtils::check_last_error();
+  HipUtils::check_last_error();
 }
 
 void lz4HlifBatchDecompress(
@@ -179,8 +180,8 @@ void lz4HlifBatchDecompress(
     const size_t* comp_chunk_offsets,
     const size_t* comp_chunk_sizes,
     const uint32_t max_ctas,
-    cudaStream_t stream,
-    nvcompStatus_t* output_status) 
+    hipStream_t stream,
+    hipcompStatus_t* output_status) 
 {
   const dim3 grid(max_ctas);
   const dim3 block(LZ4_DECOMP_THREADS_PER_CHUNK, LZ4_DECOMP_CHUNKS_PER_BLOCK);
@@ -195,35 +196,35 @@ void lz4HlifBatchDecompress(
       comp_chunk_sizes,
       output_status);
 
-  CudaUtils::check_last_error();
+  HipUtils::check_last_error();
 }
 
-size_t batchedLZ4CompMaxBlockOccupancy(nvcompType_t data_type, const int device_id)
+size_t batchedLZ4CompMaxBlockOccupancy(hipcompType_t data_type, const int device_id)
 {
-  cudaDeviceProp device_prop;
-  cudaGetDeviceProperties(&device_prop, device_id);
+  hipDeviceProp_t device_prop;
+  hipGetDeviceProperties(&device_prop, device_id);
   int num_blocks_per_sm;
   switch (data_type) {
-    case NVCOMP_TYPE_BITS:
-    case NVCOMP_TYPE_CHAR:
-    case NVCOMP_TYPE_UCHAR:
-      cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+    case HIPCOMP_TYPE_BITS:
+    case HIPCOMP_TYPE_CHAR:
+    case HIPCOMP_TYPE_UCHAR:
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
           &num_blocks_per_sm, 
           HlifCompressBatchKernel<lz4_compress_wrapper<uint8_t>, LZ4CompressorArgs>, 
           LZ4_COMP_THREADS_PER_CHUNK, 
           0);
       break;
-    case NVCOMP_TYPE_SHORT:
-    case NVCOMP_TYPE_USHORT:
-      cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+    case HIPCOMP_TYPE_SHORT:
+    case HIPCOMP_TYPE_USHORT:
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
           &num_blocks_per_sm, 
           HlifCompressBatchKernel<lz4_compress_wrapper<uint16_t>, LZ4CompressorArgs>, 
           LZ4_COMP_THREADS_PER_CHUNK, 
           0);
       break;
-    case NVCOMP_TYPE_INT:
-    case NVCOMP_TYPE_UINT:
-      cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+    case HIPCOMP_TYPE_INT:
+    case HIPCOMP_TYPE_UINT:
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
           &num_blocks_per_sm, 
           HlifCompressBatchKernel<lz4_compress_wrapper<uint32_t>, LZ4CompressorArgs>, 
           LZ4_COMP_THREADS_PER_CHUNK, 
@@ -236,13 +237,13 @@ size_t batchedLZ4CompMaxBlockOccupancy(nvcompType_t data_type, const int device_
   return device_prop.multiProcessorCount * num_blocks_per_sm;
 }
 
-size_t batchedLZ4DecompMaxBlockOccupancy(nvcompType_t data_type, const int device_id)
+size_t batchedLZ4DecompMaxBlockOccupancy(hipcompType_t data_type, const int device_id)
 {
-  cudaDeviceProp device_prop;
-  cudaGetDeviceProperties(&device_prop, device_id);
+  hipDeviceProp_t device_prop;
+  hipGetDeviceProperties(&device_prop, device_id);
   int num_blocks_per_sm;
   constexpr int shmem_size = DECOMP_INPUT_BUFFER_SIZE * LZ4_DECOMP_CHUNKS_PER_BLOCK;
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+  hipOccupancyMaxActiveBlocksPerMultiprocessor(
       &num_blocks_per_sm, 
       HlifDecompressBatchKernel<lz4_decompress_wrapper, LZ4_DECOMP_CHUNKS_PER_BLOCK>, 
       LZ4_DECOMP_THREADS_PER_CHUNK * LZ4_DECOMP_CHUNKS_PER_BLOCK, 
@@ -251,4 +252,4 @@ size_t batchedLZ4DecompMaxBlockOccupancy(nvcompType_t data_type, const int devic
   return device_prop.multiProcessorCount * num_blocks_per_sm;
 }
 
-} // namespace nvcomp
+} // namespace hipcomp
