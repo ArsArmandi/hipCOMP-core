@@ -25,23 +25,24 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
 #include <memory>
 
-#include "nvcomp/lz4.hpp"
-#include "nvcomp/lz4.h"
+#include "hipcomp/lz4.hpp"
+#include "hipcomp/lz4.h"
 
 #include "BatchManager.hpp"
 #include "Check.h"
-#include "CudaUtils.h"
+#include "HipUtils.h"
 #include "LZ4HlifKernels.h"
 #include "common.h"
 #include "lowlevel/LZ4CompressionKernels.h"
-#include "nvcomp_common_deps/hlif_shared_types.hpp"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 struct LZ4BatchManager : BatchManager<LZ4FormatSpecHeader> {
 private:
@@ -49,12 +50,12 @@ private:
   LZ4FormatSpecHeader* format_spec;
 
 public:
-  LZ4BatchManager(size_t uncomp_chunk_size, nvcompType_t data_type, cudaStream_t user_stream, const int device_id)
+  LZ4BatchManager(size_t uncomp_chunk_size, hipcompType_t data_type, hipStream_t user_stream, const int device_id)
     : BatchManager(uncomp_chunk_size, user_stream, device_id),      
       hash_table_size(),
       format_spec()
   {
-    CudaUtils::check(cudaHostAlloc(&format_spec, sizeof(LZ4FormatSpecHeader), cudaHostAllocDefault));
+    HipUtils::check(hipHostMalloc(&format_spec, sizeof(LZ4FormatSpecHeader), hipHostMallocDefault));
     format_spec->data_type = data_type;
 
     finish_init();
@@ -62,7 +63,7 @@ public:
 
   virtual ~LZ4BatchManager() 
   {
-    CudaUtils::check(cudaFreeHost(format_spec));
+    HipUtils::check(hipHostFree(format_spec));
   }
 
   LZ4BatchManager(const LZ4BatchManager&) = delete;
@@ -71,8 +72,8 @@ public:
   size_t compute_max_compressed_chunk_size() final override 
   {
     size_t max_comp_chunk_size;
-    nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
-        get_uncomp_chunk_size(), nvcompBatchedLZ4DefaultOpts, &max_comp_chunk_size);
+    hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
+        get_uncomp_chunk_size(), hipcompBatchedLZ4DefaultOpts, &max_comp_chunk_size);
     return max_comp_chunk_size;
   }
 
@@ -107,7 +108,7 @@ public:
       const uint32_t num_chunks,
       const size_t* comp_chunk_offsets,
       const size_t* comp_chunk_sizes,
-      nvcompStatus_t* output_status) final override
+      hipcompStatus_t* output_status) final override
   {        
     lz4HlifBatchDecompress(
         comp_data_buffer,
@@ -139,8 +140,8 @@ private: // helper overrides
 
 LZ4Manager::LZ4Manager(
     size_t uncomp_chunk_size, 
-    nvcompType_t data_type, 
-    cudaStream_t user_stream, 
+    hipcompType_t data_type, 
+    hipStream_t user_stream, 
     const int device_id)
 {
   impl = std::make_unique<LZ4BatchManager>(uncomp_chunk_size,
@@ -152,4 +153,4 @@ LZ4Manager::LZ4Manager(
 LZ4Manager::~LZ4Manager() 
 {}
 
-} // namespace nvcomp
+} // namespace hipcomp
