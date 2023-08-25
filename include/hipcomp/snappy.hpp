@@ -25,14 +25,15 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #pragma once
 
 #include <memory>
 
-#include "nvcompManager.hpp"
+#include "hipcompManager.hpp"
 
-namespace nvcomp {
+namespace hipcomp {
 
 struct SnappyFormatSpecHeader {
   // Empty for now
@@ -40,9 +41,9 @@ struct SnappyFormatSpecHeader {
 
 struct SnappyManager : PimplManager {
 
-  SnappyManager(size_t uncomp_chunk_size, cudaStream_t user_stream = 0, int device_id = 0);
+  SnappyManager(size_t uncomp_chunk_size, hipStream_t user_stream = 0, int device_id = 0);
 
   ~SnappyManager();
 };
 
-} // namespace nvcomp
+} // namespace hipcomp
