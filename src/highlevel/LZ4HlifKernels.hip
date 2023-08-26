@@ -34,8 +34,8 @@
 #include "common.h"
 
 #include "hipcomp_common_deps/hlif_shared.hiph"
-#include "hip_runtime.h"
-#include "hipcomp_cub.hiph"
+#include "hip/hip_runtime.h"
+#include "hipcomp_hipcub.hiph"
 
 #include <cassert>
 #include <fstream>

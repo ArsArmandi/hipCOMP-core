@@ -33,14 +33,6 @@
 #include "SnappyTypes.h"
 
 namespace hipcomp {
-//: DELETED
-/**
- * @brief The result of the compression and decompression routines
- **/
-struct gpu_snappy_status_s {
-  uint32_t status; // Non-zero value indicates an error
-};
-//: END DELETED
 
 /**
  * @brief Interface for compressing data with Snappy

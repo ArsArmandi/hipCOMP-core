@@ -82,7 +82,7 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
     HIP_CHECK(hipMalloc(&d_comp_out, comp_config.max_compressed_buffer_size));
 
     size_t* comp_out_bytes_ptr;
-    HIP_CHECK(hipMallocHost(
+    HIP_CHECK(hipHostMalloc(
         (void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr)));
 
     lz4_manager.compress(

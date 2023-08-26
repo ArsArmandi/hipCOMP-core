@@ -117,7 +117,7 @@ hipcompStatus_t hipcompBatchedANSCompressAsync(
     void* const* device_compressed_ptr,
     size_t* device_compressed_bytes,
     hipcompBatchedANSOpts_t format_opts,
-    hipStreamStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Get the amount of temp space required on the GPU for decompression.
@@ -149,7 +149,7 @@ hipcompStatus_t hipcompBatchedANSGetDecompressSizeAsync(
     const size_t* device_compressed_bytes,
     size_t* device_uncompressed_bytes,
     size_t batch_size,
-    hipStreamStream_t stream);
+    hipStream_t stream);
 
 /**
  * @brief Perform decompression.
@@ -177,7 +177,7 @@ hipcompStatus_t hipcompBatchedANSDecompressAsync(
     const size_t temp_bytes,
     void* const* device_uncompressed_ptr,
     hipcompStatus_t* device_statuses,
-    hipStreamStream_t stream);
+    hipStream_t stream);
 
 #ifdef __cplusplus
 }

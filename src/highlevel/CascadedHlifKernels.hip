@@ -260,7 +260,7 @@ void cascadedHlifBatchDecompress(
 
 size_t cascadedHlifCompMaxBlockOccupancy(const int device_id, hipcompType_t type)
 {
-  hipDeviceProp deviceProp;
+  hipDeviceProp_t deviceProp;
   hipGetDeviceProperties(&deviceProp, device_id);
   int numBlocksPerSM = 1;
   // This kernel only uses fixed-size shared memory, not shared memory
@@ -309,7 +309,7 @@ size_t cascadedHlifCompMaxBlockOccupancy(const int device_id, hipcompType_t type
 size_t cascadedHlifDecompMaxBlockOccupancy(
     const int device_id, hipcompType_t type)
 {
-  hipDeviceProp deviceProp;
+  hipDeviceProp_t deviceProp;
   hipGetDeviceProperties(&deviceProp, device_id);
   int numBlocksPerSM = 1;
   // This kernel only uses fixed-size shared memory, not shared memory

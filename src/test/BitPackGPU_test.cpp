@@ -35,12 +35,6 @@
 #include "hipcomp.hpp"
 #include "unpack.h"
 
-//: DELETED
-#if 0
-#include "highlevel/CascadedCommon.h"
-#endif
-//: END DELETED
-
 #include "hip/hip_runtime.h"
 
 #include <cstdlib>
@@ -65,7 +59,7 @@
   }
 #endif
 
-using namespace nvcomp;
+using namespace hipcomp;
 
 /******************************************************************************
  * HELPER FUNCTIONS ***********************************************************

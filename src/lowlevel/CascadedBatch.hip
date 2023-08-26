@@ -87,7 +87,7 @@ __global__ void cascaded_compression_kernel(
     size_type* compressed_bytes,
     hipcompBatchedCascadedOpts_t comp_opts)
 {
-  nvcomp::do_cascaded_compression_kernel<
+  hipcomp::do_cascaded_compression_kernel<
       data_type,
       size_type,
       threadblock_size,

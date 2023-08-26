@@ -35,7 +35,6 @@
 #include "hipcomp_common_deps/hlif_shared_types.hpp"
 #include "hipcomp/hipcompManager.hpp"
 #include "highlevel/ManagerBase.hpp"
-#include "hipcomp/bitcomp.hpp"
 #include "BitcompManager.hpp"
 
 #ifdef ENABLE_BITCOMP
@@ -187,15 +186,15 @@ namespace hipcomp {
 namespace hipcomp {
 void BitcompSingleStreamManager::do_compress(CommonHeader*, const uint8_t*, uint8_t*, const CompressionConfig&)
 {
-  throw HIPCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
+  throw HipCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
 }
 void BitcompSingleStreamManager::do_decompress(uint8_t*, const uint8_t*, const DecompressionConfig&)
 {
-  throw HIPCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
+  throw HipCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
 }
 size_t BitcompSingleStreamManager::calculate_max_compressed_output_size(CompressionConfig&)
 {
-  throw HIPCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
+  throw HipCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
 }
 }
 

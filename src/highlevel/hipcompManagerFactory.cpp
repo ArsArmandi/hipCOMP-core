@@ -92,7 +92,7 @@ std::shared_ptr<hipcompManagerBase> create_manager(const uint8_t* comp_buffer, h
 
       res = std::make_shared<BitcompManager>(format_spec.data_type, format_spec.algo, stream, device_id);
 #else
-      throw HIPCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
+      throw HipCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
 #endif
       break;
     }

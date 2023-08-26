@@ -47,7 +47,7 @@ public:
     : ManagerBase(user_stream, device_id),      
       format_spec()
   {
-    HipUtils::check(hipHostAlloc(&format_spec, sizeof(BitcompFormatSpecHeader), hipHostAllocDefault));
+    HipUtils::check(hipHostMalloc(&format_spec, sizeof(BitcompFormatSpecHeader), hipHostMallocDefault));
     format_spec->data_type = data_type;
     format_spec->algo = bitcomp_algo;
     int  major;
@@ -55,7 +55,7 @@ public:
     //: TODO check if this actually compiles
     HipUtils::check(hipDeviceGetAttribute (&major, hipDevAttrComputeCapabilityMajor, device_id));
     if (major < 7)
-      throw HIPCompException(hipcompErrorNotSupported, "Bitcomp requires GPU architectures >= 70");
+      throw HipCompException(hipcompErrorNotSupported, "Bitcomp requires GPU architectures >= 70");
     #endif
     //: TODO decide on behavior for AMD
     finish_init();
@@ -147,7 +147,7 @@ BitcompManager::BitcompManager(
   impl = std::make_unique<BitcompSingleStreamManager>(
       data_type, bitcomp_algo, user_stream, device_id);
 #else
-  throw HIPCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
+  throw HipCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
 #endif
 }
 
