@@ -30,7 +30,7 @@
 #define CATCH_CONFIG_MAIN
 
 #include "hipcomp.hpp"
-#include "hipcomp/bitcomp.hpp"
+#include "hipcomp/bitcomp.h"
 
 #include "catch.hpp"
 

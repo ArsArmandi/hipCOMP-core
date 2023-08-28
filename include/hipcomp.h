@@ -31,6 +31,7 @@
 #define HIPCOMP_H
 
 #include <hip/hip_runtime.h>
+#include "hipcomp/shared_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,18 +42,8 @@ extern "C" {
  *****************************************************************************/
 
 #define HIPCOMP_MAJOR_VERSION 2
-#define HIPCOMP_MINOR_VERSION 1
+#define HIPCOMP_MINOR_VERSION 2
 #define HIPCOMP_PATCH_VERSION 0
-
-typedef enum hipcompStatus_t
-{
-  hipcompSuccess = 0,
-  hipcompErrorInvalidValue = 10,
-  hipcompErrorNotSupported = 11,
-  hipcompErrorCannotDecompress = 12,
-  hipcompErrorHipError = 1000,
-  hipcompErrorInternal = 10000,
-} hipcompStatus_t;
 
 /* Supported datatypes */
 typedef enum hipcompType_t

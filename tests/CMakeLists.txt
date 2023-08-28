@@ -27,11 +27,30 @@
 # Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 file(GLOB EXAMPLE_SOURCES *.cpp *.c)
 
+if(NOT gdeflate_FOUND)
+list(FILTER EXAMPLE_SOURCES EXCLUDE REGEX "test_gdeflate_batch_c_api.c")
+list(FILTER EXAMPLE_SOURCES EXCLUDE REGEX "test_gdeflate.cpp")
+endif()
+if(NOT ans_FOUND)
+list(FILTER EXAMPLE_SOURCES EXCLUDE REGEX "test_ans_batch_c_api.c")
+endif()
+
+if(NOT bitcomp_FOUND)
+list(FILTER EXAMPLE_SOURCES EXCLUDE REGEX "test_bitcomp.cpp")
+endif()
+
 function(add_test_file EXAMPLE_SOURCE)
   get_filename_component(BARE_NAME "${EXAMPLE_SOURCE}" NAME_WE)
   add_executable(${BARE_NAME} ${EXAMPLE_SOURCE})
   if (CUDA_BACKEND)
-    target_link_libraries(${BARE_NAME} PRIVATE hipcomp CUDA::cudart)
+  if (NOT MSVC)
+    target_link_libraries(${BARE_NAME} PRIVATE nvcomp CUDA::cudart)
+  else()
+    # Including CUDA::cudart on Windows resulted in multiple definition
+    # linker errors for gdeflate and bitcomp tests, since
+    # cudart_static.lib is already included.
+    target_link_libraries(${BARE_NAME} PRIVATE nvcomp)
+  endif()
   else (CUDA_BACKEND)
     target_link_libraries(${BARE_NAME} PRIVATE hipcomp hip::host)
   endif (CUDA_BACKEND)

@@ -36,7 +36,7 @@
 #include "tests/catch.hpp"
 
 #include "HipUtils.h"
-#include "SnappyKernels.h"
+#include "lowlevel/SnappyBatchKernels.h"
 
 #define HIP_CHECK(func)                                                       \
   {                                                                            \
@@ -54,7 +54,8 @@ using namespace std;
 
 const unsigned MAX_SINGLE_BYTE_LITERALS = 60;
 
-void write_num_literals(uint32_t num_literals, uint8_t* output, int& ix_output)
+void write_num_literals(
+    uint32_t num_literals, uint8_t* output, size_t& ix_output)
 {
   --num_literals; // recorded as (num - 1)
   // Single byte case
@@ -64,7 +65,7 @@ void write_num_literals(uint32_t num_literals, uint8_t* output, int& ix_output)
   }
 
   // Multi-byte case
-  int prev_output_ix = ix_output++;
+  size_t prev_output_ix = ix_output++;
   while (num_literals > 0xff) {
     output[ix_output++] = num_literals & 0xff;
     num_literals = num_literals >> 8;
@@ -77,7 +78,7 @@ void write_num_literals(uint32_t num_literals, uint8_t* output, int& ix_output)
 }
 
 void translate_uncompressed_size(
-    uint32_t src_len, uint8_t* output, int& ix_output)
+    uint32_t src_len, uint8_t* output, size_t& ix_output)
 {
   while (src_len > 0x7f) {
     output[ix_output++] = src_len | 0x80;
@@ -92,7 +93,7 @@ const unsigned SNAPPY_SINGLE_BYTE_MAX_MATCH_LENGTH = 11;
 const unsigned SNAPPY_SINGLE_BYTE_MAX_OFFSET = 2047;
 
 void encode_copy(
-    uint32_t offset, uint8_t match_length, uint8_t* output, int& ix_output)
+    uint32_t offset, uint8_t match_length, uint8_t* output, size_t& ix_output)
 {
   if (match_length >= SNAPPY_SINGLE_BYTE_MIN_MATCH_LENGTH
       and match_length <= SNAPPY_SINGLE_BYTE_MAX_MATCH_LENGTH
@@ -364,7 +365,7 @@ TEST_CASE("test_mock_literal_compressor", "[small]")
 
   constexpr unsigned COMP_DATA_SIZE = LITERAL_SIZE * 2;
   uint8_t comp_data[COMP_DATA_SIZE];
-  int ix_output = 0;
+  size_t ix_output = 0;
 
   translate_uncompressed_size(LITERAL_SIZE, comp_data, ix_output);
   write_num_literals(LITERAL_SIZE, comp_data, ix_output);
@@ -379,7 +380,7 @@ TEST_CASE("test_mock_literal_compressor", "[small]")
   compress_single_batch_snappy(
       true_uncomp_data, gpu_comp_data, LITERAL_SIZE, COMP_DATA_SIZE);
 
-  for (int ix_comp = 0; ix_comp < ix_output; ++ix_comp) {
+  for (size_t ix_comp = 0; ix_comp < ix_output; ++ix_comp) {
     REQUIRE(comp_data[ix_comp] == gpu_comp_data[ix_comp]);
   }
 }
@@ -395,7 +396,7 @@ TEST_CASE("test_mock_match_compressor", "[small]")
 
   const unsigned COMP_DATA_SIZE = 2048;
   uint8_t comp_data[COMP_DATA_SIZE];
-  int ix_output = 0;
+  size_t ix_output = 0;
 
   translate_uncompressed_size(INPUT_SIZE, comp_data, ix_output);
 
@@ -420,7 +421,7 @@ TEST_CASE("test_mock_match_compressor", "[small]")
   compress_single_batch_snappy(
       true_uncomp_data, gpu_comp_data, INPUT_SIZE, COMP_DATA_SIZE);
 
-  for (int ix_comp = 0; ix_comp < ix_output; ++ix_comp) {
+  for (size_t ix_comp = 0; ix_comp < ix_output; ++ix_comp) {
     REQUIRE(comp_data[ix_comp] == gpu_comp_data[ix_comp]);
   }
 }
@@ -436,7 +437,7 @@ TEST_CASE("decompress_large_literal", "[small]")
 
   const unsigned COMP_DATA_SIZE = 2048;
   uint8_t comp_data[COMP_DATA_SIZE];
-  int ix_output = 0;
+  size_t ix_output = 0;
 
   translate_uncompressed_size(LITERAL_SIZE, comp_data, ix_output);
   write_num_literals(LITERAL_SIZE, comp_data, ix_output);
@@ -479,7 +480,7 @@ void test_long_match_case(size_t num_initial_ints)
       decomp_vals.begin() + match_length);
 
   // Execute the mock compressor
-  int ix_output = 0;
+  size_t ix_output = 0;
   translate_uncompressed_size(decomp_vals.size(), comp_vals.data(), ix_output);
 
   write_num_literals(num_initial_ints, comp_vals.data(), ix_output);

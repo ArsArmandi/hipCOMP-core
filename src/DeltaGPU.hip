@@ -27,8 +27,6 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "highlevel/CascadedCommon.h"
-
 #include "DeltaGPU.h"
 #include "common.h"
 #include "type_macros.h"

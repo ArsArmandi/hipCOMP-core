@@ -48,7 +48,9 @@ namespace hipcomp
 // The Bitcomp batch decompression outputs bitcompResult_t statuses.
 // Need to convert them to hipcompStatus_t.
 __global__ void convertGdeflateOutputStatusesKernel(hipcompStatus_t *statuses, size_t batch_size) {
-  static_assert (sizeof (hipcompStatus_t) == sizeof (gdeflate::gdeflateStatus_t));
+  static_assert(
+      sizeof(hipcompStatus_t) == sizeof(gdeflate::gdeflateStatus_t),
+      "gdeflate and nvcomp statuses must be the same size");
 
   size_t index = (size_t)blockIdx.x * (size_t)blockDim.x + (size_t)threadIdx.x;
   if (index >= batch_size)

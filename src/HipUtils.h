@@ -51,7 +51,7 @@ public:
    * @param err The error.
    * @param msg The message to attach to the exception.
    */
-  static void check(const hipError_t err, const std::string& msg);
+  static void check(const hipError_t err, const std::string& msg = "");
 
   static void sync(hipStream_t stream);
 

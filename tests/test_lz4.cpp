@@ -82,81 +82,45 @@ void test_lz4(const std::vector<T>& input, hipcompType_t data_type, const size_t
   hipStream_t stream;
   hipStreamCreate(&stream);
 
-  size_t comp_temp_bytes = 0;
-  size_t comp_out_bytes = 0;
-  void* d_comp_temp;
-  void* d_comp_out;
-
-  LZ4Compressor compressor(chunk_size, data_type);
-  compressor.configure(in_bytes, &comp_temp_bytes, &comp_out_bytes);
-  REQUIRE(comp_temp_bytes > 0);
-  REQUIRE(comp_out_bytes > 0);
-
-  // allocate temp buffer
-  HIP_CHECK(hipMalloc(&d_comp_temp, comp_temp_bytes));
+  LZ4Manager manager{chunk_size, data_type, stream};
+  auto comp_config = manager.configure_compression(in_bytes);
 
   // Allocate output buffer
-  HIP_CHECK(hipMalloc(&d_comp_out, comp_out_bytes));
+  uint8_t* d_comp_out;
+  HIP_CHECK(hipMalloc(&d_comp_out, comp_config.max_compressed_buffer_size));
 
-  size_t* comp_out_bytes_ptr;
-  hipMalloc((void**)&comp_out_bytes_ptr, sizeof(size_t));
-  compressor.compress_async(
-      d_in_data,
-      in_bytes,
-      d_comp_temp,
-      comp_temp_bytes,
+  manager.compress(
+      reinterpret_cast<const uint8_t*>(d_in_data),
       d_comp_out,
-      comp_out_bytes_ptr,
-      stream);
+      comp_config);
 
   HIP_CHECK(hipStreamSynchronize(stream));
-  HIP_CHECK(hipMemcpy(
-      &comp_out_bytes,
-      comp_out_bytes_ptr,
-      sizeof(comp_out_bytes),
-      hipMemcpyDeviceToHost));
-  hipFree(comp_out_bytes_ptr);
 
-  hipFree(d_comp_temp);
+  size_t comp_out_bytes = manager.get_compressed_output_size(d_comp_out);
+
   hipFree(d_in_data);
 
   // Test to make sure copying the compressed file is ok
-  void* copied = 0;
+  uint8_t* copied = 0;
   HIP_CHECK(hipMalloc(&copied, comp_out_bytes));
   HIP_CHECK(
       hipMemcpy(copied, d_comp_out, comp_out_bytes, hipMemcpyDeviceToDevice));
   hipFree(d_comp_out);
   d_comp_out = copied;
 
-  LZ4Decompressor decompressor;
-
-  size_t decomp_temp_bytes;
-  size_t decomp_out_bytes;
-  decompressor.configure(
-      d_comp_out,
-      comp_out_bytes,
-      &decomp_temp_bytes,
-      &decomp_out_bytes,
-      stream);
-
-  void* d_decomp_temp;
-  hipMalloc(&d_decomp_temp, decomp_temp_bytes);
+  auto decomp_config = manager.configure_decompression(d_comp_out);
 
   T* out_ptr;
-  hipMalloc(&out_ptr, decomp_out_bytes);
+  hipMalloc(&out_ptr, decomp_config.decomp_data_size);
 
   // make sure the data won't match input if not written to, so we can verify
   // correctness
-  hipMemset(out_ptr, 0, decomp_out_bytes);
+  hipMemset(out_ptr, 0, decomp_config.decomp_data_size);
 
-  decompressor.decompress_async(
+  manager.decompress(
+      reinterpret_cast<uint8_t*>(out_ptr),
       d_comp_out,
-      comp_out_bytes,
-      d_decomp_temp,
-      decomp_temp_bytes,
-      out_ptr,
-      decomp_out_bytes,
-      stream);
+      decomp_config);
   HIP_CHECK(hipStreamSynchronize(stream));
 
   // Copy result back to host
@@ -169,7 +133,6 @@ void test_lz4(const std::vector<T>& input, hipcompType_t data_type, const size_t
 
   hipFree(d_comp_out);
   hipFree(out_ptr);
-  hipFree(d_decomp_temp);
 }
 
 } // namespace
@@ -267,8 +230,10 @@ TEST_CASE("comp/decomp LZ4-chunksizes-uint64", "[hipcomp][small]")
 
   const size_t num = 2000000;
 
+  // NOTE: the LZ4 scratch space for HLIF scales with the maximum number of
+  // CTAs and the chunk size, so very large chunks would result in OOM
   std::vector<size_t> chunk_sizes{
-      32768, 32769, 50000, 65535, 65536, 90103, 16777216};
+      32768, 32769, 50000, 65535, 65536, 90103};
 
   for (const size_t chunk : chunk_sizes) {
     std::vector<T> input = buildRuns<T>(num, 5);

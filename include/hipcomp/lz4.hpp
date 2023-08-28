@@ -1,3 +1,5 @@
+#pragma once
+
 /*
  * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
  *
@@ -27,241 +29,21 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#ifndef HIPCOMP_LZ4_HPP
-#define HIPCOMP_LZ4_HPP
+#include <memory>
 
-#include "lz4.h"
-#include "hipcomp.hpp"
+#include "hipcompManager.hpp"
 
-namespace hipcomp
-{
-/**
- * @brief C++ wrapper for LZ4 compressor.
- */
-class LZ4Compressor : public Compressor
-{
-public:
-  /**
-   * @brief Create a new LZ4 compressor.
-   *
-   * @param chunk_size size of chunks that are eached compressed separately.
-   * A value of `0` will result in the default chunk size being used.
-   * @param data_type The type of data to compress.
-   */
-  explicit LZ4Compressor(size_t chunk_size, hipcompType_t data_type);
+namespace hipcomp {
 
-  /**
-   * @brief Create a new LZ4 compressor with the default chunk size.
-   */
-  LZ4Compressor();
-
-  // disable copying
-  LZ4Compressor(const LZ4Compressor&) = delete;
-  LZ4Compressor& operator=(const LZ4Compressor&) = delete;
-
-  /**
-   * @brief Configure the compressor for the given input, and get the necessary
-   * spaces.
-   *
-   * @param in_bytes The size of the input in bytes.
-   * @param temp_bytes The temporary workspace required (output).
-   * @param out_bytes The maximum possible output size (output).
-   */
-  void configure(
-      const size_t in_bytes, size_t* temp_bytes, size_t* out_bytes) override;
-
-  /**
-   * @brief Perform compression asynchronously.
-   *
-   * @param in_ptr The uncompressed input data (GPU accessible).
-   * @param in_bytes The length of the uncompressed input data.
-   * @param temp_ptr The temporary workspace (GPU accessible).
-   * @param temp_bytes The size of the temporary workspace.
-   * @param out_ptr The location to output data to (GPU accessible).
-   * @param out_bytes The size of the output location on input, and the size of
-   * the compressed data on output (CPU accessible, but must be pinned or
-   * managed memory for this function to be asynchronous).
-   * @param stream The stream to operate on.
-   *
-   * @throw HipCompException If compression fails to launch on the stream.
-   */
-  void compress_async(
-      const void* in_ptr,
-      const size_t in_bytes,
-      void* temp_ptr,
-      const size_t temp_bytes,
-      void* out_ptr,
-      size_t* out_bytes,
-      hipStream_t stream) override;
-
-private:
-  size_t m_chunk_size;
-  hipcompType_t m_data_type;
+struct LZ4FormatSpecHeader {
+  hipcompType_t data_type;
 };
 
-class LZ4Decompressor : public Decompressor
-{
-public:
-  LZ4Decompressor();
+struct LZ4Manager : PimplManager {
 
-  ~LZ4Decompressor();
+  LZ4Manager(size_t uncomp_chunk_size, hipcompType_t data_type, hipStream_t user_stream = 0, const int device_id = 0);
 
-  // disable copying
-  LZ4Decompressor(const LZ4Decompressor&) = delete;
-  LZ4Decompressor& operator=(const LZ4Decompressor&) = delete;
-
-  /**
-   * @brief Configure the decompressor. This synchronizes with the stream.
-   *
-   * @param in_ptr The compressed data on the device.
-   * @param in_bytes The size of the compressed data.
-   * @param temp_bytes The temporary space required for decompression (output).
-   * @param out_bytes The size of the uncompressed data (output).
-   * @param stream The stream to operate on for copying data from the device to
-   * the host.
-   */
-  void configure(
-      const void* in_ptr,
-      const size_t in_bytes,
-      size_t* temp_bytes,
-      size_t* out_bytes,
-      hipStream_t stream) override;
-
-  /**
-   * @brief Decompress the given data asynchronously.
-   *
-   * @param temp_ptr The temporary workspace on the device to use.
-   * @param temp_bytes The size of the temporary workspace.
-   * @param out_ptr The location to write the uncompressed data to on the
-   * device.
-   * @param out_num_elements The size of the output location in number of
-   * elements.
-   * @param stream The stream to operate on.
-   *
-   * @throw HipCompException If decompression fails to launch on the stream.
-   */
-  void decompress_async(
-      const void* in_ptr,
-      const size_t in_bytes,
-      void* temp_ptr,
-      const size_t temp_bytes,
-      void* out_ptr,
-      const size_t out_bytes,
-      hipStream_t stream) override;
-
-private:
-  void* m_metadata_ptr;
-  size_t m_metadata_bytes;
+  ~LZ4Manager();
 };
-
-/******************************************************************************
- * METHOD IMPLEMENTATIONS *****************************************************
- *****************************************************************************/
-
-inline LZ4Compressor::LZ4Compressor(const size_t chunk_size, hipcompType_t data_type) :
-    m_chunk_size(chunk_size),
-    m_data_type(data_type)
-{
-  // do nothing
-}
-
-inline LZ4Compressor::LZ4Compressor() : LZ4Compressor(0, HIPCOMP_TYPE_CHAR)
-{
-  // do nothing
-}
-
-inline void LZ4Compressor::configure(
-    const size_t in_bytes, size_t* const temp_bytes, size_t* const out_bytes)
-{
-  hipcompLZ4FormatOpts opts{m_chunk_size};
-
-  size_t metadata_bytes;
-  hipcompStatus_t status = hipcompLZ4CompressConfigure(
-      opts.chunk_size == 0 ? nullptr : &opts,
-      m_data_type,
-      in_bytes,
-      &metadata_bytes,
-      temp_bytes,
-      out_bytes);
-  throwExceptionIfError(status, "hipcompLZ4CompressConfigure() failed");
-}
-
-inline void LZ4Compressor::compress_async(
-    const void* const in_ptr,
-    const size_t in_bytes,
-    void* const temp_ptr,
-    const size_t temp_bytes,
-    void* const out_ptr,
-    size_t* const out_bytes,
-    hipStream_t stream)
-{
-  hipcompLZ4FormatOpts opts{m_chunk_size};
-  hipcompStatus_t status = hipcompLZ4CompressAsync(
-      opts.chunk_size == 0 ? nullptr : &opts,
-      m_data_type,
-      in_ptr,
-      in_bytes,
-      temp_ptr,
-      temp_bytes,
-      out_ptr,
-      out_bytes,
-      stream);
-  throwExceptionIfError(status, "hipcompLZ4CompressAsync() failed");
-}
-
-inline LZ4Decompressor::LZ4Decompressor() :
-    m_metadata_ptr(nullptr),
-    m_metadata_bytes(0)
-{
-  // do nothing
-}
-
-inline LZ4Decompressor::~LZ4Decompressor()
-{
-  if (m_metadata_ptr) {
-    hipcompLZ4DestroyMetadata(m_metadata_ptr);
-  }
-}
-
-inline void LZ4Decompressor::configure(
-    const void* const in_ptr,
-    const size_t in_bytes,
-    size_t* const temp_bytes,
-    size_t* const out_bytes,
-    hipStream_t stream)
-{
-  hipcompStatus_t status = hipcompLZ4DecompressConfigure(
-      in_ptr,
-      in_bytes,
-      &m_metadata_ptr,
-      &m_metadata_bytes,
-      temp_bytes,
-      out_bytes,
-      stream);
-  throwExceptionIfError(status, "hipcompLZ4Configure() failed");
-}
-
-inline void LZ4Decompressor::decompress_async(
-    const void* const in_ptr,
-    const size_t in_bytes,
-    void* const temp_ptr,
-    const size_t temp_bytes,
-    void* const out_ptr,
-    const size_t out_bytes,
-    hipStream_t stream)
-{
-  hipcompStatus_t status = hipcompLZ4DecompressAsync(
-      in_ptr,
-      in_bytes,
-      m_metadata_ptr,
-      m_metadata_bytes,
-      temp_ptr,
-      temp_bytes,
-      out_ptr,
-      out_bytes,
-      stream);
-  throwExceptionIfError(status, "hipcompLZ4QeueryMetadataAsync() failed");
-}
 
 } // namespace hipcomp
-#endif
