@@ -44,3 +44,5 @@ struct CascadedManager : PimplManager {
 
   virtual ~CascadedManager();
 };
+
+} // namespace hipcomp
