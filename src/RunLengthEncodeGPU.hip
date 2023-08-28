@@ -27,12 +27,6 @@
  */
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-//: DELETED
-#if 0
-#include "highlevel/CascadedCommon.h"
-#endif 
-//: END DELETED
-
 #include "HipUtils.h"
 #include "RunLengthEncodeGPU.h"
 #include "TempSpaceBroker.h"

@@ -36,11 +36,6 @@
 #include "tests/catch.hpp"
 
 #include "HipUtils.h"
-//: DELETED
-#if 0
-#include "SnappyKernels.h"
-#endif
-//: END DELETED
 #include "lowlevel/SnappyBatchKernels.h"
 
 #define HIP_CHECK(func)                                                       \
