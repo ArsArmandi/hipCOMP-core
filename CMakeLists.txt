@@ -222,12 +222,17 @@ if (BUILD_TESTS)
 endif()
 
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/hipcomp)
+if(CUDA_BACKEND)
+  set(HIPCOMP_PKG_CONFIG_TEMPLATE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/hipcomp-config.cmake.nvidia.in)
+else(CUDA_BACKEND)
+  set(HIPCOMP_PKG_CONFIG_TEMPLATE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/hipcomp-config.cmake.amd.in)
+endif(CUDA_BACKEND)
 
 
 #------
 # Build directory exporting
 include(CMakePackageConfigHelpers)
-configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/hipcomp-config.cmake.in"
+configure_package_config_file("${HIPCOMP_PKG_CONFIG_TEMPLATE}"
                               "${CMAKE_CURRENT_BINARY_DIR}/hipcomp-config.cmake"
                               INSTALL_DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 export(TARGETS hipcomp
@@ -237,7 +242,7 @@ export(TARGETS hipcomp
 
 #------
 # Install directory setup
-configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/hipcomp-config.cmake.in"
+configure_package_config_file("${HIPCOMP_PKG_CONFIG_TEMPLATE}"
                               "${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcomp-config.cmake"
                               INSTALL_DESTINATION "${INSTALL_CONFIGDIR}")
 write_basic_package_version_file(
