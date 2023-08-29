@@ -31,14 +31,8 @@ namespace hipcomp {
 #define MAX_COPY_LENGTH 64       // Syntax limit
 #define MAX_COPY_DISTANCE 32768  // Matches encoder limit as described in snappy format description
 
-#if ENABLE_HIP_OPT_WAVESIZE64
 const int COMP_THREADS_PER_BLOCK = 2*warpSize; // 2 warps per stream, 1 stream per block
 const int DECOMP_THREADS_PER_BLOCK = 3*warpSize; // 3 warps per stream, 1 stream per block
-#else
-const int COMP_THREADS_PER_BLOCK = 64; // 2 warps per stream, 1 stream per block
-const int DECOMP_THREADS_PER_BLOCK = 96; // 3 warps per stream, 1 stream per block
-#endif
-
 
 /**
  * @brief snappy compressor state
