@@ -44,12 +44,12 @@ function(add_test_file EXAMPLE_SOURCE)
   add_executable(${BARE_NAME} ${EXAMPLE_SOURCE})
   if (CUDA_BACKEND)
   if (NOT MSVC)
-    target_link_libraries(${BARE_NAME} PRIVATE nvcomp CUDA::cudart)
+    target_link_libraries(${BARE_NAME} PRIVATE hipcomp CUDA::cudart)
   else()
     # Including CUDA::cudart on Windows resulted in multiple definition
     # linker errors for gdeflate and bitcomp tests, since
     # cudart_static.lib is already included.
-    target_link_libraries(${BARE_NAME} PRIVATE nvcomp)
+    target_link_libraries(${BARE_NAME} PRIVATE hipcomp)
   endif()
   else (CUDA_BACKEND)
     target_link_libraries(${BARE_NAME} PRIVATE hipcomp hip::host)
