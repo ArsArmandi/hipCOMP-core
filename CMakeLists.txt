@@ -70,15 +70,15 @@ macro(setup_cuda_build)
   
   include_directories(${CUB_PARENT_DIR})
   
-  find_package(hip REQUIRED)
+  # HIP definitions
   add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
-  include_directories(${HIP_INCLUDE_DIRS})
+  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include_ext_nvidia)
 
-   # TODO(domcharrier) why is this done?
-   # Using '-G' can cause the register count to overflow for some kernels
-   # and cause launch failures
-   # set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG};-G")
-   set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -g")
+  # TODO(domcharrier) why is this done?
+  # Using '-G' can cause the register count to overflow for some kernels
+  # and cause launch failures
+  # set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG};-G")
+  set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -g")
 endmacro()
 
 macro(setup_hip_amd_build)
