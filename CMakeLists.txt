@@ -115,9 +115,9 @@ endif()
 set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -g")
 
 if(CMAKE_BUILD_TYPE STREQUAL "DEBUG" OR CMAKE_BUILD_TYPE STREQUAL "Debug")
-  message("Debug build.")
+  message(STATUS "Debug build.")
 else()
-  message("Release build.")
+  message(STATUS "Release build.")
   # this is required, as CMake sends CMAKE_CXX_FLAGS_DEBUG to nvcc
   # if no build type is set (but not to g++ for some reason).
   set(CMAKE_BUILD_TYPE "Release")
@@ -205,7 +205,7 @@ set(VER_PATCH "${CMAKE_MATCH_1}")
 
 set(HIPCOMP_VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}")
 
-message("Build hipCOMP version ${HIPCOMP_VERSION}")
+message(STATUS "Build hipCOMP version ${HIPCOMP_VERSION}")
 
 if (BUILD_TESTS)
   enable_testing()
