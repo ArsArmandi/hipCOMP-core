@@ -72,7 +72,7 @@ macro(setup_cuda_build)
   
   # HIP definitions
   add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
-  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include_ext_nvidia)
+  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp) # contains a hip subfolder
 
   # TODO(domcharrier) why is this done?
   # Using '-G' can cause the register count to overflow for some kernels
