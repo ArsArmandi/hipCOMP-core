@@ -35,7 +35,12 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #endif
 
+#if defined(__HIP_PLATFORM_HCC__) || defined(__HIP_PLATFORM_AMD__)
 #include <hipcub/hipcub.hpp>
+#else
+#include <cub/cub.cuh>
+namespace hipcub = cub;
+#endif
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop

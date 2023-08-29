@@ -20,7 +20,7 @@
 
 #include "hip/hip_runtime.h"
 
-#if (__NVCC_VER_MAJOR__ >= 9) or defined(_​_HIP_​PLATFORM_​AMD_​_)
+#if (__CUDACC_VER_MAJOR__ >= 9)
 #  define INDEPENDENT_THREAD_SCHEDULING
 #endif
 #ifdef INDEPENDENT_THREAD_SCHEDULING
@@ -40,12 +40,13 @@
 #if (__CUDA_ARCH__ >= 700)
 #  define NANOSLEEP(d)  __nanosleep(d)
 #else
-//: includes the _​_HIP_​PLATFORM_​AMD_​_ case
+//: includes the __HIP_PLATFORM_AMD__ case
 #  define NANOSLEEP(d)  clock()
 #endif
 
 #ifdef __HIP_PLATFORM_AMD__
-constexpr uint32_t uWarpSize = 64u;
+constexpr int32_t warpsize = 64;
+constexpr uint32_t uwarpsize = 64u;
 typedef uint64_t lane_mask_t;
 typedef int64_t signed_lane_mask_t;
 
@@ -57,7 +58,8 @@ typedef int64_t signed_lane_mask_t;
 #define DECODE_SLEEP_NS 50
 #define PROCESS_SLEEP_NS 100
 #else
-constexpr uint32_t uWarpSize = 32u;
+constexpr int32_t warpsize = 32;
+constexpr uint32_t uwarpsize = 32u;
 typedef uint32_t lane_mask_t;
 typedef int32_t signed_lane_mask_t;
 
