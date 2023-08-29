@@ -76,7 +76,6 @@ else()
     add_library(hipcomp SHARED ${HIP_SOURCES} ${CPP_SOURCES})
   endif()
 endif()
-set_property(TARGET hipcomp PROPERTY EXPORT_NAME hipcomp::hipcomp)
 
 target_include_directories(hipcomp PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>")
 target_include_directories(hipcomp PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>")
