@@ -59,7 +59,7 @@ snap_kernel(
       &device_out_bytes[ix_chunk]);
 }
 
-__global__ void __launch_bounds__(warpSize)
+__global__ void __launch_bounds__(warpsize)
 get_uncompressed_sizes_kernel(
   const void* const* __restrict__ device_in_ptr,
   const uint64_t* __restrict__ device_in_bytes,
@@ -182,7 +182,7 @@ void gpu_get_uncompressed_sizes(
   int count,
   hipStream_t stream)
 {
-  dim3 dim_block(warpSize, 1); // only a single thread is active in any case
+  dim3 dim_block(warpsize, 1); // only a single thread is active in any case
   dim3 dim_grid(count, 1);
 
   get_uncompressed_sizes_kernel<<<dim_grid, dim_block, 0, stream>>>(

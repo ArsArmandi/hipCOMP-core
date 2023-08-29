@@ -42,7 +42,7 @@
 #include <iostream>
 #include <vector>
 
-#if (__NVCC_VER_MAJOR__ >= 9)
+#if (__CUDACC_VER_MAJOR__ >= 9)
 #  define SHFL10(v)        __shfl_sync(~0, v, 0)
 #  define SHFL1(v, t)      __shfl_sync(~0, v, t)
 #  define SHFL1_DOWN(v, m)  __shfl_down_sync(~0, v, m)

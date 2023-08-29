@@ -53,7 +53,7 @@ constexpr const size_t ALIGN_OFFSET = 256;
 #ifdef __HIP_PLATFORM_AMD__
 constexpr const int WARP_SIZE = 64;
 #else
-#  if __NVCC_VER_MAJOR__ >= 9
+#  if __CUDACC_VER_MAJOR__ >= 9
 #    define INDEPENDENT_THREAD_SCHEDULING
 #  endif
 constexpr const int WARP_SIZE = 32;
