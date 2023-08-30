@@ -90,6 +90,7 @@ macro(setup_hip_amd_build)
   find_package(hip REQUIRED)
   add_compile_definitions(__HIP_PLATFORM_HCC__ __HIP_PLATFORM_AMD__)
   include_directories(${HIP_INCLUDE_DIRS})
+  add_compile_definitions("ENABLE_HIP_OPT_WAVESIZE64")
 endmacro()
 
 
