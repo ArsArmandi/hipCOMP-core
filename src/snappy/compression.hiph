@@ -174,7 +174,7 @@ static __device__ inline uint32_t FindFourByteMatch(
     uint32_t pos0,
     uint32_t t)
 {
-  constexpr uint32_t GROUPSIZE = sizeof(GROUPMASK_T)*8;
+  constexpr unsigned GROUPSIZE = sizeof(GROUPMASK_T)*8;
   constexpr GROUPMASK_T GROUP_MASK_ONE = 1;
   constexpr GROUPMASK_T GROUPMASK_TWO = 2;
 
@@ -234,14 +234,12 @@ static __device__ inline uint32_t Match60(const uint8_t *src1,
                                    uint32_t len,
                                    uint32_t t)
 { 
-  constexpr uint32_t WARPSIZE = sizeof(WARPMASK_T)*8;
-  constexpr uint32_t GROUPSIZE = sizeof(GROUPMASK_T)*8;
+  constexpr unsigned WARPSIZE = sizeof(WARPMASK_T)*8;
+  constexpr unsigned GROUPSIZE = sizeof(GROUPMASK_T)*8;
   GROUPMASK_T mismatch = ballot1<GROUPMASK_T,WARPSIZE>(t,t >= len || src1[t] != src2[t]);
-  #ifdef __HIP_PLATFORM_AMD__
-  if (GROUPSIZE == 64) {
-    return find_first_set_bit(mismatch) - 1;
+  if (GROUPSIZE == 64) { 
+    return find_first_set_bit(mismatch) - 1; // mismatch cannot be zero here if len <= 63
   }
-  #endif
   if (mismatch == 0) {
     mismatch = ballot1<GROUPMASK_T,WARPSIZE>(t,32 + t >= len || src1[32 + t] != src2[32 + t]); 
     return 31 + __ffs((uint32_t)mismatch);  // mismatch cannot be zero here if len <= 63
@@ -272,8 +270,8 @@ do_snap(
   typedef warp_mask_t GROUPMASK_T;
   typedef signed_warp_mask_t SIGNED_GROUPMASK_T;
   typedef warp_mask_t WARPMASK_T;
-  constexpr uint32_t WARPSIZE = sizeof(WARPMASK_T)*8;
-  constexpr uint32_t GROUPSIZE = sizeof(GROUPMASK_T)*8;
+  constexpr unsigned WARPSIZE = sizeof(WARPMASK_T)*8;
+  constexpr unsigned GROUPSIZE = sizeof(GROUPMASK_T)*8;
   
   __shared__ __align__(16) snap_state_s state_g;
 
