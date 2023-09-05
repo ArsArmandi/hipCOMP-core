@@ -1,4 +1,22 @@
-#include "snappy_gpu_defs.h"
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
+
+#ifndef SNAPPY_DECOMPRESSION_DECODER_WARP_SCANS_HIPH
+#define SNAPPY_DECOMPRESSION_DECODER_WARP_SCANS_HIPH
 
 namespace hipcomp
 {
@@ -336,9 +354,9 @@ namespace snappy
    * Here comes the __popc/__popcll device builtin into play that counts the set bits in an 32-bit/64-bit integer.
    */
   template <typename GROUPMASK_T>
-  __device__ static inline uint32_t compute_symbol_position_via_len3_mask(uint32_t t, uint32_t cur, GROUPMASK_T len3_mask) {
+  __device__ inline uint32_t compute_symbol_position_via_len3_mask(uint32_t t, uint32_t cur, GROUPMASK_T len3_mask) {
     constexpr GROUPMASK_T GROUPMASK_ONE = 1;
-    return cur + 2 * t + POPC(len3_mask & ((GROUPMASK_ONE << t) - GROUPMASK_ONE));
+    return cur + 2 * t + num_set_bits(len3_mask & ((GROUPMASK_ONE << t) - GROUPMASK_ONE));
   }
 
   /**
@@ -355,28 +373,30 @@ namespace snappy
    * \param[in] len5_mask a mask whose bit pairs encode the length of the next `sizeof(GROUPMASK_T)/2` symbols.
    */
   template <typename GROUPMASK_T>
-  __device__ static inline uint32_t compute_symbol_position_via_len5_mask(uint32_t t, uint32_t cur,  GROUPMASK_t len5_mask);
+  __device__ inline uint32_t compute_symbol_position_via_len5_mask(uint32_t t, uint32_t cur,  GROUPMASK_T len5_mask);
 
   template <>
-  __device__ static inline uint32_t compute_symbol_position_via_len5_mask<uint32_t>(uint32_t t, uint32_t cur,  uint32_t len5_mask) {
+  __device__ inline uint32_t compute_symbol_position_via_len5_mask<uint32_t>(uint32_t t, uint32_t cur,  uint32_t len5_mask) {
     constexpr uint32_t MASK_EVERY_ODD_BIT =  0xaaaaaaaa; //: 0b1010..1010
     constexpr uint32_t MASK_EVERY_EVEN_BIT = 0x55555555; //: 0b0101..0101
     constexpr uint32_t GROUPMASK_ONE = 1;
     uint32_t mask_t    = (GROUPMASK_ONE << (2 * t)) - 1; //: 0b0..,0b11..,0b1111,..,0b111111..
-    return cur + 2 * t + 2 * POPC((len5_mask & MASK_EVERY_ODD_BIT) & mask_t) + POPC((len5_mask & MASK_EVERY_EVEN_BIT) & mask_t);
+    return cur + 2 * t + 2 * num_set_bits((len5_mask & MASK_EVERY_ODD_BIT) & mask_t) + num_set_bits((len5_mask & MASK_EVERY_EVEN_BIT) & mask_t);
   }
 
   #if defined(__HIP_PLATFORM_AMD__) || defined(__HIP_PLATFORM_HCC__)
   template <>
-  __device__ static inline uint32_t compute_symbol_position_via_len5_mask<uint64_t>(uint32_t t, uint32_t cur,  uint64_t len5_mask) {
+  __device__ inline uint32_t compute_symbol_position_via_len5_mask<uint64_t>(uint32_t t, uint32_t cur,  uint64_t len5_mask) {
     constexpr uint64_t MASK_EVERY_ODD_BIT = 0xaaaaaaaaaaaaaaaaull;  //: 0b1010..1010 for 64 bit
     constexpr uint64_t MASK_EVERY_EVEN_BIT = 0x5555555555555555ull; //: 0b0101..0101 for 64 bit
     constexpr uint64_t GROUPMASK_ONE = 1;
     uint64_t mask_t    = (GROUPMASK_ONE << (2 * t)) - 1; //: 0b0..,0b11..,0b1111,..,0b111111..
-    return cur + 2 * t + 2 * POPC((len5_mask & MASK_EVERY_ODD_BIT) & mask_t) + POPC((len5_mask & MASK_EVERY_EVEN_BIT) & mask_t);
+    return cur + 2 * t + 2 * num_set_bits((len5_mask & MASK_EVERY_ODD_BIT) & mask_t) + num_set_bits((len5_mask & MASK_EVERY_EVEN_BIT) & mask_t);
   }
   #endif
 
 } // namespace snappy
 
 } // namespace hipcomp
+
+#endif // SNAPPY_DECOMPRESSION_DECODER_WARP_SCANS_HIPH

@@ -30,7 +30,8 @@
 
 #include "highlevel/SnappyHlifKernels.h"
 #include "hipcomp_common_deps/hlif_shared.hiph"
-#include "SnappyKernels.hiph"
+#include "snappy/compression.hiph"
+#include "snappy/decompression.hiph"
 #include "HipUtils.h"
 
 namespace hipcomp {
@@ -52,7 +53,7 @@ public:
       const size_t max_comp_chunk_size,
       size_t* comp_chunk_size) 
   {
-    do_snap(
+    snappy::do_snap(
         this_decomp_buffer,
         decomp_size,
         tmp_output_buffer,
@@ -86,7 +87,7 @@ public:
       const size_t comp_chunk_size,
       const size_t decomp_buffer_size) 
   {
-    do_unsnap(
+    snappy::do_unsnap(
         comp_buffer,
         comp_chunk_size,
         decomp_buffer,

@@ -30,7 +30,7 @@
 #pragma once
 
 #include "hipcomp.h"
-#include "SnappyTypes.h"
+#include "snappy/types.h"
 
 namespace hipcomp {
 
