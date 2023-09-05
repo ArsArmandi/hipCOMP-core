@@ -33,17 +33,9 @@
 #include <hip/hip_cooperative_groups.h>
 #include <stdio.h>
 #include <type_traits>
-
-namespace {
-  #if defined(__HIP_PLATFORM_AMD__) or defined(__HIP_PLATFORM_HCC__)
-  constexpr int32_t WARPSIZE = 64; // TODO put these definitions into common header file
-  #else
-  constexpr int32_t WARPSIZE = 32;
-  #endif
-}
-
 #include "hipcomp/shared_types.h"
 #include "hlif_shared_types.hpp"
+#include "device_types.h"
 
 namespace cg = cooperative_groups;
 
@@ -236,7 +228,7 @@ HlifCompressBatchKernel(
   if (chunks_per_block == 1) {
     HlifCompressBatch<chunks_per_block>(compression_args, compressor, cta_group);
   } else {
-    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cg::tiled_partition<::WARPSIZE>(cta_group));
+    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cg::tiled_partition<hipcomp::warpsize>(cta_group));
   }
 }
 
@@ -257,7 +249,7 @@ HlifCompressBatchKernel(CompressArgs compression_args)
   if (chunks_per_block == 1) {
     HlifCompressBatch<chunks_per_block>(compression_args, compressor, cta_group);
   } else {
-    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cg::tiled_partition<::WARPSIZE>(cta_group));
+    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cg::tiled_partition<hipcomp::warpsize>(cta_group));
   }
 }
 
@@ -369,8 +361,8 @@ __device__ void HlifDecompressBatch(
         share_buffer,
         kernel_output_status,
         decompressor,
-        cg::tiled_partition<::WARPSIZE>(cta_group));
-    assert(blockDim.x == warpsize);
+        cg::tiled_partition<hipcomp::warpsize>(cta_group));
+    assert(blockDim.x == hipcomp::warpsize);
   }
 }
 
