@@ -110,9 +110,8 @@ __device__ inline T SHFL1_XOR(T v, const warp_mask_t m) {
 __device__ inline void SYNCWARP() {
   return __syncwarp();
 }
-template <typename T> 
-__device__ inline T BALLOT1(T v) {
-  return __ballot_sync(~0, v);
+__device__ warp_mask_t BALLOT1(int predicate) {
+  return __ballot_sync(~0, predicate);
 }
 //#  define SHFL10(v)        __shfl_sync(~0, (v), 0)
 //#  define SHFL1(v, t)      __shfl_sync(~0, (v), (t))
@@ -135,9 +134,8 @@ __device__ inline T SHFL1_XOR(T v, const warp_mask_t m) {
 __device__ inline void SYNCWARP() {
   return;
 }
-template <typename T> 
-__device__ inline T BALLOT1(T v) {
-  return __ballot(v);
+__device__ inline warp_mask_t BALLOT1(int predicate) {
+  return __ballot(predicate);
 }
 //#  define SHFL10(v)        __shfl((v), 0)
 //#  define SHFL1(v, t)      __shfl((v), (t))
