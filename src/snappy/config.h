@@ -60,7 +60,7 @@ namespace hipcomp
     // Not supporting streams longer than this (not what snappy is intended for)
     constexpr unsigned SNAPPY_MAX_STREAM_SIZE = 0x7fffffff;
 
-#ifdef __HIP_PLATFORM_AMD__
+#if defined(__HIP_PLATFORM_HCC__) || defined(__HIP_PLATFORM_AMD__)
     //: results in BATCH_SIZE 64
     constexpr unsigned LOG2_BATCH_SIZE = 6;
 #else

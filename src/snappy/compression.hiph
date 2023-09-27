@@ -246,7 +246,7 @@ static __device__ inline uint32_t Match60(const uint8_t *src1,
   } else {
     return __ffs((uint32_t)mismatch) - 1;
   }
-}
+} 
 
 /**
  * \brief Snappy compression device function
