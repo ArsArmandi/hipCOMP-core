@@ -24,69 +24,78 @@ namespace hipcomp {
 
 /**
  * \return the number of consecutive bits of highest significance that contain zeros.
+ * \note Return value type matches that of the underlying device builtin.
+ *       Changing to unsigned type may result in underflow issues in the dependent
+ *       code.
  */
 template <typename T>
-__device__ inline uint32_t num_leading_zero_bits(T v);
+__device__ inline int num_leading_zero_bits(T v);
 
 template <>
-__device__ inline uint32_t num_leading_zero_bits<uint32_t>(uint32_t v) {
+__device__ inline int num_leading_zero_bits<uint32_t>(uint32_t v) {
   return __clz(v);
 }
 
 template <>
-__device__ inline uint32_t num_leading_zero_bits<uint64_t>(uint64_t v) {
+__device__ inline int num_leading_zero_bits<uint64_t>(uint64_t v) {
   return __clzll(v);
 }
 
 /**
  * \return index of first set bit of lowest significance.
+ * \note Return value type matches that of the underlying device builtin.
+ *       Changing to unsigned type may result in underflow issues in the dependent
+ *       code.
  */
 template <typename T>
-__device__ inline uint32_t find_first_set_bit(T v);
+__device__ inline int find_first_set_bit(T v);
 
 template <>
-__device__ inline uint32_t find_first_set_bit<uint32_t>(uint32_t v) {
+__device__ inline int find_first_set_bit<uint32_t>(uint32_t v) {
   return __ffs(v);
 }
 
 template <>
-__device__ inline uint32_t find_first_set_bit<int32_t>(int32_t v) {
+__device__ inline int find_first_set_bit<int32_t>(int32_t v) {
   return __ffs(v);
 }
 
 template <>
-__device__ inline uint32_t find_first_set_bit<uint64_t>(uint64_t v) {
+__device__ inline int find_first_set_bit<uint64_t>(uint64_t v) {
   return __ffsll(static_cast<unsigned long long int>(v));
 }
 
 template <>
-__device__ inline uint32_t find_first_set_bit<int64_t>(int64_t v) {
+__device__ inline int find_first_set_bit<int64_t>(int64_t v) {
   return __ffsll(static_cast<unsigned long long int>(v));
 }
 
 /**
  * \return Number of bits set to 1.
+ * \note Return value type matches that of the underlying device builtin.
+ *       Changing to unsigned type may result in underflow issues in the dependent
+ *       code.
  */
 template <typename T>
-__device__ inline uint32_t num_set_bits(T v);
+__device__ inline int num_set_bits(T v);
 
 template <>
-__device__ inline uint32_t num_set_bits<uint32_t>(uint32_t v) {
+__device__ inline int num_set_bits<uint32_t>(uint32_t v) {
   return __popc(v);
 }
 
 template <>
-__device__ inline uint32_t num_set_bits<int32_t>(int32_t v) {
+__device__ inline int num_set_bits<int32_t>(int32_t v) {
   return __popc(v);
 }
 
 template <>
-__device__ inline uint32_t num_set_bits<uint64_t>(uint64_t v) {
+__device__ inline int num_set_bits<uint64_t>(uint64_t v) {
   return __popcll(v);
 }
 
 template <>
-__device__ inline uint32_t num_set_bits<int64_t>(int64_t v) {
+__device__ inline int num_set_bits<int64_t>(int64_t v) {
   return __popcll(v);
 }
 
