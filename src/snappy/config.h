@@ -20,6 +20,37 @@
 
 #include "device_types.h"
 
+// Decompression default settings that can be influenced via compiler flags
+
+#ifndef LOG2_BATCH_SIZE
+#  if defined(__HIP_PLATFORM_HCC__) || defined(__HIP_PLATFORM_AMD__)
+     // results in BATCH_SIZE 64 (LZ77 symbols)
+#    define LOG2_BATCH_SIZE 6
+#  else
+     // results in BATCH_SIZE 32 (LZ77 symbols)
+#    define LOG2_BATCH_SIZE 5
+#  endif
+#endif
+
+#ifndef LOG2_BATCH_COUNT
+#  define LOG2_BATCH_COUNT 2
+#endif
+
+#ifndef LOG2_PREFETCH_SIZE
+   // results in PREFETCH_SIZE 4096 (bytes)
+#  define LOG2_PREFETCH_SIZE 12
+#endif
+
+#ifndef PREFETCH_SECTORS
+  // How many loads in flight when prefetching
+#  define PREFETCH_SECTORS 8
+#endif
+
+#ifndef LITERAL_SECTORS
+   // How many loads in flight when processing the literal
+#  define LITERAL_SECTORS 4
+#endif
+
 namespace hipcomp
 {
   namespace snappy
@@ -60,21 +91,10 @@ namespace hipcomp
     // Not supporting streams longer than this (not what snappy is intended for)
     constexpr unsigned SNAPPY_MAX_STREAM_SIZE = 0x7fffffff;
 
-#if defined(__HIP_PLATFORM_HCC__) || defined(__HIP_PLATFORM_AMD__)
-    //: results in BATCH_SIZE 64
-    constexpr unsigned LOG2_BATCH_SIZE = 6;
-#else
-    //: results in BATCH_SIZE 32
-    constexpr unsigned LOG2_BATCH_SIZE = 5;
-#endif
     constexpr unsigned BATCH_SIZE = (1 << LOG2_BATCH_SIZE);
-    constexpr unsigned LOG2_BATCH_COUNT = 2;
     constexpr unsigned BATCH_COUNT = (1 << LOG2_BATCH_COUNT);
-    constexpr unsigned LOG2_PREFETCH_SIZE = 12;
     constexpr unsigned PREFETCH_SIZE = (1 << LOG2_PREFETCH_SIZE); // 4KB, in 32B chunks
                                                                   //: TODO: amd: does it make sense to tune this for AMD to have the same amount of chunks?
-    constexpr unsigned PREFETCH_SECTORS = 8;                      // How many loads in flight when prefetching
-    constexpr unsigned LITERAL_SECTORS = 4;                       // How many loads in flight when processing the literal
 
     constexpr unsigned LOG_CYCLECOUNT = 0;
   } // namespace snappy
