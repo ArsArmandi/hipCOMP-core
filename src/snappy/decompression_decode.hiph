@@ -35,26 +35,37 @@ namespace snappy {
 template <typename GROUPMASK_T, typename WARPMASK_T>
 class DecodeSymbols {
 private:
-  static constexpr uint32_t GROUPSIZE = sizeof(GROUPMASK_T)*8;
-  static constexpr uint32_t WARPSIZE = sizeof(WARPMASK_T)*8;
+  static constexpr unsigned GROUPSIZE= sizeof(GROUPMASK_T)*8;
+  static constexpr unsigned WARPSIZE = sizeof(WARPMASK_T)*8;
 
   /**
    * Decode symbols that have not been processed
    * by the previous strategies with a single thread per warp.
+   *  
+   * \param[inout] s the decompression context/state.
+   * \param[inout] cur the current read position of the decoder warp, i.e. thread/lane 0.
+   * \param[inout] bytes_left the number of bytes still left to uncompress.
+   * \param[inout] dst_pos the write position in the output buffer.
+   * \param[inout] b pointer to the batch of symbols that will be decoded/are already decoded. 
+   *                 This volatile pointer may be modified and is thus passed as reference.
+   * \param[inout] batch_len number of symbols that have been already decoded in the current batch. May not be zero 
+   *               if another trategy has become active before.
+   * \param[in]    end end index of the compressed bytes (inclusive)
    */
   __device__ static inline void decode_and_fill_batch_using_single_thread(
-    unsnap_state_s *s,      //: inout
-    uint32_t& cur,          //: inout
-    uint32_t& bytes_left,   //: inout
-    uint32_t& dst_pos,      //: inout
-    volatile LZ77Symbol *b, //: inout
-    int32_t& batch_len,     //: inout
-    uint32_t end            //: in
+    unsnap_state_s *s,       //: inout
+    uint32_t& cur,           //: inout
+    uint32_t& bytes_left,    //: inout
+    uint32_t& dst_pos,       //: inout
+    volatile LZ77Symbol*& b, //: inout
+    int32_t& batch_len,      //: inout
+    uint32_t end             //: in
   ) {
     uint32_t current_prefetch_wrpos = s->q.prefetch_wrpos;
     while (bytes_left > 0 && batch_len < BATCH_SIZE && min(cur + 5, end) <= current_prefetch_wrpos) {
       uint32_t blen, offset;
       uint8_t b0 = s->q.read_byte(0,cur);
+      uint32_t cur_orig = cur;
       if (LZ77Symbol::match_copy(b0)) {
         uint8_t b1 = s->q.read_byte(0,cur + 1);
         if (!LZ77Symbol::match_copy_with_2_or_4_offset_bytes(b0)) {
@@ -114,7 +125,7 @@ private:
         if (bytes_left < blen) break;
         bytes_left -= blen;
       }
-      b[batch_len].set(blen,offset);
+      b[batch_len].set(blen,offset,cur_orig);
       //: b[batch_len].len    = blen;
       //: b[batch_len].offset = offset;
       batch_len++;
@@ -193,6 +204,7 @@ public:
         WAIT_FOR_PREFETCHER(s,cur,end);
         b = &s->q.batch[batch * BATCH_SIZE];
       }
+
       // Process small symbols in parallel: for data that does not get good compression,
       // the stream will consist of a large number of short literals (1-byte or 2-byte)
       // followed by short repeat runs. This results in many 2-byte or 3-byte symbols
@@ -224,7 +236,7 @@ public:
       }
       //: post-condition: symbol handled by thread/lane `batch_len-1` is the last decoded symbol
       //: post-condition: symbol handled by thread/lane `batch_len` is the next NOT decoded symbol
-      
+
       if (t == 0) { //: only thread 0 active
         decode_and_fill_batch_using_single_thread(
           s,          //: inout
