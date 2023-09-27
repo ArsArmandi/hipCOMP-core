@@ -45,7 +45,7 @@ namespace hipcomp
       /**
        * \brief Applies the strategy.
        *
-       * \param s decompression state
+       * \param[inout] s decompression state
        * \param[in] t warp lane index, i.e. threadIdx.x % WARPSIZE.
        */
       __device__ static inline void apply(unsnap_state_s *s, const int t)

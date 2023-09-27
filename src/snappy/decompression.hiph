@@ -34,6 +34,56 @@ namespace hipcomp
   {
 
     /**
+     * \brief Parses the size of the uncompressed block.
+     * 
+     * Parses the uncompressed size that is encoded as varint at the beginning of the Snappy compressed block.
+     * Varints are used to encode integers of arbitrary precision. They are Little-Endian byte sequences where
+     * the 7 least-significant bits per per byte encode the integer while the most-significant bit
+     * encodes if the byte sequence continues (1) or not (0).
+     * Note that 0b10000000=0x80 and 0b01111111=0x7f.
+     * 
+     * \note While varints can be used to encode integers of variable precision, 
+     *       here we assume that the maximum size of the integer can be 32 bits, i.e. at max 5 bytes are read.
+     * 
+     * \param[inout] s decompression state
+     * \param[inout] cur current read position/cursor in the compressed input stream.
+     */
+    __device__ inline uint32_t decode_uncompressed_size(
+      unsnap_state_s *s,    //: inout
+      const uint8_t *& cur, //: inout
+      const uint8_t *end   //: in
+    ) {
+      uint32_t uncompressed_size = *cur++;
+      if (uncompressed_size > 0x7f)
+      {
+        uint32_t c = (cur < end) ? *cur++ : 0;
+        uncompressed_size = (uncompressed_size & 0x7f) | (c << 7);
+        if (uncompressed_size >= (0x80 << 7))
+        {
+          c = (cur < end) ? *cur++ : 0;
+          uncompressed_size = (uncompressed_size & ((0x7f << 7) | 0x7f)) | (c << 14);
+          if (uncompressed_size >= (0x80 << 14))
+          {
+            c = (cur < end) ? *cur++ : 0;
+            uncompressed_size =
+                (uncompressed_size & ((0x7f << 14) | (0x7f << 7) | 0x7f)) | (c << 21);
+            if (uncompressed_size >= (0x80 << 21))
+            {
+              c = (cur < end) ? *cur++ : 0;
+              if (c < 0x8)
+                uncompressed_size =
+                    (uncompressed_size & ((0x7f << 21) | (0x7f << 14) | (0x7f << 7) | 0x7f)) |
+                    (c << 28);
+              else
+                s->error = -1;
+            }
+          }
+        }
+      }
+      return uncompressed_size;
+    }
+
+    /**
      * \brief Snappy decompression device function
      **/
     __device__ inline void do_unsnap(
@@ -44,12 +94,6 @@ namespace hipcomp
         hipcompStatus_t *const __restrict__ outputs,
         uint64_t *__restrict__ device_out_bytes)
     {
-      typedef warp_mask_t GROUPMASK_T;
-      typedef signed_warp_mask_t SIGNED_GROUPMASK_T;
-      typedef warp_mask_t WARPMASK_T;
-      constexpr unsigned WARPSIZE = sizeof(WARPMASK_T)*8;
-      constexpr unsigned GROUPSIZE= sizeof(GROUPMASK_T)*8;
-
       __shared__ __align__(16) unsnap_state_s state_g;
 
       int t = threadIdx.x;
@@ -78,33 +122,7 @@ namespace hipcomp
         if (cur < end)
         {
           // Read uncompressed size (varint), limited to 32-bit
-          uint32_t uncompressed_size = *cur++;
-          if (uncompressed_size > 0x7f)
-          {
-            uint32_t c = (cur < end) ? *cur++ : 0;
-            uncompressed_size = (uncompressed_size & 0x7f) | (c << 7);
-            if (uncompressed_size >= (0x80 << 7))
-            {
-              c = (cur < end) ? *cur++ : 0;
-              uncompressed_size = (uncompressed_size & ((0x7f << 7) | 0x7f)) | (c << 14);
-              if (uncompressed_size >= (0x80 << 14))
-              {
-                c = (cur < end) ? *cur++ : 0;
-                uncompressed_size =
-                    (uncompressed_size & ((0x7f << 14) | (0x7f << 7) | 0x7f)) | (c << 21);
-                if (uncompressed_size >= (0x80 << 21))
-                {
-                  c = (cur < end) ? *cur++ : 0;
-                  if (c < 0x8)
-                    uncompressed_size =
-                        (uncompressed_size & ((0x7f << 21) | (0x7f << 14) | (0x7f << 7) | 0x7f)) |
-                        (c << 28);
-                  else
-                    s->error = -1;
-                }
-              }
-            }
-          }
+          uint32_t uncompressed_size = decode_uncompressed_size(s, cur, end);
           s->uncompressed_size = uncompressed_size;
           s->bytes_left = uncompressed_size;
           s->base = cur;
@@ -129,7 +147,7 @@ namespace hipcomp
       {
         if (t < warpsize)
         {
-          // WARP0: decode lengths and offsets
+          // WARP0: decode lengths and offsets, i.e. the LZ77 symbols, for WARP2
           DecodeSymbols<warp_mask_t, warp_mask_t>::apply(s, t);
         }
         else if (t < 2 * warpsize)
@@ -139,7 +157,7 @@ namespace hipcomp
         }
         else if (t < 3 * warpsize)
         {
-          // WARP2: LZ77
+          // WARP2: process the LZ77 symbols and write the decoded data to the output buffer
           ProcessSymbols<warp_mask_t, warp_mask_t>::apply(s, t & (uwarpsize - 1));
         }
         __syncthreads();
