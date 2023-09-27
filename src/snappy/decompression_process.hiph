@@ -42,8 +42,8 @@ namespace hipcomp
     class ProcessSymbols
     {
     private:
-      static constexpr uint32_t GROUPSIZE = sizeof(GROUPMASK_T) * 8;
-      static constexpr uint32_t WARPSIZE = sizeof(WARPMASK_T) * 8;
+      static constexpr unsigned GROUPSIZE= sizeof(GROUPMASK_T) * 8;
+      static constexpr unsigned WARPSIZE = sizeof(WARPMASK_T) * 8;
       static constexpr GROUPMASK_T GROUPMASK_ZERO = 0;
       static constexpr GROUPMASK_T GROUPMASK_ONE = 1;
       static constexpr GROUPMASK_T GROUPMASK_TWO = 2;
