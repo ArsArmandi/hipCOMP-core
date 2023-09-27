@@ -384,7 +384,6 @@ namespace snappy
     return cur + 2 * t + 2 * num_set_bits((len5_mask & MASK_EVERY_ODD_BIT) & mask_t) + num_set_bits((len5_mask & MASK_EVERY_EVEN_BIT) & mask_t);
   }
 
-  #if defined(__HIP_PLATFORM_AMD__) || defined(__HIP_PLATFORM_HCC__)
   template <>
   __device__ inline uint32_t compute_symbol_position_via_len5_mask<uint64_t>(uint32_t t, uint32_t cur,  uint64_t len5_mask) {
     constexpr uint64_t MASK_EVERY_ODD_BIT = 0xaaaaaaaaaaaaaaaaull;  //: 0b1010..1010 for 64 bit
@@ -393,7 +392,6 @@ namespace snappy
     uint64_t mask_t    = (GROUPMASK_ONE << (2 * t)) - 1; //: 0b0..,0b11..,0b1111,..,0b111111..
     return cur + 2 * t + 2 * num_set_bits((len5_mask & MASK_EVERY_ODD_BIT) & mask_t) + num_set_bits((len5_mask & MASK_EVERY_EVEN_BIT) & mask_t);
   }
-  #endif
 
 } // namespace snappy
 
