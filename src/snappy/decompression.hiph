@@ -181,7 +181,10 @@ namespace hipcomp
         uint64_t *__restrict__ device_out_bytes)
     {
       _do_unsnap<
-        DecodeSymbols<warp_mask_t, warp_mask_t>,
+        DecodeSymbols<
+          TryDecodeStringOf2To3ByteSymbols<warp_mask_t, warp_mask_t>,
+          TryDecodeStringOf2To5ByteSymbols<warp_mask_t, warp_mask_t>
+        >,
         PrefetchByteStream<warp_mask_t, warp_mask_t>,
         ProcessSymbols<warp_mask_t, warp_mask_t>
       >(device_in_ptr,device_in_bytes,device_out_ptr,device_out_available_bytes,outputs,device_out_bytes);

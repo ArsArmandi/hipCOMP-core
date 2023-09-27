@@ -32,12 +32,9 @@ namespace snappy {
 /**
  * \brief Decode symbols and output LZ77 batches (single-warp).
  */
-template <typename GROUPMASK_T, typename WARPMASK_T>
+template <typename STRATEGY_2_TO_3, typename STRATEGY_2_TO_5>
 class DecodeSymbols {
 private:
-  static constexpr unsigned GROUPSIZE= sizeof(GROUPMASK_T)*8;
-  static constexpr unsigned WARPSIZE = sizeof(WARPMASK_T)*8;
-
   /**
    * Decode symbols that have not been processed
    * by the previous strategies with a single thread per warp.
@@ -77,7 +74,7 @@ private:
           cur += 2;
         } else {
           // xxxxxx1x: copy with 6-bit length, 2-byte or 4-byte offset
-          //: offset = b1 | (s->q.read_byte<GROUPSIZE,WARPSIZE>(cur + 2) << 8);
+          //: offset = b1 | (s->q.read_byte(cur + 2) << 8);
           uint8_t b2 = s->q.read_byte(0,cur + 2);
           if (b0 & 1)  // 4-byte offset
           {
@@ -209,7 +206,7 @@ public:
       // the stream will consist of a large number of short literals (1-byte or 2-byte)
       // followed by short repeat runs. This results in many 2-byte or 3-byte symbols
       // that can all be decoded in parallel once we know the symbol length.
-      uint32_t next_tag_byte = TryDecodeStringOf2To3ByteSymbols<GROUPMASK_T,WARPMASK_T>::apply(
+      uint32_t next_tag_byte = STRATEGY_2_TO_3::apply(
         s,          //: inout
         cur,        //: inout
         bytes_left, //: inout
@@ -224,7 +221,7 @@ public:
       // Check if the batch was stopped by a 3-byte or 4-byte literal
       // If so, run a slower version of the above that can also handle 3/4-byte literal sequences
       if (batch_len < BATCH_SIZE - 2 && match_literal_with_3_or_4_chars(next_tag_byte)) {
-        TryDecodeStringOf2To5ByteSymbols<GROUPMASK_T,WARPMASK_T>::apply(
+        STRATEGY_2_TO_5::apply(
           s,          //: inout
           cur,        //: inout
           bytes_left, //: inout
