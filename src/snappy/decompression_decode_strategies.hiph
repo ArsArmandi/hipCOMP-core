@@ -158,6 +158,29 @@ namespace snappy {
     }
   };
 
+
+  template <typename GROUPMASK_T=warp_mask_t,typename WARPMASK_T=warp_mask_t> // dummy template parms with no impact
+  class TryDecodeStringOf2To3ByteSymbolsNoOp {
+  public:
+    /**
+     * \brief Applies this strategy.
+     * 
+     * \return The tag byte who caused the strategy to abort, i.e.
+     *         always the first byte (read by warp lane 0).
+     */
+    __device__ static inline uint32_t apply(
+        unsnap_state_s* s,       //: inout
+        uint32_t& cur,           //: inout
+        uint32_t& bytes_left,    //: inout
+        uint32_t& dst_pos,       //: inout
+        volatile LZ77Symbol*& b, //: inout, reference is important, as b may be modified
+        int32_t& batch_len,      //: inout, zero initially when this function is called.
+        const int t
+    ) {
+      return SHFL10((t == 0) ? s->q.read_byte(0,cur) : 0);
+    }
+  };
+
   /**
    * \brief Decode as many as 2, 3, 4, and 5 byte Snappy symbols as possible.
    * 
@@ -271,6 +294,25 @@ namespace snappy {
         }
         //: END roughly same as in previous approach, except flow statement conditions and some indices
       } while (batch_add >= 6 && batch_len < BATCH_SIZE - 2);
+    }
+  };
+
+  template <typename GROUPMASK_T=warp_mask_t,typename WARPMASK_T=warp_mask_t> // dummy template parms with no impact
+  class TryDecodeStringOf2To5ByteSymbolsNoOp {
+  public:
+    /**
+     * \brief Applies this strategy.
+     */
+    __device__ static inline void apply(
+        unsnap_state_s* s,       //: inout
+        uint32_t& cur,           //: inout
+        uint32_t& bytes_left,    //: inout
+        uint32_t& dst_pos,       //: inout
+        volatile LZ77Symbol*& b, //: inout, reference is important, as b may be modified
+        int32_t& batch_len,      //: inout, zero initially when this function is called.
+        const int t
+    ) {
+      // do nothing
     }
   };
 
