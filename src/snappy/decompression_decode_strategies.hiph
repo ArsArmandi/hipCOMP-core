@@ -56,8 +56,8 @@ namespace snappy {
   template <typename GROUPMASK_T,typename WARPMASK_T>
   class TryDecodeStringOf2To3ByteSymbols {
   private:
-    static constexpr size_t GROUPSIZE=sizeof(GROUPMASK_T)*8;
-    static constexpr size_t WARPSIZE=sizeof(WARPMASK_T)*8;
+    static constexpr unsigned GROUPSIZE=sizeof(GROUPMASK_T)*8;
+    static constexpr unsigned WARPSIZE=sizeof(WARPMASK_T)*8;
     static constexpr GROUPMASK_T GROUPMASK_ZERO = 0;
     static constexpr GROUPMASK_T GROUPMASK_ONE = 1;
 
@@ -84,21 +84,24 @@ namespace snappy {
       * 
       * \return The tag byte who caused the strategy to abort.
       *  
+      * \note Argument `b` is modified by this routine and is thus passed as reference.
+      * 
       * \param[inout] s the decompression context/state.
       * \param[inout] cur the current read position of the decoder warp, i.e. thread/lane 0.
       * \param[inout] bytes_left the number of bytes still left to uncompress.
       * \param[inout] dst_pos the write position in the output buffer.
-      * \param[inout] b the buffer for storing the batch of symbols that will be decoded/are already decoded.
+      * \param[inout] b pointer to the batch of symbols that will be decoded/are already decoded. 
+      *                 This volatile pointer is modified and is thus passed as reference.
       * \param[inout] batch_len number of symbols that have been already decoded in the current batch, is always zero initially when this function is called!
       * \param[in]    t warp lane/thread index, i.e. threadIdx.x % GROUPSIZE
      */
     __device__ static inline uint32_t apply(
-        unsnap_state_s* s, //: inout
-        uint32_t& cur,  //: inout
-        uint32_t& bytes_left, //: inout
-        uint32_t& dst_pos, //: inout
-        volatile LZ77Symbol* b, //: inout
-        int32_t& batch_len, //: inout, zero initially when this function is called.
+        unsnap_state_s* s,       //: inout
+        uint32_t& cur,           //: inout
+        uint32_t& bytes_left,    //: inout
+        uint32_t& dst_pos,       //: inout
+        volatile LZ77Symbol*& b, //: inout, reference is important, as b may be modified
+        int32_t& batch_len,      //: inout, zero initially when this function is called.
         const int t
     ) {
       uint32_t cur_t, is_long_sym;
@@ -131,7 +134,7 @@ namespace snappy {
             //: batch_len < GROUP_SIZE
             blen = LZ77Symbol::decode_short_symbol_len__no_copy_with_4_offset_bytes(b0);
             ofs  = s->q.decode_short_symbol_offset__no_copy_with_4_offset_bytes(b0,cur_t);
-            b[t].set(blen,ofs);
+            b[t].set(blen,ofs,cur_t);
             ofs += blen;  // for correct out-of-range detection below
           }
           blen           = WarpReduce<GROUPSIZE,WARPSIZE>::prefix_sum(t, blen);
@@ -174,8 +177,8 @@ namespace snappy {
   template <typename GROUPMASK_T,typename WARPMASK_T>
   class TryDecodeStringOf2To5ByteSymbols {
   private:
-      constexpr static size_t GROUPSIZE=sizeof(GROUPMASK_T)*8;
-      constexpr static size_t WARPSIZE=sizeof(WARPMASK_T)*8;
+      constexpr static unsigned GROUPSIZE=sizeof(GROUPMASK_T)*8;
+      constexpr static unsigned WARPSIZE=sizeof(WARPMASK_T)*8;
       constexpr static GROUPMASK_T GROUPMASK_ZERO = 0;
       constexpr static GROUPMASK_T GROUPMASK_ONE = 1;
 
@@ -197,18 +200,19 @@ namespace snappy {
       * \param[inout] cur the current read position of the decoder warp, i.e. thread/lane 0.
       * \param[inout] bytes_left the number of bytes still left to uncompress.
       * \param[inout] dst_pos the write position in the output buffer.
-      * \param[inout] b the buffer for storing the batch of symbols that will be decoded/are already decoded.
+      * \param[inout] b pointer to the batch of symbols that will be decoded/are already decoded. 
+      *                 This volatile pointer may be modified and is thus passed as reference.
       * \param[inout] batch_len number of symbols that have been already decoded in the current batch. May not be zero 
       *               if another trategy has become active before.
       * \param[in]    t warp lane/thread index, i.e. threadIdx.x % GROUPSIZE
       */
     __device__ static inline void apply(
         unsnap_state_s* s,
-        uint32_t& cur,  //: inout
-        uint32_t& bytes_left, //: inout
-        uint32_t& dst_pos, //: inout
-        volatile LZ77Symbol* b, //: inout
-        int32_t& batch_len, //: inout
+        uint32_t& cur,           //: inout
+        uint32_t& bytes_left,    //: inout
+        uint32_t& dst_pos,       //: inout
+        volatile LZ77Symbol*& b, //: inout
+        int32_t& batch_len,      //: inout
         const int t
     ) {
       uint32_t cur_t, first_excluded_symbol;
@@ -219,10 +223,11 @@ namespace snappy {
       uint32_t batch_add;
       do {
         uint32_t clen;
-        warp_mask_t mask_t;
+        GROUPMASK_T mask_t;
         cur_t     = cur + t;
         b0        = s->q.read_byte<GROUPSIZE,WARPSIZE>(t,cur_t);
         clen      = LZ77Symbol::decode_symbol_num_bytes__no_copy_with_4_offset_bytes(b0) - 2;
+        //clen      = (b0 & 3) ? (b0 & 2) ? 1 : 0 : (b0 >> 2);
         v0        = ballot1<GROUPMASK_T,WARPSIZE>(t,clen & 1);
         v1        = ballot1<GROUPMASK_T,WARPSIZE>(t,(clen >> 1) & 1);
         
@@ -231,6 +236,8 @@ namespace snappy {
         cur_t       = compute_symbol_position_via_len5_mask<GROUPMASK_T>(t, cur, len5_mask);
         b0          = s->q.read_byte<GROUPSIZE,WARPSIZE>(t,cur_t);
         
+        //first_excluded_symbol = ((b0 & 3) ? ((b0 & 3) == 3) : (b0 > 3 * 4)) || (cur_t >= cur + GROUPSIZE) ||
+        //                (batch_len + t >= BATCH_SIZE);
         first_excluded_symbol = 
             match_long_literal_or_copy_with_4_offset_bytes(b0)
             || (cur_t >= cur + GROUPSIZE)
@@ -243,7 +250,7 @@ namespace snappy {
           if (t < batch_add) { //: differs
             blen = LZ77Symbol::decode_short_symbol_len__no_copy_with_4_offset_bytes(b0);
             ofs  = s->q.decode_short_symbol_offset__no_copy_with_4_offset_bytes(b0,cur_t);
-            b[batch_len + t].set(blen,ofs);
+            b[batch_len + t].set(blen,ofs,cur_t);
             ofs += blen;  // for correct out-of-range detection below
           }
           blen           = WarpReduce<GROUPSIZE,WARPSIZE>::prefix_sum(t, blen);
