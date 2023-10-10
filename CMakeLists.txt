@@ -91,6 +91,7 @@ macro(setup_hip_amd_build)
   add_compile_definitions(__HIP_PLATFORM_HCC__ __HIP_PLATFORM_AMD__)
   include_directories(${HIP_INCLUDE_DIRS})
   add_compile_definitions("ENABLE_HIP_OPT_WAVESIZE64")
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endmacro()
 
 
