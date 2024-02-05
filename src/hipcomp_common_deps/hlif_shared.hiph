@@ -30,14 +30,18 @@
 #pragma once
 
 #include <cassert>
+#if (defined(__HIP_PLATFORM_HCC__) || defined(__HIP_PLATFORM_AMD__)) && defined(CG_WORKAROUND)
+#include <hipext/hip_cooperative_groups.h>
+namespace cg = hip_extensions::hip_cooperative_groups_ext;
+#else
 #include <hip/hip_cooperative_groups.h>
+namespace cg = cooperative_groups;
+#endif
 #include <stdio.h>
 #include <type_traits>
 #include "hipcomp/shared_types.h"
 #include "hlif_shared_types.hpp"
 #include "device_types.h"
-
-namespace cg = cooperative_groups;
 
 // Compress wrapper must meet this requirement
 struct hlif_compress_wrapper {
