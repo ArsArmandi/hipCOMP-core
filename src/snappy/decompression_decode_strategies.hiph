@@ -115,8 +115,8 @@ namespace snappy {
       v1             = ballot1<GROUPMASK_T,WARPSIZE>(t,LZ77Symbol::match_3_bytes_long_symbol__no_copy_with_4_offset_bytes(b0));
       b0             = s->q.read_byte<GROUPSIZE,WARPSIZE>(t,cur_t + 2*GROUPSIZE);
       v2             = ballot1<GROUPMASK_T,WARPSIZE>(t,LZ77Symbol::match_3_bytes_long_symbol__no_copy_with_4_offset_bytes(b0));
-      //: identical: len3_mask      = get_len3_mask(v0, v1, v2);      
-      len3_mask      = SHFL10((t == 0) ? get_len3_mask<GROUPMASK_T,WARPMASK_T>(v0,v1,v2) : GROUPMASK_ONE);
+      //: identical: len3_mask      = get_len3_mask(v0, v1, v2);
+      len3_mask      = SHFL10((t == 0) ? get_len3_mask<GROUPMASK_T,WARPMASK_T>(v0,v1,v2) : GROUPMASK_ZERO);
       cur_t          = compute_symbol_position_via_len3_mask<GROUPMASK_T>(t, cur, len3_mask);
       b0             = s->q.read_byte<GROUPSIZE,WARPSIZE>(t,cur_t);
       is_long_sym    = match_long_literal_or_copy_with_4_offset_bytes(b0);
@@ -140,9 +140,13 @@ namespace snappy {
           blen           = WarpReduce<GROUPSIZE,WARPSIZE>::prefix_sum(t, blen);
           bytes_left     = SHFL10(bytes_left); //: input, return
           dst_pos        = SHFL10(dst_pos);    //: input, return
-          short_sym_mask = find_first_set_bit(ballot1<GROUPMASK_T,WARPSIZE>(t, blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
-                                                                                  
-          if (short_sym_mask != 0) { batch_len = min(batch_len, short_sym_mask - 1); }
+
+          // limit symbol batch len
+          uint32_t first_out_of_range = find_first_set_bit(ballot1<GROUPMASK_T,WARPSIZE>(t, blen > bytes_left || ofs > (int32_t)(dst_pos + blen)));
+          if (first_out_of_range != 0) {
+            batch_len = min(batch_len, first_out_of_range - 1);
+          }
+
           if (batch_len != 0) {
             blen = SHFL1(blen, batch_len - 1);
             cur  = SHFL1(cur_t, batch_len - 1) + 2 + ((len3_mask >> (batch_len - 1)) & 1);

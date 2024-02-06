@@ -51,9 +51,9 @@ function(add_test_file EXAMPLE_SOURCE)
     # cudart_static.lib is already included.
     target_link_libraries(${BARE_NAME} PRIVATE hipcomp)
   endif()
-  else (CUDA_BACKEND)
+  else ()
     target_link_libraries(${BARE_NAME} PRIVATE hipcomp hip::host)
-  endif (CUDA_BACKEND)
+  endif ()
   add_test(NAME ${BARE_NAME} COMMAND ${BARE_NAME})
 endfunction()
 

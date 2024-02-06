@@ -269,7 +269,7 @@ namespace snappy
     // State:
     // 60=3*5*4 m bits written at this stage
     // 120 .. 180 v0+v1/v0+v1+v2 bits consumed at this stage
-    v |= lo_n(v1) << n;
+    v |= lo_n(v1) << (64u-n);
     constexpr uint32_t i = 15;
     m4 = k_len3lut[lo10(v)];
     m |= lo4(m4) << (i * 4u); // write last 4 bits
