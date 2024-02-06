@@ -33,6 +33,7 @@ option(CUDA_BACKEND "Build for CUDA devices. Default configuration builds for AM
 option(BUILD_TESTS "Build unit and end-to-end tests." OFF)
 option(BUILD_STATIC "Build a static library." OFF)
 option(CG_WORKAROUND "Use HIP cooperative groups workaround that is shipped with this project. Has no effect on CUDA builds." OFF)
+option(CG_WORKAROUND "Use HIP cooperative groups workaround that is shipped with this project. Has no effect on CUDA builds." OFF)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_HIP_STANDARD 14)
@@ -111,13 +112,14 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU" OR
     "${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
 
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -ggdb")
 endif()
 
 # Using '-G' can cause the register count to overflow for some kernels
 # and cause launch failures
-# set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG};-G")
-set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -g")
+# set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG};-G")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -g -ggdb")
+set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -g -ggdb")
 
 if(CMAKE_BUILD_TYPE STREQUAL "DEBUG" OR CMAKE_BUILD_TYPE STREQUAL "Debug")
   message(STATUS "Debug build.")
