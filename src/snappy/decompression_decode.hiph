@@ -122,7 +122,7 @@ private:
         if (bytes_left < blen) break;
         bytes_left -= blen;
       }
-      b[batch_len].set(blen,offset,cur_orig);
+      b[batch_len].set(blen,offset,cur_orig," (single-thread)");
       //: b[batch_len].len    = blen;
       //: b[batch_len].offset = offset;
       batch_len++;

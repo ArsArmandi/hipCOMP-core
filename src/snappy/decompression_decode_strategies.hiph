@@ -134,7 +134,7 @@ namespace snappy {
             //: batch_len < GROUP_SIZE
             blen = LZ77Symbol::decode_short_symbol_len__no_copy_with_4_offset_bytes(b0);
             ofs  = s->q.decode_short_symbol_offset__no_copy_with_4_offset_bytes(b0,cur_t);
-            b[t].set(blen,ofs,cur_t);
+            b[t].set(blen,ofs,cur_t," (2-to-3)");
             ofs += blen;  // for correct out-of-range detection below
           }
           blen           = WarpReduce<GROUPSIZE,WARPSIZE>::prefix_sum(t, blen);
@@ -148,6 +148,9 @@ namespace snappy {
             cur  = SHFL1(cur_t, batch_len - 1) + 2 + ((len3_mask >> (batch_len - 1)) & 1);
             //: opt?: Should be the same as cur <- SHFL1(cur_t,batch_len) if batch_len < GROUP_SIZE ??
             if (t == 0) {
+              #ifdef HIPCOMP_PRINT_DEBUG_INFO
+              printf("cur=%d, batch_len=%d, v0=%lu, v1=%lu, v2=%lu, len3_mask=%lu (lane 0 state after 2-to-3)\n",cur,batch_len,v0,v1,v2,len3_mask);
+              #endif
               dst_pos += blen;
               bytes_left -= blen;
             }
@@ -273,7 +276,7 @@ namespace snappy {
           if (t < batch_add) { //: differs
             blen = LZ77Symbol::decode_short_symbol_len__no_copy_with_4_offset_bytes(b0);
             ofs  = s->q.decode_short_symbol_offset__no_copy_with_4_offset_bytes(b0,cur_t);
-            b[batch_len + t].set(blen,ofs,cur_t);
+            b[batch_len + t].set(blen,ofs,cur_t," (2-to-5)");
             ofs += blen;  // for correct out-of-range detection below
           }
           blen           = WarpReduce<GROUPSIZE,WARPSIZE>::prefix_sum(t, blen);
