@@ -93,20 +93,29 @@ bool HipUtils::is_device_pointer(const void* const ptr)
 
   hipError_t err = hipPointerGetAttributes(&attr, ptr);
 
+  #if defined(__HIP_PLATFORM_NVIDIA__) || defined(__HIP_PLATFORM_NVCC__)
   if (err == hipErrorInvalidValue) {
-    int hip_version;
+    int cuda_version;
     check(
-        hipRuntimeGetVersion(&hip_version),
+        hipRuntimeGetVersion(&cuda_version),
         "Failed to get runtime "
         "verison.");
 
-    if (hip_version < 11000) {
+    if (cuda_version < 11000) {
       // error is normal for non-device memory -- clear the error and return
       // false
       (void)hipGetLastError();
       return false;
     }
   }
+  #else
+  if (err == hipErrorInvalidValue) {
+    // error is normal for non-device memory -- clear the error and return
+    // false
+    static_cast<void>(hipGetLastError());
+    return false;
+  }
+  #endif
 
   // if we continue, make sure we successfully got pointer information
   check(
