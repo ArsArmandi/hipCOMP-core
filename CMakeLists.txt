@@ -33,7 +33,6 @@ option(CUDA_BACKEND "Build for CUDA devices. Default configuration builds for AM
 option(BUILD_TESTS "Build unit and end-to-end tests." OFF)
 option(BUILD_STATIC "Build a static library." OFF)
 option(CG_WORKAROUND "Use HIP cooperative groups workaround that is shipped with this project. Has no effect on CUDA builds." OFF)
-option(CG_WORKAROUND "Use HIP cooperative groups workaround that is shipped with this project. Has no effect on CUDA builds." OFF)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_HIP_STANDARD 14)
@@ -76,7 +75,6 @@ macro(setup_cuda_build)
   add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp) # contains a hip subfolder
 
-  # TODO(domcharrier) why is this done?
   # Using '-G' can cause the register count to overflow for some kernels
   # and cause launch failures
   # set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG};-G")
@@ -107,6 +105,9 @@ else (CUDA_BACKEND)
   setup_hip_amd_build()
 endif (CUDA_BACKEND)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} -fPIC")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -fPIC")
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU" OR
     "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR
     "${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
@@ -150,9 +151,9 @@ if(DEFINED DEVEL AND NOT DEVEL EQUAL 0)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpedantic")
   endif()
 
-  
-  if(CMAKE_HIP_COMPILER_VERSION VERSION_GREATER_EQUAL "11")
-    set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} --Werror=all-warnings")
+  # only relevant for CUDA lang
+  if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --Werror=all-warnings")
   endif()
 
   # TODO: add clang warnings
