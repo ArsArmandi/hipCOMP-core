@@ -113,7 +113,7 @@ TEST_CASE("DevicePointerTest", "[small]")
   try {
     size_t unregistered;
     HipUtils::device_pointer(&unregistered);
-    REQUIRE(false); // uncreachable
+    REQUIRE(false); // unreachable
   } catch (const std::exception&) {
     // pass
   }

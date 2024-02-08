@@ -29,7 +29,7 @@ This project contains work derived from NVIDIA nvCOMP v2.2 that is licensed unde
   * src/RunLengthEncodeGPU.hip
   * src/SnappyBatch.cpp
   * src/SnappyKernels.h
-  * src/SnappyTypes.h
+  * src/snappy/types.h
   * src/TempSpaceBroker.cpp
   * src/TempSpaceBroker.h
   * src/highlevel/ANSManager.cpp

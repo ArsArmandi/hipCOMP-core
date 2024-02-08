@@ -25,11 +25,13 @@
 
 hipCOMP CORE is a library for fast lossless compression/decompression on the GPU which contains the algorithm implementation.
 
-The code is based on `nvCOMP` release branch [`branch-2.1`](https://github.com/NVIDIA/nvcomp/tree/branch-2.1).
+The code is based on ``nvCOMP`` release branch [``branch-2.1``](https://github.com/NVIDIA/nvcomp/tree/branch-2.1).
 
 ## Build From Source
 
 ## HIP/AMD
+
+> **NOTE:** If you experience compiler errors related to ``cooperative_groups`` with ROCm versions ``<=6.0.X``, additionally specify the ``CMake`` build option `-D CG_WORKAROUND=1`.
 
 ```shell
 cd hipcomp-core/
@@ -63,15 +65,9 @@ To debug the host code append the following option:
 -D CMAKE_BUILD_TYPE=Debug
 ```
 
-##### AMD Devices
-
-To debug the device code append the following option:
-
-```
--D CMAKE_HIP_FLAGS=" -ggdb"
-```
-
 <!-- REMOVE BELOW BEFORE RELEASE -->
+
+> **NOTE: REMOVE BELOW BEFORE RELEASE!**
 
 #### Legal Requirements:
 Always include the appropriate copyright and MIT X11 notice (see below)

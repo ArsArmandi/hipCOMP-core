@@ -28,7 +28,8 @@
 // Modifications Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "lowlevel/SnappyBatchKernels.h"
-#include "SnappyKernels.hiph"
+#include "snappy/compression.hiph"
+#include "snappy/decompression.hiph"
 #include "HipUtils.h"
 
 namespace hipcomp {
@@ -51,7 +52,8 @@ snap_kernel(
   uint64_t* device_out_bytes)
 {
   const int ix_chunk = blockIdx.x;
-  do_snap(reinterpret_cast<const uint8_t*>(device_in_ptr[ix_chunk]),
+  snappy::do_snap(
+      reinterpret_cast<const uint8_t*>(device_in_ptr[ix_chunk]),
       device_in_bytes[ix_chunk],
       reinterpret_cast<uint8_t*>(device_out_ptr[ix_chunk]),
       device_out_available_bytes ? device_out_available_bytes[ix_chunk] : 0,
@@ -129,7 +131,7 @@ __global__ void __launch_bounds__(DECOMP_THREADS_PER_BLOCK) unsnap_kernel(
     uint64_t* __restrict__ device_out_bytes)
 {
   const int ix_chunk = blockIdx.x;
-  do_unsnap(reinterpret_cast<const uint8_t*>(device_in_ptr[ix_chunk]),
+  snappy::do_unsnap(reinterpret_cast<const uint8_t*>(device_in_ptr[ix_chunk]),
       device_in_bytes[ix_chunk],
       reinterpret_cast<uint8_t*>(device_out_ptr[ix_chunk]),
       device_out_available_bytes ? device_out_available_bytes[ix_chunk] : 0,

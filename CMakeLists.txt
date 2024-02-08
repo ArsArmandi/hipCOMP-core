@@ -32,6 +32,7 @@ project(hipcomp LANGUAGES C CXX)
 option(CUDA_BACKEND "Build for CUDA devices. Default configuration builds for AMD devices." OFF)
 option(BUILD_TESTS "Build unit and end-to-end tests." OFF)
 option(BUILD_STATIC "Build a static library." OFF)
+option(CG_WORKAROUND "Use HIP cooperative groups workaround that is shipped with this project. Has no effect on CUDA builds." OFF)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_HIP_STANDARD 14)
@@ -74,7 +75,6 @@ macro(setup_cuda_build)
   add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp) # contains a hip subfolder
 
-  # TODO(domcharrier) why is this done?
   # Using '-G' can cause the register count to overflow for some kernels
   # and cause launch failures
   # set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG};-G")
@@ -89,6 +89,9 @@ macro(setup_hip_amd_build)
   message(STATUS "Finding HIP")
   find_package(hip REQUIRED)
   add_compile_definitions(__HIP_PLATFORM_HCC__ __HIP_PLATFORM_AMD__)
+  if (CG_WORKAROUND)
+    add_compile_definitions(CG_WORKAROUND)
+  endif()
   include_directories(${HIP_INCLUDE_DIRS})
   add_compile_definitions("ENABLE_HIP_OPT_WAVESIZE64")
   set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -103,18 +106,22 @@ else (CUDA_BACKEND)
   setup_hip_amd_build()
 endif (CUDA_BACKEND)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} -fPIC")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -fPIC")
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU" OR
     "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR
     "${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
 
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -ggdb")
 endif()
 
 # Using '-G' can cause the register count to overflow for some kernels
 # and cause launch failures
-# set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG};-G")
-set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -g")
+# set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG};-G")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -g -ggdb")
+set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -g -ggdb")
 
 if(CMAKE_BUILD_TYPE STREQUAL "DEBUG" OR CMAKE_BUILD_TYPE STREQUAL "Debug")
   message(STATUS "Debug build.")
@@ -145,9 +152,9 @@ if(DEFINED DEVEL AND NOT DEVEL EQUAL 0)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpedantic")
   endif()
 
-  
-  if(CMAKE_HIP_COMPILER_VERSION VERSION_GREATER_EQUAL "11")
-    set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} --Werror=all-warnings")
+  # only relevant for CUDA lang
+  if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --Werror=all-warnings")
   endif()
 
   # TODO: add clang warnings
