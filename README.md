@@ -29,11 +29,11 @@ The code is based on ``nvCOMP`` release branch [``branch-2.1``](https://github.c
 
 ## Build From Source
 
-## HIP/AMD
+### HIP/AMD
 
 > **NOTE:** If you experience compiler errors related to ``cooperative_groups`` with ROCm versions ``<=6.0.X``, additionally specify the ``CMake`` build option `-D CG_WORKAROUND=1`.
 
-```shell
+```bash
 cd hipcomp-core/
 mkdir build/
 cd build/
@@ -47,7 +47,7 @@ make
 
 Like HIP/AMD but with additional `-D CUDA_BACKEND=1` option:
 
-```shell
+```bash
 cd hipcomp-core/
 mkdir build/
 cd build/
@@ -59,11 +59,25 @@ make
 
 #### Debugging
 
-To debug the host code append the following option:
+To create debug builds append the following option:
 
-```
+```bash
 -D CMAKE_BUILD_TYPE=Debug
 ```
+
+### Run tests
+
+After completing the build, run:
+
+```bash
+cd hipcomp-core/
+cd build/
+make test
+```
+
+Tips:
+
+* Select a particular GPU by setting the environment variable `HIP_VISIBLE_DEVICES=<id>` (or `CUDA_VISIBLE_DEVICES=<id>` with CUDA backend) before running ``make test``.
 
 <!-- REMOVE BELOW BEFORE RELEASE -->
 
