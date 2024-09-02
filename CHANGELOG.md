@@ -1,6 +1,6 @@
 # hipCOMP changelog (YYYY-MM-DD)
 
-# nvcCOMP changelog
+# nvCOMP changelog
 
 # nvcomp 2.2.0 (2022-02-07)
 ## New Features
