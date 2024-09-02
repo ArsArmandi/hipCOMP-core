@@ -114,8 +114,8 @@ if __name__ == "__main__":
     print_mask64(int(m,2))
     print_mask64(1134696008253440)
 
-    # cuDF input 2: cur_t: 0
-    print("cuDF input 2")
+    # app input 2: cur_t: 0
+    print("app input 2")
     v0=15995499993133274059
     v1=17575218449657001922
     v2=13172742451556175867

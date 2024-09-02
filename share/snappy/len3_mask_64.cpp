@@ -253,7 +253,7 @@ int main(int argc, char** argv) {
     std::cout << "1: cur_t: 172 - FAIL" << std::endl;
   }
 
-  // cuDF input 2: cur_t: 0
+  // app input 2: cur_t: 0
   v0 = 15995499993133274059lu;
   v1 = 17575218449657001922lu;
   v2 = 13172742451556175867lu;

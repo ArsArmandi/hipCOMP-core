@@ -220,7 +220,7 @@ This project contains work derived from NVIDIA nvCOMP v2.2 that is licensed unde
   * ``tests/test_lz4.cpp``
   * ``tests/test_random_lz4.cpp``
   * ``tests/test_snappy_batch_c_api.c``
-  * ``tests/test_snappy_cudf.cpptests/test_snappy_cudf.cpp``
+  * ``tests/test_snappy_app.cpptests/test_snappy_extra.cpp``
 
 ## Files Subject to the Apache 2.0 License
 

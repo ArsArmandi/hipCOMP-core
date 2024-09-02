@@ -173,7 +173,7 @@ def hipcomp_snappy_batch_test_0():
     print(compressed_by_hipcomp_decompressed_by_snappy)
 
 
-def hipcomp_snappy_cudf_test_0():
+def hipcomp_snappy_app_test_0():
     import hipcomp_snappy
 
     # fmt: off
@@ -244,4 +244,4 @@ def hipcomp_snappy_cudf_test_0():
 
 
 # hipcomp_snappy_batch_test_0()
-hipcomp_snappy_cudf_test_0()
+hipcomp_snappy_app_test_0()
