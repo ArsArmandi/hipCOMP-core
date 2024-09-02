@@ -1,8 +1,10 @@
 # hipCOMP-CORE
 
-hipCOMP CORE is a library for fast lossless compression/decompression on the GPU which contains the algorithm implementation.
+hipCOMP CORE is a library for fast lossless compression/decompression on AMD MI series GPUs.
 
-The code is based on ``nvCOMP`` release branch [``branch-2.1``](https://github.com/NVIDIA/nvcomp/tree/branch-2.1).
+The code is based on ``nvCOMP`` release branch [``branch-2.2``](https://github.com/NVIDIA/nvcomp/tree/branch-2.2).
+GPU implementations of algorithms like DEFLATE, GDEFLATE, ANS, and zSTD that have been later introduced as part of nvCOMP's proprietary
+releases are not part of this repo (yet).
 
 ## Build From Source
 
@@ -55,15 +57,3 @@ make test
 Tips:
 
 * Select a particular GPU by setting the environment variable `HIP_VISIBLE_DEVICES=<id>` (or `CUDA_VISIBLE_DEVICES=<id>` with CUDA backend) before running ``make test``.
-
-<!-- REMOVE BELOW BEFORE RELEASE -->
-
-> **NOTE: REMOVE BELOW BEFORE RELEASE!**
-
-#### Legal Requirements:
-Always include the appropriate copyright and MIT X11 notice (see below)
-* at the top of the AMD developed files, and
-* in a LICENSE text file in the top level directory.
-
-#### Standard ongoing code readiness and release obligations:
-* Follow the Developer Guidelines here: http://confluence.amd.com/pages/viewpage.action?pageId=52793191
