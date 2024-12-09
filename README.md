@@ -1,5 +1,9 @@
 # hipCOMP-CORE
 
+> [!CAUTION] 
+> This release is an *early-access* software technology preview. Running production workloads is *not* recommended.
+***
+
 hipCOMP CORE is a library for fast lossless compression/decompression on AMD MI series GPUs.
 
 The code is based on ``nvCOMP`` release branch [``branch-2.2``](https://github.com/NVIDIA/nvcomp/tree/branch-2.2).
@@ -10,7 +14,8 @@ releases are not part of this repo (yet).
 
 ### HIP/AMD
 
-> **NOTE:** If you experience compiler errors related to ``cooperative_groups`` with ROCm versions ``<=6.0.X``, additionally specify the ``CMake`` build option `-D CG_WORKAROUND=1`.
+> [!NOTE]
+> If you experience compiler errors related to ``cooperative_groups`` with ROCm versions ``<=6.0.X``, additionally specify the ``CMake`` build option `-D CG_WORKAROUND=1`.
 
 ```bash
 cd hipcomp-core/
