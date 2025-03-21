@@ -1,6 +1,6 @@
 # hipCOMP-CORE
 
-> [!CAUTION] 
+> [!CAUTION]
 > This release is an *early-access* software technology preview. Running production workloads is *not* recommended.
 ***
 
@@ -17,17 +17,29 @@ releases are not part of this repo (yet).
 > [!NOTE]
 > If you experience compiler errors related to ``cooperative_groups`` with ROCm versions ``<=6.0.X``, additionally specify the ``CMake`` build option `-D CG_WORKAROUND=1`.
 
+> [!NOTE]
+> If your system has no GPUs installed or you don't want to rely on automatic
+> detection, use the `CMAKE_HIP_ARCHITECTURES` CMake option to set the GPU
+> architecture(s) that you want to compile for. If you want to specify multiple
+> architectures, use ';' to separate them.
+
 ```bash
 cd hipcomp-core/
 mkdir build/
 cd build/
-CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake cmake ../
+CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake cmake ../ -D CMAKE_HIP_ARCHITECTURES="gfxABC[; gfxBCD[; gfx...]]"
 # To build with tests, append `-D BUILD_TESTS=1`:
 # CMAKE_PREFIX_PATH=/opt/rocm/lib/cmake cmake ../ -D BUILD_TESTS=1
 make
 ```
 
 ### HIP/CUDA
+
+> [!NOTE]
+> If your system has no GPUs installed or you don't want to rely on automatic
+> detection, use the `CMAKE_CUDA_ARCHITECTURES` CMake option to set the GPU
+> architecture(s) that you want to compile for. If you want to specify multiple
+> architectures, use ';' to separate them.
 
 Like HIP/AMD but with additional `-D CUDA_BACKEND=1` option:
 
