@@ -1,5 +1,5 @@
 # Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -11,7 +11,7 @@
 #  * Neither the name of NVIDIA CORPORATION nor the names of its
 #    contributors may be used to endorse or promote products derived
 #    from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AS IS'' AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -26,7 +26,7 @@
 
 # MIT License
 #
-# Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+# Modifications Copyright (C) 2023-2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -47,7 +47,7 @@
 # SOFTWARE.
 cmake_minimum_required(VERSION 3.21) # HIP language support requires 3.21
 cmake_policy(VERSION 3.21.3...3.27)
-project(hipcomp LANGUAGES C CXX)
+project(hipcomp VERSION 2.2.0 LANGUAGES C CXX)
 
 option(CUDA_BACKEND "Build for CUDA devices. Default configuration builds for AMD devices." OFF)
 option(BUILD_TESTS "Build unit and end-to-end tests." OFF)
@@ -68,7 +68,7 @@ list( APPEND CMAKE_MODULE_PATH
 
 macro(setup_cuda_build)
   enable_language(CUDA)
-  
+
   message(STATUS "Finding CUDAToolkit")
   find_package(CUDAToolkit REQUIRED)
   include_directories("${CUDAToolkit_INCLUDE_DIRS}")
@@ -76,7 +76,7 @@ macro(setup_cuda_build)
   if(NOT DEFINED CUB_DIR AND DEFINED ENV{CUB_DIR})
     set(CUB_DIR ENV{CUB_DIR})
   endif()
-  
+
   message(STATUS "Finding CUB")
   if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "11" AND NOT DEFINED CUB_DIR)
     message(FATAL_ERROR "When using a HIP prior to HIP 11, you must specify "
@@ -89,9 +89,9 @@ macro(setup_cuda_build)
     message(FATAL_ERROR "Unable to locate 'cub/cub.cuh'. Please specify a path "
         "to cub via 'CUB_DIR'")
   endif()
-  
+
   include_directories(${CUB_PARENT_DIR})
-  
+
   # HIP definitions
   add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp) # contains a hip subfolder
@@ -298,3 +298,18 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp.hpp
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcomp-config.cmake"
               "${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcompConfigVersion.cmake"
         DESTINATION "${INSTALL_CONFIGDIR}")
+
+#------
+# Packaging
+# NOTE For the time being, we put lib and dev files into the same package.
+# NOTE We need to consider to move to ROCm CMake from raw CPACK
+set(CPACK_PACKAGE_NAME "rocm-hipcomp-core")
+set(CPACK_PACKAGE_VENDOR "Advanced Micro Devices, Inc.")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_VENDOR}")
+set(CPACK_OUTPUT_FILE_PREFIX "dist" CACHE PATH "Package output file prefix.")
+set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/rocm" CACHE PATH "Package install prefix.")
+include(CPack)
