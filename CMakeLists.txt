@@ -280,7 +280,7 @@ configure_package_config_file("${HIPCOMP_PKG_CONFIG_TEMPLATE}"
                               "${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcomp-config.cmake"
                               INSTALL_DESTINATION "${INSTALL_CONFIGDIR}")
 write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcompConfigVersion.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcomp-config-version.cmake
     VERSION "${HIPCOMP_VERSION}"
     COMPATIBILITY SameMinorVersion)
 
@@ -296,7 +296,7 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp.hpp
               ${CMAKE_CURRENT_SOURCE_DIR}/include/hipcomp.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcomp-config.cmake"
-              "${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcompConfigVersion.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/cmake/hipcomp-config-version.cmake"
         DESTINATION "${INSTALL_CONFIGDIR}")
 
 #------
