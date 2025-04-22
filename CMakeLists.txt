@@ -103,6 +103,18 @@ macro(setup_cuda_build)
 endmacro()
 
 macro(setup_hip_amd_build)
+  # sync variables used by HIP CMake package etc.
+  if ("${AMDGPU_TARGETS}" STREQUAL "")
+    set(AMDGPU_TARGETS ${CMAKE_HIP_ARCHITECTURES})
+  elseif(NOT "${AMDGPU_TARGETS}" STREQUAL "${CMAKE_HIP_ARCHITECTURES}")
+    message(FATAL_ERROR "mismatch between CMAKE_HIP_ARCHITECTURES and AMDGPU_TARGETS; CMAKE_HIP_ARCHITECTURES='${CMAKE_HIP_ARCHITECTURES}', AMDGPU_TARGETS='${AMDGPU_TARGETS}'")
+  endif()
+  if ("${GPU_TARGETS}" STREQUAL "")
+    set(GPU_TARGETS ${CMAKE_HIP_ARCHITECTURES})
+  elseif(NOT "${GPU_TARGETS}" STREQUAL "${CMAKE_HIP_ARCHITECTURES}")
+    message(FATAL_ERROR "mismatch between CMAKE_HIP_ARCHITECTURES and GPU_TARGETS; CMAKE_HIP_ARCHITECTURES='${CMAKE_HIP_ARCHITECTURES}', GPU_TARGETS='${GPU_TARGETS}'")
+  endif()
+
   enable_language(HIP)
   message(STATUS "Finding hipCUB")
   find_package(hipcub REQUIRED)
