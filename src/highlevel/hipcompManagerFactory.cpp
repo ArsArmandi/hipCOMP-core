@@ -148,4 +148,3 @@ std::shared_ptr<hipcompManagerBase> create_manager(const uint8_t* comp_buffer, h
 }
 
 } // namespace hipcomp 
- 
