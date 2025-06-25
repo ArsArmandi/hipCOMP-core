@@ -66,6 +66,12 @@ typedef struct
 static const hipcompBatchedSnappyOpts_t hipcompBatchedSnappyDefaultOpts = {0};
 
 /**
+ * Minimum alignment requirement for HIP memory buffers (input, output, temporary space)
+ * when used with compression/decompression functions.
+ */
+const size_t hipcompSnappyRequiredAlignment = 1;
+
+/**
  * @brief Get the amount of temp space required on the GPU for decompression.
  *
  * @param num_chunks The number of items in the batch.

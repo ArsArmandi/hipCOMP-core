@@ -82,6 +82,12 @@ typedef struct
 
 static const hipcompBatchedLZ4Opts_t hipcompBatchedLZ4DefaultOpts = {HIPCOMP_TYPE_CHAR};
 
+/**
+* Minimum alignment requirement for HIP memory buffers (input, output, temporary space)
+* when used with compression/decompression functions.
+*/
+const size_t hipcompLZ4RequiredAlignment = 4;
+
 /******************************************************************************
  * Batched compression/decompression interface
  *****************************************************************************/
