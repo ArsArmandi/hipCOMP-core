@@ -117,7 +117,7 @@ static const uint8_t k_len3lut[1 << 10] = {
   0x98, 0xbd, 0x98, 0xbd, 0xbe, 0xbd, 0xbe, 0xbd, 0x98, 0xcf, 0x98, 0xcf, 0xbe, 0xcf, 0xbe, 0xcf,
   0xac, 0xbd, 0xac, 0xbd, 0xbe, 0xbd, 0xbe, 0xbd, 0xac, 0xcf, 0xac, 0xcf, 0xbe, 0xcf, 0xbe, 0xcf};  
 
-typedef uint64_t lane_mask_t;
+typedef unsigned long long MaskT;
  
 #define lo4(m4) ((m4) & 0xf)
 #define hi4(m4) ((m4) >> 4)
@@ -140,10 +140,10 @@ typedef uint64_t lane_mask_t;
  *
  * The whole process consumes 120 .. 180 bits of the three input registers v0+v1+v2.
  **/
-lane_mask_t get_len3_mask(lane_mask_t v0, lane_mask_t v1, lane_mask_t v2)
+MaskT get_len3_mask(MaskT v0, MaskT v1, MaskT v2)
 {
-  lane_mask_t m; // result
-  lane_mask_t m4;
+  MaskT m; // result
+  MaskT m4;
   uint64_t v;
   uint32_t n;
   uint32_t _n_total = 0;
@@ -226,7 +226,7 @@ lane_mask_t get_len3_mask(lane_mask_t v0, lane_mask_t v1, lane_mask_t v2)
  
 int main(int argc, char** argv) {
   uint64_t v0,v1,v2;
-  lane_mask_t len3_mask, len3_mask_expected;
+  MaskT len3_mask, len3_mask_expected;
  
   // Batch Test 2: cur_t: 141
  
