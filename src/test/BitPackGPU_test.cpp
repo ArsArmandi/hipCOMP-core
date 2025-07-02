@@ -60,8 +60,8 @@
 #include <cstdlib>
 #include <limits>
 
-#ifndef HIP_RT_CALL
-#define HIP_RT_CALL(call)                                                     \
+#ifndef HIP_CHECK
+#define HIP_CHECK(call)                                                     \
   {                                                                            \
     hipError_t hipStatus = call;                                             \
     if (hipSuccess != hipStatus) {                                           \
@@ -91,14 +91,14 @@ namespace
 template <typename T>
 void toGPU(T* const output, T const* const input, size_t const num)
 {
-  HIP_RT_CALL(
+  HIP_CHECK(
       hipMemcpy(output, input, num * sizeof(T), hipMemcpyHostToDevice));
 }
 
 template <typename T>
 void fromGPU(T* const output, T const* const input, size_t const num)
 {
-  HIP_RT_CALL(
+  HIP_CHECK(
       hipMemcpy(output, input, num * sizeof(T), hipMemcpyDeviceToHost));
 }
 
@@ -106,7 +106,7 @@ template <>
 void
 fromGPU<void>(void* const output, void const* const input, size_t const num)
 {
-  HIP_RT_CALL(hipMemcpy(output, input, num, hipMemcpyDeviceToHost));
+  HIP_CHECK(hipMemcpy(output, input, num, hipMemcpyDeviceToHost));
 }
 
 template <typename T>
@@ -120,7 +120,7 @@ void runBitPackingOnGPU(
 {
   T* input;
 
-  HIP_RT_CALL(hipMalloc((void**)&input, n * sizeof(*input)));
+  HIP_CHECK(hipMalloc((void**)&input, n * sizeof(*input)));
   toGPU(input, inputHost, n);
 
   void* output;
@@ -128,33 +128,33 @@ void runBitPackingOnGPU(
   size_t const packedSize = (((numBitsMax * n) / 64U) + 1U) * 8U;
 
   size_t* numDevice;
-  HIP_RT_CALL(hipMalloc((void**)&numDevice, sizeof(numDevice)));
-  HIP_RT_CALL(
+  HIP_CHECK(hipMalloc((void**)&numDevice, sizeof(numDevice)));
+  HIP_CHECK(
       hipMemcpy(numDevice, &n, sizeof(*numDevice), hipMemcpyHostToDevice));
 
-  HIP_RT_CALL(hipMalloc(&output, packedSize));
-  HIP_RT_CALL(hipMalloc(&outputPtr, sizeof(*outputPtr)));
-  HIP_RT_CALL(
+  HIP_CHECK(hipMalloc(&output, packedSize));
+  HIP_CHECK(hipMalloc(&outputPtr, sizeof(*outputPtr)));
+  HIP_CHECK(
       hipMemcpy(outputPtr, &output, sizeof(output), hipMemcpyHostToDevice));
-  HIP_RT_CALL(hipMemset(output, 0, packedSize));
+  HIP_CHECK(hipMemset(output, 0, packedSize));
 
   T* minValueDevice;
-  HIP_RT_CALL(hipMalloc((void**)&minValueDevice, sizeof(*minValueDevice)));
+  HIP_CHECK(hipMalloc((void**)&minValueDevice, sizeof(*minValueDevice)));
   unsigned char* numBitsDevice;
-  HIP_RT_CALL(hipMalloc((void**)&numBitsDevice, sizeof(*numBitsDevice)));
+  HIP_CHECK(hipMalloc((void**)&numBitsDevice, sizeof(*numBitsDevice)));
 
   T** minValueDevicePtr;
-  HIP_RT_CALL(
+  HIP_CHECK(
       hipMalloc((void**)&minValueDevicePtr, sizeof(*minValueDevicePtr)));
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       minValueDevicePtr,
       &minValueDevice,
       sizeof(minValueDevice),
       hipMemcpyHostToDevice));
   unsigned char** numBitsDevicePtr;
-  HIP_RT_CALL(
+  HIP_CHECK(
       hipMalloc((void**)&numBitsDevicePtr, sizeof(*numBitsDevicePtr)));
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       numBitsDevicePtr,
       &numBitsDevice,
       sizeof(numBitsDevice),
@@ -162,12 +162,12 @@ void runBitPackingOnGPU(
 
   void* workspace;
   size_t workspaceBytes = BitPackGPU::requiredWorkspaceSize(n, TypeOf<T>());
-  HIP_RT_CALL(hipMalloc(&workspace, workspaceBytes));
+  HIP_CHECK(hipMalloc(&workspace, workspaceBytes));
 
   const hipcompType_t inType = TypeOf<T>();
 
   hipStream_t stream;
-  HIP_RT_CALL(hipStreamCreate(&stream));
+  HIP_CHECK(hipStreamCreate(&stream));
 
   BitPackGPU::compress(
       workspace,
@@ -181,8 +181,8 @@ void runBitPackingOnGPU(
       numBitsDevicePtr,
       stream);
 
-  HIP_RT_CALL(hipStreamSynchronize(stream));
-  HIP_RT_CALL(hipStreamDestroy(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipStreamDestroy(stream));
 
   fromGPU(minValOut, minValueDevice, 1);
 
@@ -192,14 +192,14 @@ void runBitPackingOnGPU(
 
   fromGPU(outputHost, output, std::min(packedSize, n * sizeof(T)));
 
-  HIP_RT_CALL(hipFree(input));
-  HIP_RT_CALL(hipFree(output));
-  HIP_RT_CALL(hipFree(outputPtr));
-  HIP_RT_CALL(hipFree(workspace));
-  HIP_RT_CALL(hipFree(minValueDevice));
-  HIP_RT_CALL(hipFree(numBitsDevice));
-  HIP_RT_CALL(hipFree(minValueDevicePtr));
-  HIP_RT_CALL(hipFree(numBitsDevicePtr));
+  HIP_CHECK(hipFree(input));
+  HIP_CHECK(hipFree(output));
+  HIP_CHECK(hipFree(outputPtr));
+  HIP_CHECK(hipFree(workspace));
+  HIP_CHECK(hipFree(minValueDevice));
+  HIP_CHECK(hipFree(numBitsDevice));
+  HIP_CHECK(hipFree(minValueDevicePtr));
+  HIP_CHECK(hipFree(numBitsDevicePtr));
 }
 
 template<typename T>
@@ -218,7 +218,7 @@ void typeRangeTest()
   void* outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost.data());
-  HIP_RT_CALL(hipHostMalloc(&outputHost, numBytes));
+  HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   T minValue;
   size_t numBitsAct;
@@ -239,7 +239,7 @@ void typeRangeTest()
     CHECK(unpackedHost[i] == inputHost[i]);
   }
 
-  HIP_RT_CALL(hipHostFree(outputHost));
+  HIP_CHECK(hipHostFree(outputHost));
 }
 
 } // namespace
@@ -268,8 +268,8 @@ TEST_CASE("compressInt16VarBitTest", "[small]")
   void* outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, numBytes));
-  HIP_RT_CALL(hipHostMalloc(&outputHost, numBytes));
+  HIP_CHECK(hipHostMalloc((void**)&inputHost, numBytes));
+  HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   for (size_t numBits = 1; numBits < sizeof(T) * 8 - 1; ++numBits) {
     T minValue = 0;
@@ -302,8 +302,8 @@ TEST_CASE("compressInt16VarBitTest", "[small]")
     }
   }
 
-  HIP_RT_CALL(hipHostFree(outputHost));
-  HIP_RT_CALL(hipHostFree(inputHost));
+  HIP_CHECK(hipHostFree(outputHost));
+  HIP_CHECK(hipHostFree(inputHost));
 }
 
 TEST_CASE("compressUint32VarBitTest", "[small]")
@@ -324,8 +324,8 @@ TEST_CASE("compressUint32VarBitTest", "[small]")
   void* outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, numBytes));
-  HIP_RT_CALL(hipHostMalloc(&outputHost, numBytes));
+  HIP_CHECK(hipHostMalloc((void**)&inputHost, numBytes));
+  HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   for (size_t numBits = 1; numBits < sizeof(T) * 8 - 1; ++numBits) {
     T minValue = 0;
@@ -358,8 +358,8 @@ TEST_CASE("compressUint32VarBitTest", "[small]")
     }
   }
 
-  HIP_RT_CALL(hipHostFree(outputHost));
-  HIP_RT_CALL(hipHostFree(inputHost));
+  HIP_CHECK(hipHostFree(outputHost));
+  HIP_CHECK(hipHostFree(inputHost));
 }
 
 TEST_CASE("compressInt64VarBitTest", "[small]")
@@ -380,8 +380,8 @@ TEST_CASE("compressInt64VarBitTest", "[small]")
   void* outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, numBytes));
-  HIP_RT_CALL(hipHostMalloc(&outputHost, numBytes));
+  HIP_CHECK(hipHostMalloc((void**)&inputHost, numBytes));
+  HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   for (size_t numBits = 1; numBits < sizeof(T) * 8 - 1; ++numBits) {
     for (size_t i = 0; i < n; ++i) {
@@ -409,8 +409,8 @@ TEST_CASE("compressInt64VarBitTest", "[small]")
     }
   }
 
-  HIP_RT_CALL(hipHostFree(outputHost));
-  HIP_RT_CALL(hipHostFree(inputHost));
+  HIP_CHECK(hipHostFree(outputHost));
+  HIP_CHECK(hipHostFree(inputHost));
 }
 
 TEST_CASE("compressInt32VarSizeTest", "[large]")
@@ -434,8 +434,8 @@ TEST_CASE("compressInt32VarSizeTest", "[large]")
   void* outputHost;
 
   size_t const numBytes = sizes.back() * sizeof(*inputHost);
-  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, numBytes));
-  HIP_RT_CALL(hipHostMalloc(&outputHost, numBytes));
+  HIP_CHECK(hipHostMalloc((void**)&inputHost, numBytes));
+  HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   for (size_t const n : sizes) {
     for (size_t i = 0; i < n; ++i) {
@@ -468,8 +468,8 @@ TEST_CASE("compressInt32VarSizeTest", "[large]")
     }
   }
 
-  HIP_RT_CALL(hipHostFree(outputHost));
-  HIP_RT_CALL(hipHostFree(inputHost));
+  HIP_CHECK(hipHostFree(outputHost));
+  HIP_CHECK(hipHostFree(inputHost));
 }
 
 TEST_CASE("compressInt64WideTest", "[small]")
@@ -492,8 +492,8 @@ TEST_CASE("compressInt64WideTest", "[small]")
   void* outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, numBytes));
-  HIP_RT_CALL(hipHostMalloc(&outputHost, numBytes));
+  HIP_CHECK(hipHostMalloc((void**)&inputHost, numBytes));
+  HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   memcpy(inputHost, source.data(), sizeof(*inputHost) * source.size());
 
@@ -516,8 +516,8 @@ TEST_CASE("compressInt64WideTest", "[small]")
     CHECK(unpackedHost[i] == inputHost[i]);
   }
 
-  HIP_RT_CALL(hipHostFree(outputHost));
-  HIP_RT_CALL(hipHostFree(inputHost));
+  HIP_CHECK(hipHostFree(outputHost));
+  HIP_CHECK(hipHostFree(inputHost));
 }
 
 TEST_CASE("compressTypeInt8RangeTest", "[small]")

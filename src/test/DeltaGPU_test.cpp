@@ -58,8 +58,8 @@
 
 #include <cstdlib>
 
-#ifndef HIP_RT_CALL
-#define HIP_RT_CALL(call)                                                     \
+#ifndef HIP_CHECK
+#define HIP_CHECK(call)                                                     \
   {                                                                            \
     hipError_t hipStatus = call;                                             \
     if (hipSuccess != hipStatus) {                                           \
@@ -93,7 +93,7 @@ void toGPU(
     size_t const num,
     hipStream_t stream)
 {
-  HIP_RT_CALL(hipMemcpyAsync(
+  HIP_CHECK(hipMemcpyAsync(
       output, input, num * sizeof(T), hipMemcpyHostToDevice, stream));
 }
 
@@ -104,7 +104,7 @@ void fromGPU(
     size_t const num,
     hipStream_t stream)
 {
-  HIP_RT_CALL(hipMemcpyAsync(
+  HIP_CHECK(hipMemcpyAsync(
       output, input, num * sizeof(T), hipMemcpyDeviceToHost, stream));
 }
 
@@ -123,14 +123,14 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
   T *input, *inputHost;
   size_t const numBytes = n * sizeof(*input);
 
-  HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
+  HIP_CHECK(hipMalloc((void**)&input, numBytes));
 
-  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_CHECK(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
   hipStream_t stream;
-  HIP_RT_CALL(hipStreamCreate(&stream));
+  HIP_CHECK(hipStreamCreate(&stream));
 
   std::srand(0);
 
@@ -147,27 +147,27 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
   T *output, *outputHost;
   T** outputPtr;
 
-  HIP_RT_CALL(hipMalloc((void**)&output, numBytes));
-  HIP_RT_CALL(hipHostMalloc((void**)&outputHost, numBytes));
+  HIP_CHECK(hipMalloc((void**)&output, numBytes));
+  HIP_CHECK(hipHostMalloc((void**)&outputHost, numBytes));
 
-  HIP_RT_CALL(hipMalloc((void**)&outputPtr, sizeof(*outputPtr)));
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMalloc((void**)&outputPtr, sizeof(*outputPtr)));
+  HIP_CHECK(hipMemcpy(
       outputPtr, &output, sizeof(*outputPtr), hipMemcpyHostToDevice));
 
   size_t* inputSizePtr;
-  HIP_RT_CALL(hipMalloc((void**)&inputSizePtr, sizeof(*inputSizePtr)));
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMalloc((void**)&inputSizePtr, sizeof(*inputSizePtr)));
+  HIP_CHECK(hipMemcpy(
       inputSizePtr, &n, sizeof(*inputSizePtr), hipMemcpyHostToDevice));
 
   void* workspace;
   size_t const workspaceSize = DeltaGPU::requiredWorkspaceSize(n, TypeOf<T>());
-  HIP_RT_CALL(hipMalloc((void**)&workspace, workspaceSize));
+  HIP_CHECK(hipMalloc((void**)&workspace, workspaceSize));
 
   hipEvent_t start, stop;
 
-  HIP_RT_CALL(hipEventCreate(&start));
-  HIP_RT_CALL(hipEventCreate(&stop));
-  HIP_RT_CALL(hipEventRecord(start, stream));
+  HIP_CHECK(hipEventCreate(&start));
+  HIP_CHECK(hipEventCreate(&stop));
+  HIP_CHECK(hipEventRecord(start, stream));
 
   DeltaGPU::compress(
       workspace,
@@ -178,19 +178,19 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
       inputSizePtr,
       2 * n,
       stream);
-  HIP_RT_CALL(hipEventRecord(stop, stream));
+  HIP_CHECK(hipEventRecord(stop, stream));
 
-  HIP_RT_CALL(hipStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
   float time;
-  HIP_RT_CALL(hipEventElapsedTime(&time, start, stop));
+  HIP_CHECK(hipEventElapsedTime(&time, start, stop));
 
   fromGPU(outputHost, output, n, stream);
-  HIP_RT_CALL(hipStreamSynchronize(stream));
-  HIP_RT_CALL(hipStreamDestroy(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipStreamDestroy(stream));
 
-  HIP_RT_CALL(hipFree(output));
-  HIP_RT_CALL(hipFree(outputPtr));
-  HIP_RT_CALL(hipFree(inputSizePtr));
+  HIP_CHECK(hipFree(output));
+  HIP_CHECK(hipFree(outputPtr));
+  HIP_CHECK(hipFree(inputSizePtr));
 
   // compute Delta on host
   std::vector<T> expected{inputHost[0]};
@@ -204,8 +204,8 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
     CHECK(expected[i] == outputHost[i]);
   }
 
-  HIP_RT_CALL(hipHostFree(outputHost));
+  HIP_CHECK(hipHostFree(outputHost));
 
-  HIP_RT_CALL(hipFree(input));
-  HIP_RT_CALL(hipHostFree(inputHost));
+  HIP_CHECK(hipFree(input));
+  HIP_CHECK(hipHostFree(inputHost));
 }

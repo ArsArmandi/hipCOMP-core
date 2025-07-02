@@ -58,8 +58,8 @@
 
 #include <cstdlib>
 
-#ifndef HIP_RT_CALL
-#define HIP_RT_CALL(call)                                                     \
+#ifndef HIP_CHECK
+#define HIP_CHECK(call)                                                     \
   {                                                                            \
     hipError_t hipStatus = call;                                             \
     if (hipSuccess != hipStatus) {                                           \
@@ -93,7 +93,7 @@ void toGPU(
     size_t const num,
     hipStream_t stream)
 {
-  HIP_RT_CALL(hipMemcpyAsync(
+  HIP_CHECK(hipMemcpyAsync(
       output, input, num * sizeof(T), hipMemcpyHostToDevice, stream));
 }
 
@@ -104,7 +104,7 @@ void fromGPU(
     size_t const num,
     hipStream_t stream)
 {
-  HIP_RT_CALL(hipMemcpyAsync(
+  HIP_CHECK(hipMemcpyAsync(
       output, input, num * sizeof(T), hipMemcpyDeviceToHost, stream));
 }
 
@@ -114,14 +114,14 @@ void compressAsyncTestRandom(const size_t n)
   T *input, *inputHost;
   size_t const numBytes = n * sizeof(*input);
 
-  HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
+  HIP_CHECK(hipMalloc((void**)&input, numBytes));
 
-  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_CHECK(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0f * 1024.0f * 1024.0f);
 
   hipStream_t stream;
-  HIP_RT_CALL(hipStreamCreate(&stream));
+  HIP_CHECK(hipStreamCreate(&stream));
 
   std::srand(0);
 
@@ -138,37 +138,37 @@ void compressAsyncTestRandom(const size_t n)
   T *outputValues, *outputValuesHost;
   V *outputCounts, *outputCountsHost;
 
-  HIP_RT_CALL(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
-  HIP_RT_CALL(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
-  HIP_RT_CALL(
+  HIP_CHECK(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
+  HIP_CHECK(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
+  HIP_CHECK(
       hipHostMalloc((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
-  HIP_RT_CALL(
+  HIP_CHECK(
       hipHostMalloc((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
 
   void* workspace;
   const size_t maxNum = 2 * n;
   size_t const workspaceSize = RunLengthEncodeGPU::requiredWorkspaceSize(
       maxNum, TypeOf<T>(), TypeOf<V>());
-  HIP_RT_CALL(hipMalloc((void**)&workspace, workspaceSize));
+  HIP_CHECK(hipMalloc((void**)&workspace, workspaceSize));
 
   // create on device inputs
   size_t* numInDevice;
   size_t* numOutDevice;
   T** outputValuesPtr;
   V** outputCountsPtr;
-  HIP_RT_CALL(hipMalloc((void**)&numInDevice, sizeof(*numInDevice)));
-  HIP_RT_CALL(hipMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
-  HIP_RT_CALL(hipMalloc((void**)&outputValuesPtr, sizeof(*outputValuesPtr)));
-  HIP_RT_CALL(hipMalloc((void**)&outputCountsPtr, sizeof(*outputCountsPtr)));
+  HIP_CHECK(hipMalloc((void**)&numInDevice, sizeof(*numInDevice)));
+  HIP_CHECK(hipMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
+  HIP_CHECK(hipMalloc((void**)&outputValuesPtr, sizeof(*outputValuesPtr)));
+  HIP_CHECK(hipMalloc((void**)&outputCountsPtr, sizeof(*outputCountsPtr)));
 
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       numInDevice, &n, sizeof(*numInDevice), hipMemcpyHostToDevice));
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       outputValuesPtr,
       &outputValues,
       sizeof(outputValues),
       hipMemcpyHostToDevice));
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       outputCountsPtr,
       &outputCounts,
       sizeof(outputCounts),
@@ -176,9 +176,9 @@ void compressAsyncTestRandom(const size_t n)
 
   hipEvent_t start, stop;
 
-  HIP_RT_CALL(hipEventCreate(&start));
-  HIP_RT_CALL(hipEventCreate(&stop));
-  HIP_RT_CALL(hipEventRecord(start, stream));
+  HIP_CHECK(hipEventCreate(&start));
+  HIP_CHECK(hipEventCreate(&stop));
+  HIP_CHECK(hipEventRecord(start, stream));
 
   RunLengthEncodeGPU::compressDownstream(
       workspace,
@@ -192,27 +192,27 @@ void compressAsyncTestRandom(const size_t n)
       numInDevice,
       maxNum,
       stream);
-  HIP_RT_CALL(hipEventRecord(stop, stream));
+  HIP_CHECK(hipEventRecord(stop, stream));
 
-  HIP_RT_CALL(hipStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
   float time;
-  HIP_RT_CALL(hipEventElapsedTime(&time, start, stop));
+  HIP_CHECK(hipEventElapsedTime(&time, start, stop));
 
   size_t numOut;
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       &numOut, numOutDevice, sizeof(numOut), hipMemcpyDeviceToHost));
 
   fromGPU(outputValuesHost, outputValues, numOut, stream);
   fromGPU(outputCountsHost, outputCounts, numOut, stream);
-  HIP_RT_CALL(hipStreamSynchronize(stream));
-  HIP_RT_CALL(hipStreamDestroy(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipStreamDestroy(stream));
 
-  HIP_RT_CALL(hipFree(outputValues));
-  HIP_RT_CALL(hipFree(outputCounts));
-  HIP_RT_CALL(hipFree(outputValuesPtr));
-  HIP_RT_CALL(hipFree(outputCountsPtr));
-  HIP_RT_CALL(hipFree(numOutDevice));
-  HIP_RT_CALL(hipFree(numInDevice));
+  HIP_CHECK(hipFree(outputValues));
+  HIP_CHECK(hipFree(outputCounts));
+  HIP_CHECK(hipFree(outputValuesPtr));
+  HIP_CHECK(hipFree(outputCountsPtr));
+  HIP_CHECK(hipFree(numOutDevice));
+  HIP_CHECK(hipFree(numInDevice));
 
   // compute RLE on host
   std::vector<T> expectedValues{inputHost[0]};
@@ -243,11 +243,11 @@ void compressAsyncTestRandom(const size_t n)
     CHECK(expectedCounts[i] == outputCountsHost[i]);
   }
 
-  HIP_RT_CALL(hipHostFree(outputValuesHost));
-  HIP_RT_CALL(hipHostFree(outputCountsHost));
+  HIP_CHECK(hipHostFree(outputValuesHost));
+  HIP_CHECK(hipHostFree(outputCountsHost));
 
-  HIP_RT_CALL(hipFree(input));
-  HIP_RT_CALL(hipHostFree(inputHost));
+  HIP_CHECK(hipFree(input));
+  HIP_CHECK(hipHostFree(inputHost));
 }
 
 } // namespace
@@ -266,14 +266,14 @@ TEST_CASE("compress_10Million_Test", "[small]")
   T *input, *inputHost;
   size_t const numBytes = n * sizeof(*input);
 
-  HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
+  HIP_CHECK(hipMalloc((void**)&input, numBytes));
 
-  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_CHECK(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0f * 1024.0f * 1024.0f);
 
   hipStream_t stream;
-  HIP_RT_CALL(hipStreamCreate(&stream));
+  HIP_CHECK(hipStreamCreate(&stream));
 
   std::srand(0);
 
@@ -290,26 +290,26 @@ TEST_CASE("compress_10Million_Test", "[small]")
   T *outputValues, *outputValuesHost;
   V *outputCounts, *outputCountsHost;
 
-  HIP_RT_CALL(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
-  HIP_RT_CALL(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
-  HIP_RT_CALL(
+  HIP_CHECK(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
+  HIP_CHECK(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
+  HIP_CHECK(
       hipHostMalloc((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
-  HIP_RT_CALL(
+  HIP_CHECK(
       hipHostMalloc((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
 
   size_t* numOutDevice;
-  HIP_RT_CALL(hipMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
+  HIP_CHECK(hipMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
 
   void* workspace;
   size_t const workspaceSize
       = RunLengthEncodeGPU::requiredWorkspaceSize(n, TypeOf<T>(), TypeOf<V>());
-  HIP_RT_CALL(hipMalloc((void**)&workspace, workspaceSize));
+  HIP_CHECK(hipMalloc((void**)&workspace, workspaceSize));
 
   hipEvent_t start, stop;
 
-  HIP_RT_CALL(hipEventCreate(&start));
-  HIP_RT_CALL(hipEventCreate(&stop));
-  HIP_RT_CALL(hipEventRecord(start, stream));
+  HIP_CHECK(hipEventCreate(&start));
+  HIP_CHECK(hipEventCreate(&stop));
+  HIP_CHECK(hipEventRecord(start, stream));
 
   size_t numOut = 0;
   RunLengthEncodeGPU::compress(
@@ -323,22 +323,22 @@ TEST_CASE("compress_10Million_Test", "[small]")
       input,
       n,
       stream);
-  HIP_RT_CALL(hipEventRecord(stop, stream));
+  HIP_CHECK(hipEventRecord(stop, stream));
 
-  HIP_RT_CALL(hipStreamSynchronize(stream));
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipMemcpy(
       &numOut, numOutDevice, sizeof(numOut), hipMemcpyDeviceToHost));
 
   float time;
-  HIP_RT_CALL(hipEventElapsedTime(&time, start, stop));
+  HIP_CHECK(hipEventElapsedTime(&time, start, stop));
 
   fromGPU(outputValuesHost, outputValues, numOut, stream);
   fromGPU(outputCountsHost, outputCounts, numOut, stream);
-  HIP_RT_CALL(hipStreamSynchronize(stream));
-  HIP_RT_CALL(hipStreamDestroy(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipStreamDestroy(stream));
 
-  HIP_RT_CALL(hipFree(outputValues));
-  HIP_RT_CALL(hipFree(outputCounts));
+  HIP_CHECK(hipFree(outputValues));
+  HIP_CHECK(hipFree(outputCounts));
 
   // compute RLE on host
   std::vector<T> expectedValues{inputHost[0]};
@@ -361,11 +361,11 @@ TEST_CASE("compress_10Million_Test", "[small]")
     CHECK(expectedCounts[i] == outputCountsHost[i]);
   }
 
-  HIP_RT_CALL(hipHostFree(outputValuesHost));
-  HIP_RT_CALL(hipHostFree(outputCountsHost));
+  HIP_CHECK(hipHostFree(outputValuesHost));
+  HIP_CHECK(hipHostFree(outputCountsHost));
 
-  HIP_RT_CALL(hipFree(input));
-  HIP_RT_CALL(hipHostFree(inputHost));
+  HIP_CHECK(hipFree(input));
+  HIP_CHECK(hipHostFree(inputHost));
 }
 
 TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
@@ -378,14 +378,14 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
   T *input, *inputHost;
   size_t const numBytes = n * sizeof(*input);
 
-  HIP_RT_CALL(hipMalloc((void**)&input, numBytes));
+  HIP_CHECK(hipMalloc((void**)&input, numBytes));
 
-  HIP_RT_CALL(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_CHECK(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0f * 1024.0f * 1024.0f);
 
   hipStream_t stream;
-  HIP_RT_CALL(hipStreamCreate(&stream));
+  HIP_CHECK(hipStreamCreate(&stream));
 
   T last = 37;
   for (size_t i = 0; i < n; ++i) {
@@ -397,37 +397,37 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
   T *outputValues, *outputValuesHost;
   V *outputCounts, *outputCountsHost;
 
-  HIP_RT_CALL(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
-  HIP_RT_CALL(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
-  HIP_RT_CALL(
+  HIP_CHECK(hipMalloc((void**)&outputValues, sizeof(*outputValues) * n));
+  HIP_CHECK(hipMalloc((void**)&outputCounts, sizeof(*outputCounts) * n));
+  HIP_CHECK(
       hipHostMalloc((void**)&outputValuesHost, sizeof(*outputValuesHost) * n));
-  HIP_RT_CALL(
+  HIP_CHECK(
       hipHostMalloc((void**)&outputCountsHost, sizeof(*outputCountsHost) * n));
 
   void* workspace;
   const size_t maxNum = 2 * n;
   const size_t workspaceSize = RunLengthEncodeGPU::requiredWorkspaceSize(
       maxNum, TypeOf<T>(), TypeOf<V>());
-  HIP_RT_CALL(hipMalloc((void**)&workspace, workspaceSize));
+  HIP_CHECK(hipMalloc((void**)&workspace, workspaceSize));
 
   // create on device inputs
   size_t* numInDevice;
   size_t* numOutDevice;
   T** outputValuesPtr;
   V** outputCountsPtr;
-  HIP_RT_CALL(hipMalloc((void**)&numInDevice, sizeof(*numInDevice)));
-  HIP_RT_CALL(hipMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
-  HIP_RT_CALL(hipMalloc((void**)&outputValuesPtr, sizeof(*outputValuesPtr)));
-  HIP_RT_CALL(hipMalloc((void**)&outputCountsPtr, sizeof(*outputCountsPtr)));
+  HIP_CHECK(hipMalloc((void**)&numInDevice, sizeof(*numInDevice)));
+  HIP_CHECK(hipMalloc((void**)&numOutDevice, sizeof(*numOutDevice)));
+  HIP_CHECK(hipMalloc((void**)&outputValuesPtr, sizeof(*outputValuesPtr)));
+  HIP_CHECK(hipMalloc((void**)&outputCountsPtr, sizeof(*outputCountsPtr)));
 
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       numInDevice, &n, sizeof(*numInDevice), hipMemcpyHostToDevice));
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       outputValuesPtr,
       &outputValues,
       sizeof(outputValues),
       hipMemcpyHostToDevice));
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       outputCountsPtr,
       &outputCounts,
       sizeof(outputCounts),
@@ -435,9 +435,9 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
 
   hipEvent_t start, stop;
 
-  HIP_RT_CALL(hipEventCreate(&start));
-  HIP_RT_CALL(hipEventCreate(&stop));
-  HIP_RT_CALL(hipEventRecord(start, stream));
+  HIP_CHECK(hipEventCreate(&start));
+  HIP_CHECK(hipEventCreate(&stop));
+  HIP_CHECK(hipEventRecord(start, stream));
 
   RunLengthEncodeGPU::compressDownstream(
       workspace,
@@ -451,27 +451,27 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
       numInDevice,
       maxNum,
       stream);
-  HIP_RT_CALL(hipEventRecord(stop, stream));
+  HIP_CHECK(hipEventRecord(stop, stream));
 
-  HIP_RT_CALL(hipStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
   float time;
-  HIP_RT_CALL(hipEventElapsedTime(&time, start, stop));
+  HIP_CHECK(hipEventElapsedTime(&time, start, stop));
 
   size_t numOut;
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       &numOut, numOutDevice, sizeof(numOut), hipMemcpyDeviceToHost));
 
   fromGPU(outputValuesHost, outputValues, numOut, stream);
   fromGPU(outputCountsHost, outputCounts, numOut, stream);
-  HIP_RT_CALL(hipStreamSynchronize(stream));
-  HIP_RT_CALL(hipStreamDestroy(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipStreamDestroy(stream));
 
-  HIP_RT_CALL(hipFree(outputValues));
-  HIP_RT_CALL(hipFree(outputCounts));
-  HIP_RT_CALL(hipFree(outputValuesPtr));
-  HIP_RT_CALL(hipFree(outputCountsPtr));
-  HIP_RT_CALL(hipFree(numOutDevice));
-  HIP_RT_CALL(hipFree(numInDevice));
+  HIP_CHECK(hipFree(outputValues));
+  HIP_CHECK(hipFree(outputCounts));
+  HIP_CHECK(hipFree(outputValuesPtr));
+  HIP_CHECK(hipFree(outputCountsPtr));
+  HIP_CHECK(hipFree(numOutDevice));
+  HIP_CHECK(hipFree(numInDevice));
 
   // compute RLE on host
   std::vector<T> expectedValues{inputHost[0]};
@@ -501,11 +501,11 @@ TEST_CASE("compressDownstream_10kUniform_Test", "[small]")
     CHECK(expectedCounts[i] == outputCountsHost[i]);
   }
 
-  HIP_RT_CALL(hipHostFree(outputValuesHost));
-  HIP_RT_CALL(hipHostFree(outputCountsHost));
+  HIP_CHECK(hipHostFree(outputValuesHost));
+  HIP_CHECK(hipHostFree(outputCountsHost));
 
-  HIP_RT_CALL(hipFree(input));
-  HIP_RT_CALL(hipHostFree(inputHost));
+  HIP_CHECK(hipFree(input));
+  HIP_CHECK(hipHostFree(inputHost));
 }
 
 TEST_CASE("compressDownstream_10k_16bit_count_Test", "[small]")

@@ -54,8 +54,8 @@
 
 #include "hip/hip_runtime.h"
 
-#ifndef HIP_RT_CALL
-#define HIP_RT_CALL(call)                                                     \
+#ifndef HIP_CHECK
+#define HIP_CHECK(call)                                                     \
   {                                                                            \
     hipError_t hipStatus = call;                                             \
     if (hipSuccess != hipStatus) {                                           \
@@ -83,21 +83,21 @@ TEST_CASE("IsDevicePointerTest", "[small]")
 {
   // check a device pointer - true
   size_t* dev_ptr;
-  HIP_RT_CALL(hipMalloc((void**)&dev_ptr, sizeof(*dev_ptr)));
+  HIP_CHECK(hipMalloc((void**)&dev_ptr, sizeof(*dev_ptr)));
   REQUIRE(HipUtils::is_device_pointer(dev_ptr));
-  HIP_RT_CALL(hipFree(dev_ptr));
+  HIP_CHECK(hipFree(dev_ptr));
 
   // check a uvm pointer - false
   size_t* managed_ptr;
-  HIP_RT_CALL(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
+  HIP_CHECK(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
   REQUIRE(!HipUtils::is_device_pointer(managed_ptr));
-  HIP_RT_CALL(hipFree(managed_ptr));
+  HIP_CHECK(hipFree(managed_ptr));
 
   // check a pinned pointer - false
   size_t* pinned_ptr;
-  HIP_RT_CALL(hipHostMalloc((void**)&pinned_ptr, sizeof(*pinned_ptr)));
+  HIP_CHECK(hipHostMalloc((void**)&pinned_ptr, sizeof(*pinned_ptr)));
   REQUIRE(!HipUtils::is_device_pointer(pinned_ptr));
-  HIP_RT_CALL(hipHostFree(pinned_ptr));
+  HIP_CHECK(hipHostFree(pinned_ptr));
 
   // check an unregistered pointer - false
   size_t unregistered;
@@ -111,23 +111,23 @@ TEST_CASE("DevicePointerTest", "[small]")
 {
   // check a device pointer - should be equal
   size_t* dev_ptr;
-  HIP_RT_CALL(hipMalloc((void**)&dev_ptr, sizeof(*dev_ptr)));
+  HIP_CHECK(hipMalloc((void**)&dev_ptr, sizeof(*dev_ptr)));
   REQUIRE(HipUtils::device_pointer(dev_ptr) == dev_ptr);
-  HIP_RT_CALL(hipFree(dev_ptr));
+  HIP_CHECK(hipFree(dev_ptr));
 
   // check a uvm pointer - should succeed and return a device pointer
   size_t* managed_ptr;
-  HIP_RT_CALL(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
+  HIP_CHECK(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
   size_t* managed_dev_ptr = HipUtils::device_pointer(managed_ptr);
-  HIP_RT_CALL(hipMemset(managed_dev_ptr, 0, sizeof(*managed_dev_ptr)));
-  HIP_RT_CALL(hipFree(managed_ptr));
+  HIP_CHECK(hipMemset(managed_dev_ptr, 0, sizeof(*managed_dev_ptr)));
+  HIP_CHECK(hipFree(managed_ptr));
 
   // check a pinned pointer - should succeed and return a device pointer
   size_t* pinned_ptr;
-  HIP_RT_CALL(hipHostMalloc((void**)&pinned_ptr, sizeof(*pinned_ptr)));
+  HIP_CHECK(hipHostMalloc((void**)&pinned_ptr, sizeof(*pinned_ptr)));
   size_t* pinned_dev_ptr = HipUtils::device_pointer(pinned_ptr);
-  HIP_RT_CALL(hipMemset(pinned_dev_ptr, 0, sizeof(*pinned_dev_ptr)));
-  HIP_RT_CALL(hipHostFree(pinned_ptr));
+  HIP_CHECK(hipMemset(pinned_dev_ptr, 0, sizeof(*pinned_dev_ptr)));
+  HIP_CHECK(hipHostFree(pinned_ptr));
 
   // check an unregistered pointer - should throw an exception
   try {

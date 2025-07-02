@@ -145,7 +145,7 @@ void test_bitcomp(const std::vector<T>& input, hipcompType_t data_type)
 
   // Copy result back to host
   std::vector<T> res(input.size());
-  HIP_RT_CALL(hipMemcpy(
+  HIP_CHECK(hipMemcpy(
       &res[0], out_ptr, input.size() * sizeof(T), hipMemcpyDeviceToHost));
 
   // Verify correctness

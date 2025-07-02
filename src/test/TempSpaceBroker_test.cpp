@@ -56,8 +56,8 @@
 
 #include <cstdint>
 
-#ifndef HIP_RT_CALL
-#define HIP_RT_CALL(call)                                                     \
+#ifndef HIP_CHECK
+#define HIP_CHECK(call)                                                     \
   {                                                                            \
     hipError_t hipStatus = call;                                             \
     if (hipSuccess != hipStatus) {                                           \
@@ -110,20 +110,20 @@ template <typename T>
 void test_base_alloc(const size_t size, const size_t num)
 {
   void* ptr;
-  HIP_RT_CALL(hipMalloc(&ptr, size));
+  HIP_CHECK(hipMalloc(&ptr, size));
 
   TempSpaceBroker temp(ptr, size);
 
   checked_alloc<T>(temp, num);
 
-  hipFree(ptr);
+  HIP_CHECK(hipFree(ptr));
 }
 
 template <typename T>
 void test_base_alloc_exception(const size_t size, const size_t num)
 {
   void* ptr;
-  HIP_RT_CALL(hipMalloc(&ptr, size));
+  HIP_CHECK(hipMalloc(&ptr, size));
 
   TempSpaceBroker temp(ptr, size);
 
@@ -135,7 +135,7 @@ void test_base_alloc_exception(const size_t size, const size_t num)
     // pass
   }
 
-  hipFree(ptr);
+  HIP_CHECK(hipFree(ptr));
 }
 
 /******************************************************************************
@@ -146,7 +146,7 @@ TEST_CASE("MixedSizeTest", "[small]")
 {
   void* ptr;
   const size_t size = 1024;
-  HIP_RT_CALL(hipMalloc(&ptr, size));
+  HIP_CHECK(hipMalloc(&ptr, size));
 
   TempSpaceBroker temp(ptr, size);
 
@@ -158,7 +158,7 @@ TEST_CASE("MixedSizeTest", "[small]")
   checked_alloc<Test32BStruct>(temp, 3);
   checked_alloc<double>(temp, 7);
 
-  hipFree(ptr);
+  HIP_CHECK(hipFree(ptr));
 }
 
 TEST_CASE("AllBaseTypeTest", "[small]")

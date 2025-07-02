@@ -118,7 +118,7 @@ void encode_copy(
   if (match_length >= SNAPPY_SINGLE_BYTE_MIN_MATCH_LENGTH
       and match_length <= SNAPPY_SINGLE_BYTE_MAX_MATCH_LENGTH
       and offset <= SNAPPY_SINGLE_BYTE_MAX_OFFSET) {
-    // 1 byte offset encoding. the  tag byte is: 
+    // 1 byte offset encoding. the tag byte is:
     // [5..7: upper 3 bits of offset],[2..4: (match_length - 4)],[0..1: 01, indicates 1 byte offset]
     uint8_t lower_bits = offset & 0xff;
     offset = (offset >> 8) << 5;
