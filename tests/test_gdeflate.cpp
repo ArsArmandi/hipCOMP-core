@@ -63,7 +63,7 @@
 using namespace std;
 using namespace hipcomp;
 
-#define CUDA_CHECK(cond)                                                       \
+#define HIP_CHECK(cond)                                                       \
   do {                                                                         \
     hipError_t err = cond;                                                    \
     REQUIRE(err == hipSuccess);                                               \
@@ -95,8 +95,8 @@ void test_gdeflate(const std::vector<T>& input, const size_t chunk_size = 1 << 1
   // create GPU only input buffer
   T* d_in_data;
   const size_t in_bytes = sizeof(T) * input.size();
-  CUDA_CHECK(hipMalloc((void**)&d_in_data, in_bytes));
-  CUDA_CHECK(
+  HIP_CHECK(hipMalloc((void**)&d_in_data, in_bytes));
+  HIP_CHECK(
       hipMemcpy(d_in_data, input.data(), in_bytes, hipMemcpyHostToDevice));
 
   hipStream_t stream;
@@ -108,41 +108,41 @@ void test_gdeflate(const std::vector<T>& input, const size_t chunk_size = 1 << 1
 
   // Allocate output buffer
   uint8_t* d_comp_out;
-  CUDA_CHECK(hipMalloc(&d_comp_out, comp_config.max_compressed_buffer_size));
+  HIP_CHECK(hipMalloc(&d_comp_out, comp_config.max_compressed_buffer_size));
 
   manager.compress(
       reinterpret_cast<const uint8_t*>(d_in_data),
       d_comp_out,
       comp_config);
 
-  CUDA_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
 
   size_t comp_out_bytes = manager.get_compressed_output_size(d_comp_out);
 
-  CUDA_CHECK(hipFree(d_in_data));
+  HIP_CHECK(hipFree(d_in_data));
 
   // Test to make sure copying the compressed file is ok
   uint8_t* copied = 0;
-  CUDA_CHECK(hipMalloc(&copied, comp_out_bytes));
-  CUDA_CHECK(
+  HIP_CHECK(hipMalloc(&copied, comp_out_bytes));
+  HIP_CHECK(
       hipMemcpy(copied, d_comp_out, comp_out_bytes, hipMemcpyDeviceToDevice));
-      CUDA_CHECK(hipFree(d_comp_out));
+      HIP_CHECK(hipFree(d_comp_out));
   d_comp_out = copied;
 
   auto decomp_config = manager.configure_decompression(d_comp_out);
 
   T* out_ptr;
-  CUDA_CHECK(hipMalloc(&out_ptr, decomp_config.decomp_data_size));
+  HIP_CHECK(hipMalloc(&out_ptr, decomp_config.decomp_data_size));
 
   // make sure the data won't match input if not written to, so we can verify
   // correctness
-  CUDA_CHECK(hipMemset(out_ptr, 0, decomp_config.decomp_data_size));
+  HIP_CHECK(hipMemset(out_ptr, 0, decomp_config.decomp_data_size));
 
   manager.decompress(
       reinterpret_cast<uint8_t*>(out_ptr),
       d_comp_out,
       decomp_config);
-  CUDA_CHECK(hipStreamSynchronize(stream));
+  HIP_CHECK(hipStreamSynchronize(stream));
 
   // Copy result back to host
   std::vector<T> res(input.size());
@@ -152,8 +152,8 @@ void test_gdeflate(const std::vector<T>& input, const size_t chunk_size = 1 << 1
   // Verify correctness
   REQUIRE(res == input);
 
-  CUDA_CHECK(hipFree(d_comp_out));
-  CUDA_CHECK(hipFree(out_ptr));
+  HIP_CHECK(hipFree(d_comp_out));
+  HIP_CHECK(hipFree(out_ptr));
 }
 
 } // namespace
