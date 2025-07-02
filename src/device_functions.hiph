@@ -15,7 +15,7 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2025 Advanced Micro Devices, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -37,9 +37,18 @@
 
 #pragma once
 
-#include "device_types.h"
+#include <hip/hip_runtime.h>
 
 namespace hipcomp {
+
+typedef unsigned Mask32;
+typedef unsigned long long Mask64;
+
+template <int warpsize>
+class Mask {
+public:
+  using type = typename std::conditional<warpsize==32, Mask32, Mask64>::type;
+};
 
 /**
  * \return the number of consecutive bits of highest significance that contain zeros.
@@ -51,12 +60,12 @@ template <typename T>
 __device__ inline int num_leading_zero_bits(T v);
 
 template <>
-__device__ inline int num_leading_zero_bits<uint32_t>(uint32_t v) {
+__device__ inline int num_leading_zero_bits<Mask32>(Mask32 v) {
   return __clz(v);
 }
 
 template <>
-__device__ inline int num_leading_zero_bits<uint64_t>(uint64_t v) {
+__device__ inline int num_leading_zero_bits<Mask64>(Mask64 v) {
   return __clzll(v);
 }
 
@@ -70,23 +79,13 @@ template <typename T>
 __device__ inline int find_first_set_bit(T v);
 
 template <>
-__device__ inline int find_first_set_bit<uint32_t>(uint32_t v) {
+__device__ inline int find_first_set_bit<Mask32>(Mask32 v) {
   return __ffs(v);
 }
 
 template <>
-__device__ inline int find_first_set_bit<int32_t>(int32_t v) {
-  return __ffs(v);
-}
-
-template <>
-__device__ inline int find_first_set_bit<uint64_t>(uint64_t v) {
-  return __ffsll(static_cast<unsigned long long int>(v));
-}
-
-template <>
-__device__ inline int find_first_set_bit<int64_t>(int64_t v) {
-  return __ffsll(static_cast<unsigned long long int>(v));
+__device__ inline int find_first_set_bit<Mask64>(Mask64 v) {
+  return __ffsll(v);
 }
 
 /**
@@ -99,72 +98,89 @@ template <typename T>
 __device__ inline int num_set_bits(T v);
 
 template <>
-__device__ inline int num_set_bits<uint32_t>(uint32_t v) {
+__device__ inline int num_set_bits<Mask32>(Mask32 v) {
   return __popc(v);
 }
 
 template <>
-__device__ inline int num_set_bits<int32_t>(int32_t v) {
-  return __popc(v);
-}
-
-template <>
-__device__ inline int num_set_bits<uint64_t>(uint64_t v) {
-  return __popcll(v);
-}
-
-template <>
-__device__ inline int num_set_bits<int64_t>(int64_t v) {
+__device__ inline int num_set_bits<Mask64>(Mask64 v) {
   return __popcll(v);
 }
 
 // Warp-level communication
+
+/**
+ * Ballot (warp vote function) with full mask (all bits are "1", i.e. all lanes participate).
+ *
+ * \param[in] t the warp lane id, i.e. threadIdx.x % warpsize
+ * \param[in] predicate the predicate to use for active lanes.
+ * \note All of a warp's threads must be participate in this operation on AMD architectures as well as
+ *       NVIDIA Pascal and older NVIDIA architectures.
+ */
+template <typename MaskT>
+__device__ MaskT BALLOT1(int predicate);
+
 #if (__CUDACC_VER_MAJOR__ >= 9)
 #  define INDEPENDENT_THREAD_SCHEDULING
 #endif
 #ifdef INDEPENDENT_THREAD_SCHEDULING
-template <typename T> 
+template <typename T>
 __device__ inline T SHFL10(T v) {
   return __shfl_sync(~0, v, 0);
 }
-template <typename T> 
+template <typename T>
 __device__ inline T SHFL1(T v, uint32_t t) {
   return __shfl_sync(~0, v, t);
 }
-template <typename T> 
-__device__ inline T SHFL1_XOR(T v, const warp_mask_t m) {
+template <typename T, typename MaskT>
+__device__ inline T SHFL1_XOR(T v, const MaskT m) {
   return __shfl_xor_sync(~0, v, m);
 }
 __device__ inline void SYNCWARP() {
   return __syncwarp();
 }
-__device__ warp_mask_t BALLOT1(int predicate) {
+template <>
+__device__ inline Mask32 BALLOT1(int predicate) {
   return __ballot_sync(~0, predicate);
 }
+
 //#  define SHFL10(v)        __shfl_sync(~0, (v), 0)
 //#  define SHFL1(v, t)      __shfl_sync(~0, (v), (t))
 //#  define SHFL1_XOR(v, m)  __shfl_xor_sync(~0, (v), (m))
 //#  define SYNCWARP()       __syncwarp()
 //#  define BALLOT1(v)       __ballot_sync(~0, (v))
 #else
-template <typename T> 
+template <typename T>
 __device__ inline T SHFL10(T v) {
   return __shfl(v, 0);
 }
-template <typename T> 
+template <typename T>
 __device__ inline T SHFL1(T v, uint32_t t) {
   return __shfl(v, t);
 }
-template <typename T> 
-__device__ inline T SHFL1_XOR(T v, const warp_mask_t m) {
+template <typename T, typename MaskT>
+__device__ inline T SHFL1_XOR(T v, const MaskT m) {
   return __shfl_xor(v, m);
 }
 __device__ inline void SYNCWARP() {
   return;
 }
-__device__ inline warp_mask_t BALLOT1(int predicate) {
+// BALLOT1 specializations
+template <>
+__device__ inline Mask32 BALLOT1(int predicate) {
+#ifdef __HIP_PLATFORM_AMD__
+  // NOTE(HIP/AMD): __ballot returns an 64-bit integer on both warpsize 32 and 64 architectures.
+  auto mask64 = __ballot(predicate);
+  return *reinterpret_cast<Mask32*>(&mask64);
+#else
+  return __ballot(predicate);
+#endif
+}
+template <>
+__device__ inline Mask64 BALLOT1(int predicate) {
   return __ballot(predicate);
 }
+
 //#  define SHFL10(v)        __shfl((v), 0)
 //#  define SHFL1(v, t)      __shfl((v), (t))
 //#  define SHFL1_XOR(v, m)  __shfl_xor((v), (m))
@@ -179,51 +195,6 @@ __device__ inline warp_mask_t BALLOT1(int predicate) {
 #  define NANOSLEEP(d)  clock()
 #endif
 
-/**
- * Ballot (warp vote function) with full mask (all bits are "1", i.e. all lanes participate) but a number of higher bits
- * might be cutoff depending on teh GROUPMASK_T template parameter.
- * 
- * \param[in] t the warp lane id, i.e. threadIdx.x % WARPSIZE
- * \param[in] predicate the predicate to use for active lanes. Active lanes fit into the GROUPMASK_T.
- * \param[in] predicate_excluded the predicate to use for excluded lanes. Excluded lanes do not fit into GROUPMASK_T,
- *            i.e. their respective contribution is cutoff. Currently, unused by the specializations but optimizations might
- *            require to decouple the grou size/logical warp size from the returned mask type (GROUPMASK_T).
- * \note All of a warp's threads must be participate in this operation on AMD architectures as well as 
- *       NVIDIA Pascal and older NVIDIA architectures.
- */
-template <typename GROUPMASK_T,unsigned WARPSIZE>
-__device__ inline GROUPMASK_T ballot1(uint32_t t, int predicate,int predicate_excluded = 0);
-
-// ballot1 specializations
-#if defined(USE_WARPSIZE_64)
-template <>
-__device__ inline uint64_t ballot1<uint64_t,64u>(uint32_t t,int predicate,int predicate_excluded) {
-  return BALLOT1(predicate);
-}
-
-template <>
-__device__ inline uint32_t ballot1<uint32_t,64u>(uint32_t t,int predicate,int predicate_excluded) {
-  uint64_t mask_64 = BALLOT1(predicate);
-  return *reinterpret_cast<uint32_t*>(&mask_64);
-}
-#else
-template <>
-__device__ inline uint32_t ballot1<uint32_t,32u>(uint32_t t,int predicate,int predicate_excluded) {
-  return BALLOT1(predicate);
-}
-#endif
-
-template <unsigned GROUPSIZE,unsigned WARPSIZE>
-class WarpReduce {
-public:
-  template <typename T>
-  static __device__ inline T prefix_sum(uint32_t t, T thread_value);
-  template <typename T>
-  static __device__ inline T sum(uint32_t t, T thread_value);
-};
-
-// Warp reduction helpers
-#if defined(USE_WARPSIZE_64)
 template <typename T> inline __device__ T WarpReduceSum2(T acc)     { return acc + SHFL1_XOR(acc, 1); }
 template <typename T> inline __device__ T WarpReduceSum4(T acc)     { acc = WarpReduceSum2(acc); return acc + SHFL1_XOR(acc, 2); }
 template <typename T> inline __device__ T WarpReduceSum8(T acc)     { acc = WarpReduceSum4(acc); return acc + SHFL1_XOR(acc, 4); }
@@ -231,66 +202,55 @@ template <typename T> inline __device__ T WarpReduceSum16(T acc)    { acc = Warp
 template <typename T> inline __device__ T WarpReduceSum32(T acc)    { acc = WarpReduceSum16(acc); return acc + SHFL1_XOR(acc, 16); }
 template <typename T> inline __device__ T WarpReduceSum64(T acc)    { acc = WarpReduceSum32(acc); return acc + SHFL1_XOR(acc, 32); }
 
-template <typename T> inline __device__ T WarpReducePos2(T pos, uint32_t t) { T tmp = SHFL1(pos, t & 0x3e); pos += (t & 1) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos4(T pos, uint32_t t) { T tmp; pos = WarpReducePos2(pos, t); tmp = SHFL1(pos, (t & 0x3c) | 1); pos += (t & 2) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos8(T pos, uint32_t t) { T tmp; pos = WarpReducePos4(pos, t); tmp = SHFL1(pos, (t & 0x38) | 3); pos += (t & 4) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos16(T pos, uint32_t t) { T tmp; pos = WarpReducePos8(pos, t); tmp = SHFL1(pos, (t & 0x30) | 7); pos += (t & 8) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos32(T pos, uint32_t t) { T tmp; pos = WarpReducePos16(pos, t); tmp = SHFL1(pos, (t & 0x20) | 15); pos += (t & 16) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos64(T pos, uint32_t t) { T tmp; pos = WarpReducePos32(pos, t); tmp = SHFL1(pos, 0x1f); pos += (t & 32) ? tmp : 0; return pos; }
-//#define WarpReduceSum(pos) WarpReduceSum64(pos)
-//#define WarpReducePos(pos,t) WarpReducePos64(pos,t)
+template <typename T> inline __device__ T WarpReducePos2_ws32(T pos, int t) { T tmp = SHFL1(pos, t & 0x1e); pos += (t & 1) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos4_ws32(T pos, int t) { T tmp; pos = WarpReducePos2_ws32(pos, t); tmp = SHFL1(pos, (t & 0x1c) | 1); pos += (t & 2) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos8_ws32(T pos, int t) { T tmp; pos = WarpReducePos4_ws32(pos, t); tmp = SHFL1(pos, (t & 0x18) | 3); pos += (t & 4) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos16_ws32(T pos, int t) { T tmp; pos = WarpReducePos8_ws32(pos, t); tmp = SHFL1(pos, (t & 0x10) | 7); pos += (t & 8) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos32_ws32(T pos, int t) { T tmp; pos = WarpReducePos16_ws32(pos, t); tmp = SHFL1(pos, 0xf); pos += (t & 16) ? tmp : 0; return pos; }
 
-template <>
-class WarpReduce<32u,64u> {
+template <typename T> inline __device__ T WarpReducePos2_ws64(T pos, int t) { T tmp = SHFL1(pos, t & 0x3e); pos += (t & 1) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos4_ws64(T pos, int t) { T tmp; pos = WarpReducePos2_ws64(pos, t); tmp = SHFL1(pos, (t & 0x3c) | 1); pos += (t & 2) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos8_ws64(T pos, int t) { T tmp; pos = WarpReducePos4_ws64(pos, t); tmp = SHFL1(pos, (t & 0x38) | 3); pos += (t & 4) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos16_ws64(T pos, int t) { T tmp; pos = WarpReducePos8_ws64(pos, t); tmp = SHFL1(pos, (t & 0x30) | 7); pos += (t & 8) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos32_ws64(T pos, int t) { T tmp; pos = WarpReducePos16_ws64(pos, t); tmp = SHFL1(pos, (t & 0x20) | 15); pos += (t & 16) ? tmp : 0; return pos; }
+template <typename T> inline __device__ T WarpReducePos64_ws64(T pos, int t) { T tmp; pos = WarpReducePos32_ws64(pos, t); tmp = SHFL1(pos, 0x1f); pos += (t & 32) ? tmp : 0; return pos; }
+
+template <int warpsize>
+class WarpReduce {
 public:
   template <typename T>
-  static __device__ inline T prefix_sum(uint32_t t, T thread_value) {
-    return WarpReducePos32(thread_value, t);
+  static __device__ inline T prefix_sum(int t, T thread_value);
+  template <typename T>
+  static __device__ inline T sum(int t, T thread_value);
+};
+
+// explicit WarpReduce instantiations
+
+template <>
+class WarpReduce<32> {
+public:
+  template <typename T>
+  static __device__ inline T prefix_sum(int t, T thread_value) {
+    return WarpReducePos32_ws32(thread_value, t);
   }
   template <typename T>
-  static __device__ inline T sum(uint32_t t, T thread_value) {
+  static __device__ inline T sum(int t, T thread_value) {
     return WarpReduceSum32(thread_value);
   }
 };
 
 template <>
-class WarpReduce<64u,64u> {
+class WarpReduce<64> {
 public:
   template <typename T>
-  static __device__ inline T prefix_sum(uint32_t t, T thread_value) {
-    return WarpReducePos64(thread_value, t);
+  static __device__ inline T prefix_sum(int t, T thread_value) {
+    return WarpReducePos64_ws64(thread_value, t);
   }
   template <typename T>
-  static __device__ inline T sum(uint32_t t, T thread_value) {
+  static __device__ inline T sum(int t, T thread_value) {
     return WarpReduceSum64(thread_value);
   }
 };
-#else
-template <typename T> inline __device__ T WarpReduceSum2(T acc)     { return acc + SHFL1_XOR(acc, 1); }
-template <typename T> inline __device__ T WarpReduceSum4(T acc)     { acc = WarpReduceSum2(acc); return acc + SHFL1_XOR(acc, 2); }
-template <typename T> inline __device__ T WarpReduceSum8(T acc)     { acc = WarpReduceSum4(acc); return acc + SHFL1_XOR(acc, 4); }
-template <typename T> inline __device__ T WarpReduceSum16(T acc)    { acc = WarpReduceSum8(acc); return acc + SHFL1_XOR(acc, 8); }
-template <typename T> inline __device__ T WarpReduceSum32(T acc)    { acc = WarpReduceSum16(acc); return acc + SHFL1_XOR(acc, 16); }
-
-template <typename T> inline __device__ T WarpReducePos2(T pos, uint32_t t) { T tmp = SHFL1(pos, t & 0x1e); pos += (t & 1) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos4(T pos, uint32_t t) { T tmp; pos = WarpReducePos2(pos, t); tmp = SHFL1(pos, (t & 0x1c) | 1); pos += (t & 2) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos8(T pos, uint32_t t) { T tmp; pos = WarpReducePos4(pos, t); tmp = SHFL1(pos, (t & 0x18) | 3); pos += (t & 4) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos16(T pos, uint32_t t) { T tmp; pos = WarpReducePos8(pos, t); tmp = SHFL1(pos, (t & 0x10) | 7); pos += (t & 8) ? tmp : 0; return pos; }
-template <typename T> inline __device__ T WarpReducePos32(T pos, uint32_t t) { T tmp; pos = WarpReducePos16(pos, t); tmp = SHFL1(pos, 0xf); pos += (t & 16) ? tmp : 0; return pos; }
-
-template <>
-class WarpReduce<32u,32u> {
-public:
-  template <typename T>
-  static __device__ inline T prefix_sum(uint32_t t, T thread_value) {
-    return WarpReducePos32(thread_value, t);
-  }
-  template <typename T>
-  static __device__ inline T sum(uint32_t t, T thread_value) {
-    return WarpReduceSum32(thread_value);
-  }
-};
-#endif
 
 ///////////////////////////////////
 // From src/SnappyBlockUtils.cu/hip
@@ -323,7 +283,7 @@ inline __device__ double Int128ToDouble_rn(uint64_t lo, int64_t hi)
  *   205,69:           (offset < pos && offset + MAX_COPY_DISTANCE >= pos + t && unaligned_load32(src + offset) == data32);
  *   \endverbatim
 */
-/** 
+/**
  * Loads a uint32_t that is not located at a 4-byte-multiple adress but at an 1-byte-multiple address.
  */
 inline __device__ uint32_t unaligned_load32(const uint8_t *p) {  // points to uint8_t but is pointer, *p = { *p7.*p6.*p5.*p4.*p3.*p2.*p1.*p0 }
@@ -332,7 +292,7 @@ inline __device__ uint32_t unaligned_load32(const uint8_t *p) {  // points to ui
                                                      // p % 4 == 0 => ofs == 0
   const uint32_t *p32 = reinterpret_cast<const uint32_t *>(p - ofs); // substracts offset from original pointer, casts result to const uint32_t ptr
                                                      // this is the address of previous 4-byte-aligned value
-  uint32_t v = p32[0]; // v is dereferenced p32, i.e. the pevious 4-byte-aligned value, &v = p - {p1.p0} 
+  uint32_t v = p32[0]; // v is dereferenced p32, i.e. the pevious 4-byte-aligned value, &v = p - {p1.p0}
   return (ofs) ? __funnelshift_r(v, p32[1], ofs * 8) : v; // if the offset is 0, returns v. Otherwise, needs to combine the result from previous 4-byte word and following 4-byte word
                                                           // Note: ofs*8 is ofs in bits.
   // __device__​ unsigned int 	__funnelshift_r ( unsigned int  lo, unsigned int  hi, unsigned int  shift )
