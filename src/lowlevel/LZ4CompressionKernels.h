@@ -57,8 +57,8 @@ namespace hipcomp
 namespace lowlevel
 {
 
-extern const int COMP_THREADS_PER_CHUNK;
-extern const int DECOMP_THREADS_PER_CHUNK;
+extern const int COMP_WARPS_PER_CHUNK;
+extern const int DECOMP_WARPS_PER_CHUNK;
 extern const int DECOMP_CHUNKS_PER_BLOCK;
 
 /**
@@ -99,7 +99,7 @@ void lz4BatchDecompress(
     hipStream_t stream);
 
 /**
- * @brief Calculate the decompressed sizes of each chunk. This is 
+ * @brief Calculate the decompressed sizes of each chunk. This is
  * for when we do not know upfront how much space to allocate before
  * running the decompression kernel. All pointers are GPU accessible.
  *

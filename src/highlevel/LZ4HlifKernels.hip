@@ -73,9 +73,9 @@ struct LZ4CompressorArgs {
   const position_type hash_table_size;
 };
 
-template<typename T>
+template<int warpsize, typename T>
 struct lz4_compress_wrapper : hlif_compress_wrapper {
-private: 
+private:
   const position_type hash_table_size;
   offset_type* hash_table;
   hipcompStatus_t* status;
@@ -91,23 +91,23 @@ public:
   {
     hash_table = reinterpret_cast<offset_type*>(tmp_buffer) + blockIdx.x * hash_table_size;
   }
-      
+
   __device__ void compress_chunk(
       uint8_t* tmp_output_buffer,
       const uint8_t* this_decomp_buffer,
       const size_t decomp_size,
       const size_t, // max_comp_chunk_size
-      size_t* comp_chunk_size) 
+      size_t* comp_chunk_size)
   {
     assert(reinterpret_cast<uintptr_t>(this_decomp_buffer) % sizeof(T) == 0 && "Input buffer not aligned");
 
-    compressStream<T>(
-        tmp_output_buffer, 
-        reinterpret_cast<const T*>(this_decomp_buffer), 
-        hash_table, 
-        hash_table_size, 
-        decomp_size,
-        comp_chunk_size);
+    compressStream<warpsize, T>(
+      tmp_output_buffer,
+      reinterpret_cast<const T*>(this_decomp_buffer),
+      hash_table,
+      hash_table_size,
+      decomp_size,
+      comp_chunk_size);
   }
 
   __device__ hipcompStatus_t get_output_status() {
@@ -120,6 +120,7 @@ public:
 
 };
 
+template <int warpsize>
 struct lz4_decompress_wrapper : hlif_decompress_wrapper {
 
 private:
@@ -128,25 +129,25 @@ private:
 
 public:
   __device__ lz4_decompress_wrapper(uint8_t* shared_buffer, hipcompStatus_t* status)
-    : this_shared_buffer(reinterpret_cast<uint8_t*>(shared_buffer) + threadIdx.y * DECOMP_INPUT_BUFFER_SIZE),
+    : this_shared_buffer(reinterpret_cast<uint8_t*>(shared_buffer) + threadIdx.y * decomp_input_buffer_size(warpsize)),
       status(status)
   {}
-      
+
   __device__ void decompress_chunk(
       uint8_t* decomp_buffer,
       const uint8_t* comp_buffer,
       const size_t comp_chunk_size,
       const size_t decomp_buffer_size)
   {
-    decompressStream(
-        this_shared_buffer,
-        decomp_buffer,
-        comp_buffer,
-        comp_chunk_size,
-        decomp_buffer_size,
-        nullptr, // device_uncompressed_bytes -- unnecessary for HLIF
-        status,
-        true /* output decompressed */);
+    decompressStream<warpsize>(
+      this_shared_buffer,
+      decomp_buffer,
+      comp_buffer,
+      comp_chunk_size,
+      decomp_buffer_size,
+      nullptr, // device_uncompressed_bytes -- unnecessary for HLIF
+      status,
+      true /* output decompressed */);
   }
 
   __device__ hipcompStatus_t get_output_status() {
@@ -159,41 +160,45 @@ void lz4HlifBatchCompress(
     const position_type hash_table_size,
     const uint32_t max_ctas,
     hipcompType_t data_type,
-    hipStream_t stream) 
+    hipStream_t stream)
 {
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
+  constexpr int WS = HIPCOMP_WARPSIZE;
+
   const dim3 grid(max_ctas);
-  const dim3 block(LZ4_COMP_THREADS_PER_CHUNK);
+  const dim3 block(LZ4_COMP_WARPS_PER_CHUNK * WS);
 
   switch (data_type) {
     case HIPCOMP_TYPE_BITS:
     case HIPCOMP_TYPE_CHAR:
     case HIPCOMP_TYPE_UCHAR:
-      HlifCompressBatchKernel<lz4_compress_wrapper<uint8_t>><<<grid, block, 0, stream>>>(
+      HlifCompressBatchKernel<WS, lz4_compress_wrapper<WS, uint8_t>><<<grid, block, 0, stream>>>(
           compress_args,
           LZ4CompressorArgs{hash_table_size});
       break;
     case HIPCOMP_TYPE_SHORT:
     case HIPCOMP_TYPE_USHORT:
-      HlifCompressBatchKernel<lz4_compress_wrapper<uint16_t>><<<grid, block, 0, stream>>>(
+      HlifCompressBatchKernel<WS, lz4_compress_wrapper<WS, uint16_t>><<<grid, block, 0, stream>>>(
           compress_args,
           LZ4CompressorArgs{hash_table_size});
       break;
     case HIPCOMP_TYPE_INT:
     case HIPCOMP_TYPE_UINT:
-      HlifCompressBatchKernel<lz4_compress_wrapper<uint32_t>><<<grid, block, 0, stream>>>(
+      HlifCompressBatchKernel<WS, lz4_compress_wrapper<WS, uint32_t>><<<grid, block, 0, stream>>>(
           compress_args,
           LZ4CompressorArgs{hash_table_size});
       break;
     default:
       throw std::invalid_argument("Unsupported input data type");
   }
+)
 
   HipUtils::check_last_error();
 }
 
 void lz4HlifBatchDecompress(
-    const uint8_t* comp_buffer, 
-    uint8_t* decomp_buffer, 
+    const uint8_t* comp_buffer,
+    uint8_t* decomp_buffer,
     const size_t raw_chunk_size,
     uint32_t* ix_chunk,
     const size_t num_chunks,
@@ -201,74 +206,96 @@ void lz4HlifBatchDecompress(
     const size_t* comp_chunk_sizes,
     const uint32_t max_ctas,
     hipStream_t stream,
-    hipcompStatus_t* output_status) 
+    hipcompStatus_t* output_status)
 {
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
+  constexpr int WS = HIPCOMP_WARPSIZE;
+
   const dim3 grid(max_ctas);
-  const dim3 block(LZ4_DECOMP_THREADS_PER_CHUNK, LZ4_DECOMP_CHUNKS_PER_BLOCK);
-  constexpr int shmem_size = DECOMP_INPUT_BUFFER_SIZE * LZ4_DECOMP_CHUNKS_PER_BLOCK;
-  HlifDecompressBatchKernel<lz4_decompress_wrapper, LZ4_DECOMP_CHUNKS_PER_BLOCK><<<grid, block, shmem_size, stream>>>(
-      comp_buffer,
-      decomp_buffer,
-      raw_chunk_size,
-      ix_chunk,
-      num_chunks,
-      comp_chunk_offsets,
-      comp_chunk_sizes,
-      output_status);
+  const dim3 block(LZ4_DECOMP_WARPS_PER_CHUNK * WS, LZ4_DECOMP_CHUNKS_PER_BLOCK);
+  const auto shmem_size = decomp_input_buffer_size(WS) * LZ4_DECOMP_CHUNKS_PER_BLOCK;
+
+  // NOTE: Code below is exactly the same as warp size 64 branch code.
+  HlifDecompressBatchKernel<WS, lz4_decompress_wrapper<WS>, LZ4_DECOMP_CHUNKS_PER_BLOCK><<<grid, block, shmem_size, stream>>>(
+    comp_buffer,
+    decomp_buffer,
+    raw_chunk_size,
+    ix_chunk,
+    num_chunks,
+    comp_chunk_offsets,
+    comp_chunk_sizes,
+    output_status);
+)
 
   HipUtils::check_last_error();
 }
 
 size_t batchedLZ4CompMaxBlockOccupancy(hipcompType_t data_type, const int device_id)
 {
-  hipDeviceProp_t device_prop;
-  hipGetDeviceProperties(&device_prop, device_id);
+  hipDeviceProp_t device_prop = HipUtils::device_properties(device_id);
+
   int num_blocks_per_sm;
+
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(device_id,
+  constexpr int WS = HIPCOMP_WARPSIZE;
   switch (data_type) {
     case HIPCOMP_TYPE_BITS:
     case HIPCOMP_TYPE_CHAR:
     case HIPCOMP_TYPE_UCHAR:
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-          &num_blocks_per_sm, 
-          HlifCompressBatchKernel<lz4_compress_wrapper<uint8_t>, LZ4CompressorArgs>, 
-          LZ4_COMP_THREADS_PER_CHUNK, 
-          0);
+      HipUtils::check(
+        hipOccupancyMaxActiveBlocksPerMultiprocessor(
+          &num_blocks_per_sm,
+          HlifCompressBatchKernel<WS, lz4_compress_wrapper<WS, uint8_t>, LZ4CompressorArgs>,
+          LZ4_COMP_WARPS_PER_CHUNK * device_prop.warpSize,
+          0),
+        "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
       break;
     case HIPCOMP_TYPE_SHORT:
     case HIPCOMP_TYPE_USHORT:
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-          &num_blocks_per_sm, 
-          HlifCompressBatchKernel<lz4_compress_wrapper<uint16_t>, LZ4CompressorArgs>, 
-          LZ4_COMP_THREADS_PER_CHUNK, 
-          0);
+      HipUtils::check(
+        hipOccupancyMaxActiveBlocksPerMultiprocessor(
+          &num_blocks_per_sm,
+          HlifCompressBatchKernel<WS, lz4_compress_wrapper<WS, uint16_t>, LZ4CompressorArgs>,
+          LZ4_COMP_WARPS_PER_CHUNK * device_prop.warpSize,
+          0),
+        "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
       break;
     case HIPCOMP_TYPE_INT:
     case HIPCOMP_TYPE_UINT:
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-          &num_blocks_per_sm, 
-          HlifCompressBatchKernel<lz4_compress_wrapper<uint32_t>, LZ4CompressorArgs>, 
-          LZ4_COMP_THREADS_PER_CHUNK, 
-          0);
+      HipUtils::check(
+        hipOccupancyMaxActiveBlocksPerMultiprocessor(
+          &num_blocks_per_sm,
+          HlifCompressBatchKernel<WS, lz4_compress_wrapper<WS, uint32_t>, LZ4CompressorArgs>,
+          LZ4_COMP_WARPS_PER_CHUNK * device_prop.warpSize,
+          0),
+        "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
       break;
     default:
       throw std::invalid_argument("Unsupported input data type");
   }
-  
+)
+
   return device_prop.multiProcessorCount * num_blocks_per_sm;
 }
 
 size_t batchedLZ4DecompMaxBlockOccupancy(hipcompType_t data_type, const int device_id)
 {
-  hipDeviceProp_t device_prop;
-  hipGetDeviceProperties(&device_prop, device_id);
+  hipDeviceProp_t device_prop = HipUtils::device_properties(device_id);
+
   int num_blocks_per_sm;
-  constexpr int shmem_size = DECOMP_INPUT_BUFFER_SIZE * LZ4_DECOMP_CHUNKS_PER_BLOCK;
-  hipOccupancyMaxActiveBlocksPerMultiprocessor(
-      &num_blocks_per_sm, 
-      HlifDecompressBatchKernel<lz4_decompress_wrapper, LZ4_DECOMP_CHUNKS_PER_BLOCK>, 
-      LZ4_DECOMP_THREADS_PER_CHUNK * LZ4_DECOMP_CHUNKS_PER_BLOCK, 
-      shmem_size);
-  
+  const auto shmem_size = decomp_input_buffer_size(device_prop.warpSize) * LZ4_DECOMP_CHUNKS_PER_BLOCK;
+
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(device_id,
+  constexpr int WS = HIPCOMP_WARPSIZE;
+  HipUtils::check(
+    hipOccupancyMaxActiveBlocksPerMultiprocessor(
+      &num_blocks_per_sm,
+      HlifDecompressBatchKernel<WS, lz4_decompress_wrapper<WS>, LZ4_DECOMP_CHUNKS_PER_BLOCK>,
+      LZ4_DECOMP_WARPS_PER_CHUNK * device_prop.warpSize * LZ4_DECOMP_CHUNKS_PER_BLOCK,
+      shmem_size),
+    "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
+)
+
   return device_prop.multiProcessorCount * num_blocks_per_sm;
 }
 

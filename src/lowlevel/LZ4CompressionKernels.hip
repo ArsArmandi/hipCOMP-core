@@ -70,7 +70,7 @@ namespace hipcomp {
 
 namespace lowlevel {
 
-template<typename T>
+template<typename T, int warpsize>
 __global__ void lz4CompressBatchKernel(
     const uint8_t* const* device_in_ptr,
     const size_t* const device_in_bytes,
@@ -90,9 +90,10 @@ __global__ void lz4CompressBatchKernel(
 
   offset_type* const hash_table = temp_space + bidx * hash_table_size;
 
-  compressStream(comp_ptr, reinterpret_cast<const T*>(decomp_ptr), hash_table, hash_table_size, decomp_length, comp_length);
+  compressStream<warpsize, T>(comp_ptr, reinterpret_cast<const T*>(decomp_ptr), hash_table, hash_table_size, decomp_length, comp_length);
 }
 
+template <int warpsize>
 __global__ void lz4DecompressBatchKernel(
     const uint8_t* const* const device_in_ptrs,
     const size_t* const device_in_bytes,
@@ -105,7 +106,7 @@ __global__ void lz4DecompressBatchKernel(
 {
   const int bid = blockIdx.x * LZ4_DECOMP_CHUNKS_PER_BLOCK + threadIdx.y;
 
-  __shared__ uint8_t buffer[DECOMP_INPUT_BUFFER_SIZE * LZ4_DECOMP_CHUNKS_PER_BLOCK];
+  __shared__ uint8_t buffer[decomp_input_buffer_size(warpsize) * LZ4_DECOMP_CHUNKS_PER_BLOCK];
 
   assert(!output_decompressed || device_out_ptrs != nullptr);
   // device_uncompressed_bytes needs to be valid if we are precomputing
@@ -123,8 +124,8 @@ __global__ void lz4DecompressBatchKernel(
               ? static_cast<position_type>(device_out_bytes[bid])
               : UINT_MAX;
 
-    decompressStream(
-        buffer + threadIdx.y * DECOMP_INPUT_BUFFER_SIZE,
+    decompressStream<warpsize>(
+        buffer + threadIdx.y * decomp_input_buffer_size(warpsize),
         decomp_ptr,
         comp_ptr,
         chunk_length,
@@ -179,14 +180,17 @@ void lz4BatchCompress(
         + " bytes.");
   }
 
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
+  constexpr int WS = HIPCOMP_WARPSIZE;
+
   const dim3 grid(batch_size);
-  const dim3 block(LZ4_COMP_THREADS_PER_CHUNK); //: 32
+  const dim3 block(LZ4_COMP_WARPS_PER_CHUNK * WS);
 
   switch (data_type) {
     case HIPCOMP_TYPE_BITS:
     case HIPCOMP_TYPE_CHAR:
     case HIPCOMP_TYPE_UCHAR:
-      lz4CompressBatchKernel<uint8_t><<<grid, block, 0, stream>>>(
+      lz4CompressBatchKernel<uint8_t, WS><<<grid, block, 0, stream>>>(
           decomp_data_device,
           decomp_sizes_device,
           comp_data_device,
@@ -196,7 +200,7 @@ void lz4BatchCompress(
       break;
     case HIPCOMP_TYPE_SHORT:
     case HIPCOMP_TYPE_USHORT:
-      lz4CompressBatchKernel<uint16_t><<<grid, block, 0, stream>>>(
+      lz4CompressBatchKernel<uint16_t, WS><<<grid, block, 0, stream>>>(
           decomp_data_device,
           decomp_sizes_device,
           comp_data_device,
@@ -206,7 +210,7 @@ void lz4BatchCompress(
       break;
     case HIPCOMP_TYPE_INT:
     case HIPCOMP_TYPE_UINT:
-      lz4CompressBatchKernel<uint32_t><<<grid, block, 0, stream>>>(
+      lz4CompressBatchKernel<uint32_t, WS><<<grid, block, 0, stream>>>(
           decomp_data_device,
           decomp_sizes_device,
           comp_data_device,
@@ -217,6 +221,7 @@ void lz4BatchCompress(
     default:
       throw std::invalid_argument("Unsupported input data type");
   }
+)
 
   HipUtils::check_last_error();
 }
@@ -233,18 +238,23 @@ void lz4BatchDecompress(
     hipcompStatus_t* device_status_ptrs,
     hipStream_t stream)
 {
-  const dim3 grid(roundUpDiv(batch_size, LZ4_DECOMP_CHUNKS_PER_BLOCK)); //: chunks per block: 2
-  const dim3 block(LZ4_DECOMP_THREADS_PER_CHUNK, LZ4_DECOMP_CHUNKS_PER_BLOCK); //: threads per chunk, chunks per block: 32,2
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
+  constexpr int WS = HIPCOMP_WARPSIZE;
 
-  lz4DecompressBatchKernel<<<grid, block, 0, stream>>>(
-      device_in_ptrs,
-      device_in_bytes,
-      device_out_bytes,
-      batch_size,
-      device_out_ptrs,
-      device_actual_uncompressed_bytes,
-      device_status_ptrs,
-      true);
+  const dim3 grid(roundUpDiv(batch_size, LZ4_DECOMP_CHUNKS_PER_BLOCK)); //: chunks per block: 2
+  const dim3 block(LZ4_DECOMP_WARPS_PER_CHUNK * WS, LZ4_DECOMP_CHUNKS_PER_BLOCK); //: threads per chunk, chunks per block: 32,2
+  const auto shmem_size = decomp_input_buffer_size(WS) * LZ4_DECOMP_CHUNKS_PER_BLOCK;
+
+  lz4DecompressBatchKernel<WS><<<grid, block, shmem_size, stream>>>(
+    device_in_ptrs,
+    device_in_bytes,
+    device_out_bytes,
+    batch_size,
+    device_out_ptrs,
+    device_actual_uncompressed_bytes,
+    device_status_ptrs,
+    true);
+)
   HipUtils::check_last_error("lz4DecompressBatchKernel()");
 }
 
@@ -255,18 +265,24 @@ void lz4BatchGetDecompressSizes(
     size_t batch_size,
     hipStream_t stream)
 {
-  const dim3 grid(roundUpDiv(batch_size, LZ4_DECOMP_CHUNKS_PER_BLOCK)); //: chunks per block: 2
-  const dim3 block(LZ4_DECOMP_THREADS_PER_CHUNK, LZ4_DECOMP_CHUNKS_PER_BLOCK); //: threads per chunk, chunks per block: 32,2
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
+  constexpr int WS = HIPCOMP_WARPSIZE;
 
-  lz4DecompressBatchKernel<<<grid, block, 0, stream>>>(
-      device_compressed_ptrs,
-      device_compressed_bytes,
-      nullptr,
-      batch_size,
-      nullptr,
-      device_uncompressed_bytes,
-      nullptr,
-      false);
+  const dim3 grid(roundUpDiv(batch_size, LZ4_DECOMP_CHUNKS_PER_BLOCK)); //: chunks per block: 2
+  const dim3 block(LZ4_DECOMP_WARPS_PER_CHUNK * WS, LZ4_DECOMP_CHUNKS_PER_BLOCK); //: threads per chunk, chunks per block: 32,2
+  const auto shmem_size = decomp_input_buffer_size(WS) * LZ4_DECOMP_CHUNKS_PER_BLOCK;
+
+  lz4DecompressBatchKernel<WS><<<grid, block, shmem_size, stream>>>(
+    device_compressed_ptrs,
+    device_compressed_bytes,
+    nullptr,
+    batch_size,
+    nullptr,
+    device_uncompressed_bytes,
+    nullptr,
+    false);
+)
+
   HipUtils::check_last_error("lz4DecompressBatchKernel()");
 }
 

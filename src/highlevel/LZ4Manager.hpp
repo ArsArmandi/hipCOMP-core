@@ -71,7 +71,7 @@ private:
 
 public:
   LZ4BatchManager(size_t uncomp_chunk_size, hipcompType_t data_type, hipStream_t user_stream, const int device_id)
-    : BatchManager(uncomp_chunk_size, user_stream, device_id),      
+    : BatchManager(uncomp_chunk_size, user_stream, device_id),
       hash_table_size(),
       format_spec()
   {
@@ -81,7 +81,7 @@ public:
     finish_init();
   }
 
-  virtual ~LZ4BatchManager() 
+  virtual ~LZ4BatchManager()
   {
     HipUtils::check(hipHostFree(format_spec));
   }
@@ -89,7 +89,7 @@ public:
   LZ4BatchManager(const LZ4BatchManager&) = delete;
   LZ4BatchManager& operator=(const LZ4BatchManager&) = delete;
 
-  size_t compute_max_compressed_chunk_size() final override 
+  size_t compute_max_compressed_chunk_size() final override
   {
     size_t max_comp_chunk_size;
     hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
@@ -97,17 +97,17 @@ public:
     return max_comp_chunk_size;
   }
 
-  uint32_t compute_compression_max_block_occupancy() final override 
+  uint32_t compute_compression_max_block_occupancy() final override
   {
     return batchedLZ4CompMaxBlockOccupancy(format_spec->data_type, device_id);
   }
 
-  uint32_t compute_decompression_max_block_occupancy() final override 
+  uint32_t compute_decompression_max_block_occupancy() final override
   {
-    return batchedLZ4DecompMaxBlockOccupancy(format_spec->data_type, device_id); 
+    return batchedLZ4DecompMaxBlockOccupancy(format_spec->data_type, device_id);
   }
 
-  LZ4FormatSpecHeader* get_format_header() final override 
+  LZ4FormatSpecHeader* get_format_header() final override
   {
     return format_spec;
   }
@@ -129,7 +129,7 @@ public:
       const size_t* comp_chunk_offsets,
       const size_t* comp_chunk_sizes,
       hipcompStatus_t* output_status) final override
-  {        
+  {
     lz4HlifBatchDecompress(
         comp_data_buffer,
         decomp_buffer,
@@ -146,11 +146,11 @@ public:
 private: // helper overrides
   size_t compute_scratch_buffer_size() final override
   {
-    return get_max_comp_ctas() * (hash_table_size * sizeof(offset_type) 
+    return get_max_comp_ctas() * (hash_table_size * sizeof(offset_type)
          + get_max_comp_chunk_size());
-  }  
+  }
 
-  void format_specific_init() final override 
+  void format_specific_init() final override
   {
     hash_table_size = lowlevel::lz4GetHashTableSize(get_uncomp_chunk_size());
   }
@@ -159,9 +159,9 @@ private: // helper overrides
 // LZ4Manager implementation
 
 LZ4Manager::LZ4Manager(
-    size_t uncomp_chunk_size, 
-    hipcompType_t data_type, 
-    hipStream_t user_stream, 
+    size_t uncomp_chunk_size,
+    hipcompType_t data_type,
+    hipStream_t user_stream,
     const int device_id)
 {
   impl = std::make_unique<LZ4BatchManager>(uncomp_chunk_size,
@@ -170,7 +170,7 @@ LZ4Manager::LZ4Manager(
                                            device_id);
 }
 
-LZ4Manager::~LZ4Manager() 
+LZ4Manager::~LZ4Manager()
 {}
 
 } // namespace hipcomp

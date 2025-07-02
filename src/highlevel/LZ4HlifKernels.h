@@ -63,8 +63,8 @@ void lz4HlifBatchCompress(
     hipStream_t stream);
 
 void lz4HlifBatchDecompress(
-    const uint8_t* comp_buffer, 
-    uint8_t* decomp_buffer, 
+    const uint8_t* comp_buffer,
+    uint8_t* decomp_buffer,
     const size_t raw_chunk_size,
     uint32_t* ix_chunk,
     const size_t num_chunks,
