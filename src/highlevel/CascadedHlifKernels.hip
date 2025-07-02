@@ -174,27 +174,30 @@ void cascadedHlifBatchCompress(
   constexpr int threadblock_size = cascaded_compress_threadblock_size;
 
   const hipcompType_t type = options->type;
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
+  constexpr int WS = HIPCOMP_WARPSIZE;
   if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
-    HlifCompressBatchKernel<
+    HlifCompressBatchKernel<WS,
         cascaded_compress_wrapper<uint8_t, size_t, threadblock_size>,
         const hipcompBatchedCascadedOpts_t&>
         <<<batch_size, threadblock_size, 0, stream>>>(compress_args, *options);
   } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
-    HlifCompressBatchKernel<
+    HlifCompressBatchKernel<WS,
         cascaded_compress_wrapper<uint16_t, size_t, threadblock_size>,
         const hipcompBatchedCascadedOpts_t&>
         <<<batch_size, threadblock_size, 0, stream>>>(compress_args, *options);
   } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
-    HlifCompressBatchKernel<
+    HlifCompressBatchKernel<WS,
         cascaded_compress_wrapper<uint32_t, size_t, threadblock_size>,
         const hipcompBatchedCascadedOpts_t&>
         <<<batch_size, threadblock_size, 0, stream>>>(compress_args, *options);
   } else if (type == HIPCOMP_TYPE_LONGLONG || type == HIPCOMP_TYPE_ULONGLONG) {
-    HlifCompressBatchKernel<
+    HlifCompressBatchKernel<WS,
         cascaded_compress_wrapper<uint64_t, size_t, threadblock_size>,
         const hipcompBatchedCascadedOpts_t&>
         <<<batch_size, threadblock_size, 0, stream>>>(compress_args, *options);
   }
+)
 }
 
 void cascadedHlifBatchDecompress(
@@ -214,8 +217,10 @@ void cascadedHlifBatchDecompress(
   constexpr int threadblock_size = cascaded_decompress_threadblock_size;
 
   const hipcompType_t type = options->type;
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
+  constexpr int WS = HIPCOMP_WARPSIZE;
   if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
-    HlifDecompressBatchKernel<
+    HlifDecompressBatchKernel<WS,
         cascaded_decompress_wrapper<uint8_t, size_t, threadblock_size>,
         1,
         const hipcompBatchedCascadedOpts_t&>
@@ -230,7 +235,7 @@ void cascadedHlifBatchDecompress(
             output_status,
             *options);
   } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
-    HlifDecompressBatchKernel<
+    HlifDecompressBatchKernel<WS,
         cascaded_decompress_wrapper<uint16_t, size_t, threadblock_size>,
         1,
         const hipcompBatchedCascadedOpts_t&>
@@ -245,7 +250,7 @@ void cascadedHlifBatchDecompress(
             output_status,
             *options);
   } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
-    HlifDecompressBatchKernel<
+    HlifDecompressBatchKernel<WS,
         cascaded_decompress_wrapper<uint32_t, size_t, threadblock_size>,
         1,
         const hipcompBatchedCascadedOpts_t&>
@@ -260,7 +265,7 @@ void cascadedHlifBatchDecompress(
             output_status,
             *options);
   } else if (type == HIPCOMP_TYPE_LONGLONG || type == HIPCOMP_TYPE_ULONGLONG) {
-    HlifDecompressBatchKernel<
+    HlifDecompressBatchKernel<WS,
         cascaded_decompress_wrapper<uint64_t, size_t, threadblock_size>,
         1,
         const hipcompBatchedCascadedOpts_t&>
@@ -275,13 +280,13 @@ void cascadedHlifBatchDecompress(
             output_status,
             *options);
   }
-
+)
 }
 
 size_t cascadedHlifCompMaxBlockOccupancy(const int device_id, hipcompType_t type)
 {
-  hipDeviceProp_t deviceProp;
-  hipGetDeviceProperties(&deviceProp, device_id);
+  const auto device_prop = HipUtils::device_properties(device_id);
+
   int numBlocksPerSM = 1;
   // This kernel only uses fixed-size shared memory, not shared memory
   // determined at kernel invocation time.
@@ -289,48 +294,61 @@ size_t cascadedHlifCompMaxBlockOccupancy(const int device_id, hipcompType_t type
   constexpr int threadblock_size = cascaded_compress_threadblock_size;
   // The values will almost certainly be identical for all data types,
   // but just in case, handle types separately.
+
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(device_id,
+  constexpr int WS = HIPCOMP_WARPSIZE;
   if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
-    hipOccupancyMaxActiveBlocksPerMultiprocessor(
+    HipUtils::check(
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksPerSM,
-        HlifCompressBatchKernel<
+        HlifCompressBatchKernel<WS,
             cascaded_compress_wrapper<uint8_t, size_t, threadblock_size>,
             const hipcompBatchedCascadedOpts_t&>,
         threadblock_size,
-        runtime_shmem_size);
+        runtime_shmem_size),
+      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
   } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
-    hipOccupancyMaxActiveBlocksPerMultiprocessor(
+    HipUtils::check(
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksPerSM,
-        HlifCompressBatchKernel<
+        HlifCompressBatchKernel<WS,
             cascaded_compress_wrapper<uint16_t, size_t, threadblock_size>,
             const hipcompBatchedCascadedOpts_t&>,
         threadblock_size,
-        runtime_shmem_size);
+        runtime_shmem_size),
+      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
   } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
-    hipOccupancyMaxActiveBlocksPerMultiprocessor(
+    HipUtils::check(
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksPerSM,
-        HlifCompressBatchKernel<
+        HlifCompressBatchKernel<WS,
             cascaded_compress_wrapper<uint32_t, size_t, threadblock_size>,
             const hipcompBatchedCascadedOpts_t&>,
         threadblock_size,
-        runtime_shmem_size);
+        runtime_shmem_size),
+      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
   } else if (type == HIPCOMP_TYPE_LONGLONG || type == HIPCOMP_TYPE_ULONGLONG) {
-    hipOccupancyMaxActiveBlocksPerMultiprocessor(
+    HipUtils::check(
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksPerSM,
-        HlifCompressBatchKernel<
+        HlifCompressBatchKernel<WS,
             cascaded_compress_wrapper<uint64_t, size_t, threadblock_size>,
             const hipcompBatchedCascadedOpts_t&>,
         threadblock_size,
-        runtime_shmem_size);
+        runtime_shmem_size),
+      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
   }
+)
 
-  return deviceProp.multiProcessorCount * numBlocksPerSM;
+  return device_prop.multiProcessorCount * numBlocksPerSM;
 }
 
 size_t cascadedHlifDecompMaxBlockOccupancy(
     const int device_id, hipcompType_t type)
 {
-  hipDeviceProp_t deviceProp;
-  hipGetDeviceProperties(&deviceProp, device_id);
+  const auto device_prop = HipUtils::device_properties(device_id);
+  const int warpsize = device_prop.warpSize;
+
   int numBlocksPerSM = 1;
   // This kernel only uses fixed-size shared memory, not shared memory
   // determined at kernel invocation time.
@@ -338,45 +356,57 @@ size_t cascadedHlifDecompMaxBlockOccupancy(
   constexpr int threadblock_size = cascaded_decompress_threadblock_size;
   // The values will almost certainly be identical for all data types,
   // but just in case, handle types separately.
+
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(device_id,
+  constexpr int WS = HIPCOMP_WARPSIZE;
   if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
-    hipOccupancyMaxActiveBlocksPerMultiprocessor(
+    HipUtils::check(
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksPerSM,
-        HlifDecompressBatchKernel<
+        HlifDecompressBatchKernel<WS,
             cascaded_decompress_wrapper<uint8_t, size_t, threadblock_size>,
             1,
             const hipcompBatchedCascadedOpts_t&>,
         threadblock_size,
-        runtime_shmem_size);
+        runtime_shmem_size),
+      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
   } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
-    hipOccupancyMaxActiveBlocksPerMultiprocessor(
+    HipUtils::check(
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksPerSM,
-        HlifDecompressBatchKernel<
+        HlifDecompressBatchKernel<WS,
             cascaded_decompress_wrapper<uint16_t, size_t, threadblock_size>,
             1,
             const hipcompBatchedCascadedOpts_t&>,
         threadblock_size,
-        runtime_shmem_size);
+        runtime_shmem_size),
+      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
   } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
-    hipOccupancyMaxActiveBlocksPerMultiprocessor(
+    HipUtils::check(
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksPerSM,
-        HlifDecompressBatchKernel<
+        HlifDecompressBatchKernel<WS,
             cascaded_decompress_wrapper<uint32_t, size_t, threadblock_size>,
             1,
             const hipcompBatchedCascadedOpts_t&>,
         threadblock_size,
-        runtime_shmem_size);
+        runtime_shmem_size),
+        "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
   } else if (type == HIPCOMP_TYPE_LONGLONG || type == HIPCOMP_TYPE_ULONGLONG) {
-    hipOccupancyMaxActiveBlocksPerMultiprocessor(
+    HipUtils::check(
+      hipOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksPerSM,
-        HlifDecompressBatchKernel<
+        HlifDecompressBatchKernel<WS,
             cascaded_decompress_wrapper<uint64_t, size_t, threadblock_size>,
             1,
             const hipcompBatchedCascadedOpts_t&>,
         threadblock_size,
-        runtime_shmem_size);
+        runtime_shmem_size),
+      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
   }
+)
 
-  return deviceProp.multiProcessorCount * numBlocksPerSM;
+  return device_prop.multiProcessorCount * numBlocksPerSM;
 }
 
 } // hipcomp namespace
