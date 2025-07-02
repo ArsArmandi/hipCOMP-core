@@ -62,12 +62,6 @@
 #include <iostream>
 #include <vector>
 
-#if !defined(USE_WARPSIZE_64) && !defined(USE_WARPSIZE_32)
-# if defined(__HIP_PLATFORM_HCC__) || defined(__HIP_PLATFORM_AMD__)
-#   define USE_WARPSIZE_64
-#  endif
-#endif
-
 #if (__CUDACC_VER_MAJOR__ >= 9)
 #  define SHFL10(v)        __shfl_sync(~0, v, 0)
 #  define SHFL1(v, t)      __shfl_sync(~0, v, t)
