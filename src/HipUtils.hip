@@ -48,6 +48,7 @@
 #include "HipUtils.h"
 
 #include <sstream>
+#include <string>
 #include <stdexcept>
 
 namespace hipcomp
@@ -119,7 +120,7 @@ bool HipUtils::is_device_pointer(const void* const ptr)
     check(
         hipRuntimeGetVersion(&cuda_version),
         "Failed to get runtime "
-        "verison.");
+        "version.");
 
     if (cuda_version < 11000) {
       // error is normal for non-device memory -- clear the error and return
@@ -167,6 +168,15 @@ void* HipUtils::void_device_pointer(void* const ptr)
   }
 
   return attr.devicePointer;
+}
+
+hipDeviceProp_t HipUtils::device_properties(int device_id) {
+  hipDeviceProp_t device_prop;
+
+  check(
+    hipGetDeviceProperties(&device_prop, device_id),
+    "failed to get device properties for device " + std::to_string(device_id));
+  return device_prop;
 }
 
 } // namespace hipcomp

@@ -54,7 +54,7 @@
 
 #define ROCM_VERSION (ROCM_VERSION_MAJOR * 10'000'000 + ROCM_VERSION_MINOR * 100'000 + ROCM_VERSION_PATCH)
 
-// NOTE(HIP/AMD): No feature check for warp sync builtins available
+// NOTE(HIP/AMD): No feature check for warp sync builtins available (not yet used)
 #define HIPCOMP_HIP_HAS_WARP_SYNC_BUILTINS (ROCM_VERSION >= 60020000)
 
 #if HIPCOMP_HIP_HAS_WARP_SYNC_BUILTINS
@@ -85,6 +85,11 @@ public:
   static void sync(hipStream_t stream);
 
   static void check_last_error(const std::string& msg = "");
+
+  /**
+  * \brief Get the given device's properties.
+  */
+  static hipDeviceProp_t device_properties(int device_id);
 
   /**
    * @brief Perform checked asynchronous memcpy.
