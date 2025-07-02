@@ -69,16 +69,12 @@ namespace hipcomp
 
 namespace
 {
+
 constexpr const size_t ALIGN_OFFSET = 256;
-#ifdef USE_WARPSIZE_64
-constexpr const int WARP_SIZE = 64;
-#else
-#  if __CUDACC_VER_MAJOR__ >= 9
-#    define INDEPENDENT_THREAD_SCHEDULING
-#  endif
-constexpr const int WARP_SIZE = 32;
+#if __CUDACC_VER_MAJOR__ >= 9
+#  define INDEPENDENT_THREAD_SCHEDULING
 #endif
-constexpr const int GLOBAL_TILE_SIZE = 1024;
+constexpr const int GLOBAL_TILE_SIZE = 1024; // TODO: tile size no good choice for byte-sized data types, see warning
 } // namespace
 
 /******************************************************************************
@@ -89,28 +85,28 @@ namespace
 {
 
 /** \brief Compute a sum across the threads in a warp.
- * 
+ *
  * Due to the used shuffle down instruction, the
  * result is available on all threads of the warp.
- *  
+ *
  * \param[in] initVal initial value of the current thread.
  * \note __shfl_down_sync implementation not available on AMD GPUs (ROCm 5.6.0).
- *       Hence the AMD GPU implementation, always assumes that NUM_THREADS == WARP_SIZE.
+ *       Hence the AMD GPU implementation, always assumes that NUM_THREADS == warpsize.
  * \return the result of this operation per thread. All threads of a warp carry the correct result.
  */
-template <typename T, int NUM_THREADS>
+template <int warpsize, typename T, int NUM_THREADS>
 __device__ T warpSum(T const initVal)
 {
   T val = initVal;
   #ifndef INDEPENDENT_THREAD_SCHEDULING
-  assert(NUM_THREADS == WARP_SIZE);
+  assert(NUM_THREADS == warpsize);
   #else
   constexpr const uint32_t mask
-      = NUM_THREADS < WARP_SIZE ? (1u << NUM_THREADS) - 1 : 0xffffffff;
+      = NUM_THREADS < warpsize ? (1u << NUM_THREADS) - 1 : 0xffffffff;
   #endif
   for (int d = NUM_THREADS / 2; d > 0; d /= 2) {
     #ifndef INDEPENDENT_THREAD_SCHEDULING
-    val += __shfl_down(val, d, WARP_SIZE);
+    val += __shfl_down(val, d, warpsize);
     #else
     val += __shfl_down_sync(mask,val, d, NUM_THREADS);
     #endif
@@ -120,33 +116,33 @@ __device__ T warpSum(T const initVal)
 }
 
 /** \brief Compute a sum across a threadblock.
- *  
+ *
  * \param[in] initVal initial value of the current thread.
  * \param[in] buffer for storing intermediate results per warp.
  * \see ::warpSum
  * \note As AMD GPUs do not support masking with shfl instructions on ROCm 5.6.0, we run an reduction
  *       across the full warp but supply 0 as initVal for masked out threads if
  *       _​_HIP_​PLATFORM_​AMD_​_ is defined.
- * \return the result of this operation per thread. Threads 0 ... WARP_SIZE of a block carry the correct result.
+ * \return the result of this operation per thread. Threads 0 ... warpsize of a block carry the correct result.
  */
-template <typename T, int BLOCK_SIZE>
+template <int warpsize, typename T, int BLOCK_SIZE>
 __device__ T cooperativeSum(T const initVal, T* const buffer)
 {
   // first all warps reduce to single value
-  assert(BLOCK_SIZE % WARP_SIZE == 0);
-  assert(BLOCK_SIZE <= WARP_SIZE * WARP_SIZE);
+  assert(BLOCK_SIZE % warpsize == 0);
+  assert(BLOCK_SIZE <= warpsize * warpsize);
 
-  T val = warpSum<T, WARP_SIZE>(initVal);
-  if (threadIdx.x % WARP_SIZE == 0) {
-    buffer[threadIdx.x / WARP_SIZE] = val;
+  T val = warpSum<warpsize, T, warpsize>(initVal);
+  if (threadIdx.x % warpsize == 0) {
+    buffer[threadIdx.x / warpsize] = val;
   }
   __syncthreads();
 
   #ifndef INDEPENDENT_THREAD_SCHEDULING
-  val = warpSum<T, WARP_SIZE>( ( threadIdx.x < (BLOCK_SIZE / WARP_SIZE) ) ? buffer[threadIdx.x] : 0 );
+  val = warpSum<warpsize, T, warpsize>( ( threadIdx.x < (BLOCK_SIZE / warpsize) ) ? buffer[threadIdx.x] : 0 );
   #else
-  if (threadIdx.x < (BLOCK_SIZE / WARP_SIZE)) {
-    val = warpSum<T, BLOCK_SIZE / WARP_SIZE>(buffer[threadIdx.x]);
+  if (threadIdx.x < (BLOCK_SIZE / warpsize)) {
+    val = warpSum<warpsize, T, BLOCK_SIZE / warpsize>(buffer[threadIdx.x]);
   }
   #endif
 
@@ -163,12 +159,14 @@ __device__ T cooperativeSum(T const initVal, T* const buffer)
  * @param[in] numInDevice The size of the input data.
  * @param[out] blockSizes The location to write the block sizes (output).
  */
-template <typename VALUE, typename RUN, int BLOCK_SIZE, int TILE_SIZE>
+template <int warpsize, typename VALUE, typename RUN, int BLOCK_SIZE, int TILE_SIZE>
 __global__ void rleInitKernel(
     const VALUE* const in,
     const size_t* const numInDevice,
     RUN* const  blockSizes)
 {
+  static_assert(BLOCK_SIZE <= 1024, "BLOCK_SIZE must be less than or equal to 1024");
+
   constexpr const int ITEMS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
   // the algorithm here is to keep reducing "chunks" to a start and end marker
 
@@ -177,7 +175,7 @@ __global__ void rleInitKernel(
   if (blockIdx.x * TILE_SIZE < num) {
     // we load the preceding value in the first spot
     __shared__ VALUE valBuffer[TILE_SIZE + 1];
-    __shared__ RUN buffer[BLOCK_SIZE / WARP_SIZE];
+    __shared__ RUN buffer[BLOCK_SIZE / warpsize];
 
     if (threadIdx.x == 0) {
       valBuffer[0]
@@ -205,7 +203,7 @@ __global__ void rleInitKernel(
       val = nextVal;
     }
 
-    sum = cooperativeSum<RUN, BLOCK_SIZE>(sum, buffer);
+    sum = cooperativeSum<warpsize, RUN, BLOCK_SIZE>(sum, buffer);
     if (threadIdx.x == 0) {
        blockSizes[blockIdx.x] = sum;
     }
@@ -228,6 +226,8 @@ __global__ void rleReduceKernel(
     RUN** const runsPtr,
     size_t* const numOutDevice)
 {
+  static_assert(BLOCK_SIZE <= 1024, "BLOCK_SIZE must be less than or equal to 1024");
+
   constexpr const int ITEMS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
   // the algorithm here is to keep reducing "chunks" to a start and end marker
   const int num = static_cast<int>(*numInDevice);
@@ -309,8 +309,8 @@ __global__ void rleReduceKernel(
     const RUN numCompacted = prefix[BLOCK_SIZE];
     if (threadIdx.x == 0) {
       runBuffer[numCompacted] = ((blockIdx.x + 1) * TILE_SIZE >= num)
-                                    ? ((num - 1) % TILE_SIZE) + 1
-                                    : TILE_SIZE;
+                                      ? ((num - 1) % TILE_SIZE) + 1
+                                      : TILE_SIZE;
     }
 
     __syncthreads();
@@ -350,6 +350,8 @@ __global__ void rleFinalizeKernel(
     const RUN* const blockPrefix,
     const size_t* const numInDevice)
 {
+  static_assert(BLOCK_SIZE <= 1024, "BLOCK_SIZE must be less than 1024");
+
   const int num = roundUpDiv(static_cast<int>(*numInDevice), TILE_SIZE);
 
   if (blockIdx.x * BLOCK_SIZE < num) {
@@ -518,8 +520,13 @@ void compressDownstreamInternal(
   // array, and the the prefixsum, and then reduction
 
   // get blocks sizes
-  rleInitKernel<VALUE, COUNT, BLOCK_SIZE, GLOBAL_TILE_SIZE>
-      <<<grid, block, 0, stream>>>(inTyped, numInDevice, blockSizes);
+HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
+  constexpr int WS = HIPCOMP_WARPSIZE;
+  // NOTE: Code below is exactly the same as warp size 64 branch code.
+  rleInitKernel<WS, VALUE, COUNT, BLOCK_SIZE, GLOBAL_TILE_SIZE>
+    <<<grid, block, 0, stream>>>(inTyped, numInDevice, blockSizes);
+)
+
   HipUtils::check_last_error("Failed to launch rleInitKernel");
 
   // get output locations
