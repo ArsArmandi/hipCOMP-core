@@ -69,7 +69,7 @@ private:
 
 public:
   SnappyBatchManager(size_t uncomp_chunk_size, hipStream_t user_stream = 0, int device_id = 0)
-    : BatchManager(uncomp_chunk_size, user_stream, device_id),      
+    : BatchManager(uncomp_chunk_size, user_stream, device_id),
       format_spec()
   {
     HipUtils::check(hipHostMalloc(&format_spec, sizeof(SnappyFormatSpecHeader), hipHostMallocDefault));
@@ -77,15 +77,15 @@ public:
     finish_init();
   }
 
-  virtual ~SnappyBatchManager() 
+  virtual ~SnappyBatchManager()
   {
     HipUtils::check(hipHostFree(format_spec));
   }
 
-  SnappyBatchManager& operator=(const SnappyBatchManager&) = delete;     
-  SnappyBatchManager(const SnappyBatchManager&) = delete;     
+  SnappyBatchManager& operator=(const SnappyBatchManager&) = delete;
+  SnappyBatchManager(const SnappyBatchManager&) = delete;
 
-  size_t compute_max_compressed_chunk_size() final override 
+  size_t compute_max_compressed_chunk_size() final override
   {
     size_t max_comp_chunk_size;
     hipcompBatchedSnappyCompressGetMaxOutputChunkSize(
@@ -93,17 +93,17 @@ public:
     return max_comp_chunk_size;
   }
 
-  uint32_t compute_compression_max_block_occupancy() final override 
+  uint32_t compute_compression_max_block_occupancy() final override
   {
     return snappyHlifCompMaxBlockOccupancy(device_id);
   }
 
-  uint32_t compute_decompression_max_block_occupancy() final override 
+  uint32_t compute_decompression_max_block_occupancy() final override
   {
-    return snappyHlifDecompMaxBlockOccupancy(device_id); 
-  }  
+    return snappyHlifDecompMaxBlockOccupancy(device_id);
+  }
 
-  SnappyFormatSpecHeader* get_format_header() final override 
+  SnappyFormatSpecHeader* get_format_header() final override
   {
     return format_spec;
   }
@@ -123,7 +123,7 @@ public:
       const size_t* comp_chunk_offsets,
       const size_t* comp_chunk_sizes,
       hipcompStatus_t* output_status) final override
-  {        
+  {
     snappyHlifBatchDecompress(
         comp_data_buffer,
         decomp_buffer,
@@ -147,7 +147,7 @@ SnappyManager::SnappyManager(size_t uncomp_chunk_size, hipStream_t user_stream, 
       device_id);
 }
 
-SnappyManager::~SnappyManager() 
+SnappyManager::~SnappyManager()
 {}
 
 } // namespace hipcomp

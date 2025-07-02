@@ -37,9 +37,7 @@
 
 #pragma once
 
-#include "device_types.h"
 #include "device_functions.hiph"
-#include "snappy/config.h"
 #include "snappy/types.h"
 #include "snappy/symbol.hiph"
 #include "snappy/decompression_state.hiph"
@@ -51,25 +49,33 @@ namespace snappy {
 /**
  * \brief Decode symbols and output LZ77 batches (single-warp).
  */
-template <typename STRATEGY_2_TO_3, typename STRATEGY_2_TO_5>
+template <int warpsize,
+          typename UNSNAP_STATE_S,
+          typename STRATEGY_2_TO_3,
+          typename STRATEGY_2_TO_5,
+          int DECODE_SLEEP_NS
+          >
 class DecodeSymbols {
 private:
+  static constexpr int BATCH_SIZE = UNSNAP_STATE_S::BATCH_SIZE;
+  static constexpr int BATCH_COUNT = UNSNAP_STATE_S::BATCH_COUNT;
+
   /**
    * Decode symbols that have not been processed
    * by the previous strategies with a single thread per warp.
-   *  
+   *
    * \param[inout] s the decompression context/state.
    * \param[inout] cur the current read position of the decoder warp, i.e. thread/lane 0.
    * \param[inout] bytes_left the number of bytes still left to uncompress.
    * \param[inout] dst_pos the write position in the output buffer.
-   * \param[inout] b pointer to the batch of symbols that will be decoded/are already decoded. 
+   * \param[inout] b pointer to the batch of symbols that will be decoded/are already decoded.
    *                 This volatile pointer may be modified and is thus passed as reference.
-   * \param[inout] batch_len number of symbols that have been already decoded in the current batch. May not be zero 
+   * \param[inout] batch_len number of symbols that have been already decoded in the current batch. May not be zero
    *               if another trategy has become active before.
    * \param[in]    end end index of the compressed bytes (inclusive)
    */
   __device__ static inline void decode_and_fill_batch_using_single_thread(
-    unsnap_state_s *s,       //: inout
+    UNSNAP_STATE_S *s,       //: inout
     uint32_t& cur,           //: inout
     uint32_t& bytes_left,    //: inout
     uint32_t& dst_pos,       //: inout
@@ -150,7 +156,7 @@ private:
 
   /**
    * \brief If this is a literal with 3 (0b1000) or 4 (0b1100) characters.
-   * 
+   *
    * \note Such literals consume 4/5 bytes including then tag byte.
    */
   __device__ static inline int match_literal_with_3_or_4_chars(uint32_t tag_byte) {
@@ -160,27 +166,27 @@ private:
   }
 
   __device__ static inline void WAIT_FOR_PREFETCHER(
-      unsnap_state_s *s,
+      UNSNAP_STATE_S *s,
       uint32_t cur,
       uint32_t end
   ) {
     #pragma unroll(1)  // We don't want unrolling here
-    while (s->q.prefetch_wrpos < min(cur + 5 * BATCH_SIZE, end)) { 
+    while (s->q.prefetch_wrpos < min(cur + 5 * BATCH_SIZE, end)) {
       NANOSLEEP(DECODE_SLEEP_NS);
     } //: opt: performance var: 5*BATCH_SIZE
   }
 
   __device__ static inline void WAIT_FOR_SYMBOL_PROCESSOR(
-      unsnap_state_s *s,
+      UNSNAP_STATE_S *s,
       int32_t batch
   ) {
-    while (s->q.batch_len[batch] != 0) { 
-      NANOSLEEP(100); 
+    while (s->q.batch_len[batch] != 0) {
+      NANOSLEEP(100);
     }
   }
 
   __device__ static inline void SUBMIT_BATCH_TO_SYMBOL_PROCESSOR(
-    unsnap_state_s *s,
+    UNSNAP_STATE_S *s,
     int32_t batch,
     int32_t batch_len
   ) {
@@ -188,7 +194,7 @@ private:
   }
 
   __device__ static inline void UPDATE_PREFETCHER(
-    unsnap_state_s *s,
+    UNSNAP_STATE_S *s,
     int32_t batch,
     uint32_t cur
   ) {
@@ -203,7 +209,7 @@ public:
    * \param s decompression state
    * \param t warp lane id
    **/
-  __device__ static inline void apply(unsnap_state_s *s, const uint32_t t)
+  __device__ static inline void apply(UNSNAP_STATE_S *s, const uint32_t t)
   {
     uint32_t cur        = 0;
     uint32_t end        = static_cast<uint32_t>(s->end - s->base);

@@ -37,9 +37,7 @@
 
 #pragma once
 
-#include "device_types.h"
 #include "device_functions.hiph"
-#include "snappy/config.h"
 #include "snappy/types.h"
 #include "snappy/symbol.hiph"
 #include "snappy/decompression_state.hiph"
@@ -57,15 +55,18 @@ namespace hipcomp
      * \note No error checks at this stage (WARP0 responsible for not sending offsets and lengths that
      * would result in out-of-bounds accesses)
      */
-    template <typename GROUPMASK_T, typename WARPMASK_T>
+    template <int warpsize,
+              typename UNSNAP_STATE_S,
+              int LITERAL_SECTORS,
+              int PROCESS_SLEEP_NS
+              >
     class ProcessSymbols
     {
     private:
-      static constexpr unsigned GROUPSIZE= sizeof(GROUPMASK_T) * 8;
-      static constexpr unsigned WARPSIZE = sizeof(WARPMASK_T) * 8;
-      static constexpr GROUPMASK_T GROUPMASK_ZERO = 0;
-      static constexpr GROUPMASK_T GROUPMASK_ONE = 1;
-      static constexpr GROUPMASK_T GROUPMASK_TWO = 2;
+      using MaskT = typename Mask<warpsize>::type;
+      static constexpr int BATCH_SIZE = UNSNAP_STATE_S::BATCH_SIZE;
+      static constexpr int BATCH_COUNT = UNSNAP_STATE_S::BATCH_COUNT;
+      static constexpr int PREFETCH_SIZE = UNSNAP_STATE_S::PREFETCH_SIZE;
 
     public:
       /**
@@ -73,9 +74,9 @@ namespace hipcomp
        *
        * \param[inout] s decompression state
        * \param[ino] t thread id within participating group (lane id)
-       * \todo Currently only works for GROUP_MASK_T == WARP_MASK_T
+       * \todo Currently only works for GROUP_MASK_T == MaskT
        */
-      __device__ static inline void apply(unsnap_state_s *s, int t)
+      __device__ static inline void apply(UNSNAP_STATE_S *s, int t)
       {
         const uint8_t *literal_base = s->base;
         uint8_t *out = reinterpret_cast<uint8_t *>(s->in.dstDevice);
@@ -103,7 +104,7 @@ namespace hipcomp
             break;
           }
           if (t < batch_len)
-          { //: batch_len is bounded by GROUPSIZE of decoder
+          { //: batch_len is bounded by warpsize of decoder
             b[t].get(blen_t, dist_t);
             //: blen_t = b[t].len;
             //: dist_t = b[t].offset;
@@ -119,17 +120,17 @@ namespace hipcomp
             uint32_t n;
             do
             {
-              uint32_t bofs = WarpReduce<GROUPSIZE, WARPSIZE>::prefix_sum(t, blen_t);
+              uint32_t bofs = WarpReduce<warpsize>::prefix_sum(t, blen_t);
               //: uint32_t bofs          = WarpReducePos(blen_t, t);
-              warp_mask_t stop_mask = ballot1<GROUPMASK_T, WARPSIZE>(t, (uint32_t)dist_t < bofs); //: copies: dist_t < bofs implies that this/another lane of this warp currently decodes the input data
+              MaskT stop_mask = BALLOT1<MaskT>((uint32_t)dist_t < bofs); //: copies: dist_t < bofs implies that this/another lane of this warp currently decodes the input data
                                                                                                   //: literals: Always have negative dist_t, so this is always a stop
-              warp_mask_t start_mask = WarpReduce<GROUPSIZE, WARPSIZE>::sum(t, (bofs < GROUPSIZE && t < batch_len) ? GROUPMASK_ONE << bofs : GROUPMASK_ZERO);
-              //: warp_mask_t start_mask = WarpReduceSum((bofs < GROUPSIZE && t < batch_len) ? GROUPMASK_ONE << bofs : GROUPMASK_ZERO);
+              MaskT start_mask = WarpReduce<warpsize>::sum(t, (bofs < warpsize && t < batch_len) ? MaskT{1} << bofs : MaskT{0});
+              //: MaskT start_mask = WarpReduceSum((bofs < warpsize && t < batch_len) ? MaskT{1} << bofs : MaskT{0});
               n = min(min((uint32_t)num_set_bits(start_mask), (uint32_t)(find_first_set_bit(stop_mask) - 1u)),
-                      (uint32_t)batch_len); //: n is bounded by GROUPSIZE
+                      (uint32_t)batch_len); //: n is bounded by warpsize
               if (n != 0)
               {
-                uint32_t it = num_set_bits(start_mask & ((GROUPMASK_TWO << t) - 1));
+                uint32_t it = num_set_bits(start_mask & ((MaskT{2} << t) - 1));
                 uint32_t tr = t - SHFL1(bofs - blen_t, it);
                 int32_t dist = SHFL1(dist_t, it);
                 if (it < n)
@@ -138,20 +139,20 @@ namespace hipcomp
                   out[t] = *src;
                 }
                 out += SHFL1(bofs, n - 1);
-                blen_t = SHFL1(blen_t, (n + t) & (GROUPSIZE - 1));
-                dist_t = SHFL1(dist_t, (n + t) & (GROUPSIZE - 1));
+                blen_t = SHFL1(blen_t, (n + t) & (warpsize - 1));
+                dist_t = SHFL1(dist_t, (n + t) & (warpsize - 1));
                 batch_len -= n;
               }
             } while (n >= 4);
           }
           uint32_t current_prefetch_wrpos = s->q.prefetch_wrpos;
           for (int i = 0; i < batch_len; i++)
-          { //: batch_len is bounded by GROUPSIZE of decoder
+          { //: batch_len is bounded by warpsize of decoder
             int32_t blen = SHFL1(blen_t, i);
             int32_t dist = SHFL1(dist_t, i);
-            int32_t blen2 = (i + 1 < batch_len) ? SHFL1(blen_t, i + 1) : GROUPSIZE;
+            int32_t blen2 = (i + 1 < batch_len) ? SHFL1(blen_t, i + 1) : warpsize;
             // Try to combine consecutive small entries if they are independent
-            if ((uint32_t)dist >= (uint32_t)blen && blen + blen2 <= GROUPSIZE)
+            if ((uint32_t)dist >= (uint32_t)blen && blen + blen2 <= warpsize)
             {
               int32_t dist2 = SHFL1(dist_t, i + 1);
               if ((uint32_t)dist2 >= (uint32_t)(blen + blen2))
@@ -187,9 +188,9 @@ namespace hipcomp
                 const uint8_t *src = out + ((pos >= dist) ? (pos % dist) : pos) - dist;
                 b0 = *src;
               }
-              if (GROUPSIZE + t < blen)
+              if (warpsize + t < blen)
               {
-                uint32_t pos = GROUPSIZE + t;
+                uint32_t pos = warpsize + t;
                 const uint8_t *src = out + ((pos >= dist) ? (pos % dist) : pos) - dist;
                 b1 = *src;
               }
@@ -197,9 +198,9 @@ namespace hipcomp
               {
                 out[t] = b0;
               }
-              if (GROUPSIZE + t < blen)
+              if (warpsize + t < blen)
               {
-                out[GROUPSIZE + t] = b1;
+                out[warpsize + t] = b1;
               }
             }
             else
@@ -208,45 +209,45 @@ namespace hipcomp
               uint8_t b[LITERAL_SECTORS];
               dist = -dist;
 #pragma unroll 1
-              for (int k = 0; k < blen / (LITERAL_SECTORS * GROUPSIZE); ++k)
+              for (int k = 0; k < blen / (LITERAL_SECTORS * warpsize); ++k)
               {
-                if (dist + LITERAL_SECTORS * GROUPSIZE < current_prefetch_wrpos)
+                if (dist + LITERAL_SECTORS * warpsize < current_prefetch_wrpos)
                 {
                   //: i hides higher-scope i
                   for (int i = 0; i < LITERAL_SECTORS; ++i)
-                    b[i] = READ_BYTE(dist + i * GROUPSIZE + t);
+                    b[i] = READ_BYTE(dist + i * warpsize + t);
                 }
                 else
                 {
                   //: i hides higher-scope i
                   for (int i = 0; i < LITERAL_SECTORS; ++i)
-                    b[i] = literal_base[dist + i * GROUPSIZE + t];
+                    b[i] = literal_base[dist + i * warpsize + t];
                 }
                 for (int i = 0; i < LITERAL_SECTORS; ++i)
                   //: i hides higher-scope i
-                  out[i * GROUPSIZE + t] = b[i];
-                dist += LITERAL_SECTORS * GROUPSIZE;
-                out += LITERAL_SECTORS * GROUPSIZE;
+                  out[i * warpsize + t] = b[i];
+                dist += LITERAL_SECTORS * warpsize;
+                out += LITERAL_SECTORS * warpsize;
               }
-              blen %= LITERAL_SECTORS * GROUPSIZE;
-              //: similar as above body, but with check `if (i * GROUPSIZE + t < blen)`
+              blen %= LITERAL_SECTORS * warpsize;
+              //: similar as above body, but with check `if (i * warpsize + t < blen)`
               if (dist + blen < current_prefetch_wrpos)
               {
                 for (int i = 0; i < LITERAL_SECTORS; ++i)
                   //: i hides higher-scope i
-                  if (i * GROUPSIZE + t < blen)
-                    b[i] = READ_BYTE(dist + i * GROUPSIZE + t);
+                  if (i * warpsize + t < blen)
+                    b[i] = READ_BYTE(dist + i * warpsize + t);
               }
               else
               {
                 for (int i = 0; i < LITERAL_SECTORS; ++i)
                   //: i hides higher-scope i
-                  if (i * GROUPSIZE + t < blen)
-                    b[i] = literal_base[dist + i * GROUPSIZE + t];
+                  if (i * warpsize + t < blen)
+                    b[i] = literal_base[dist + i * warpsize + t];
               }
               for (int i = 0; i < LITERAL_SECTORS; ++i)
-                if (i * GROUPSIZE + t < blen)
-                  out[i * GROUPSIZE + t] = b[i];
+                if (i * warpsize + t < blen)
+                  out[i * warpsize + t] = b[i];
               //: end similar as above
             }
             out += blen;

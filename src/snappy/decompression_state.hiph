@@ -46,38 +46,37 @@ namespace snappy {
 /**
  * \brief Queue structure used to exchange data between warps
  * \note The `buf` array stores bytes prefetched by the snappy_prefetch_bytestream device
- *       function. The snappy_decode_symbols device function (warp 0) writes into 
+ *       function. The snappy_decode_symbols device function (warp 0) writes into
  * \note The `batch` array stores BATCH_SIZE LZ77 symbols that
  *       the snappy_process_symbols device function processes.
  **/
-struct unsnap_queue_s {
-  uint32_t prefetch_wrpos;         ///< Prefetcher write position
-  uint32_t prefetch_rdpos;         ///< Prefetch consumer read position
-  int32_t prefetch_end;            ///< Prefetch enable flag (nonzero stops prefetcher)
-  int32_t batch_len[BATCH_COUNT];  ///< Length of each batch - <0:end, 0:not ready, >0:symbol count
+template <typename LZ77Symbol, int BATCH_SIZE, int BATCH_COUNT, int PREFETCH_SIZE>
+ struct unsnap_queue_s {
+  uint32_t prefetch_wrpos;         /// Prefetcher write position
+  uint32_t prefetch_rdpos;         /// Prefetch consumer read position
+  int32_t prefetch_end;            /// Prefetch enable flag (nonzero stops prefetcher)
+  int32_t batch_len[BATCH_COUNT];  /// Length of each batch - <0:end, 0:not ready, >0:symbol count
   uint32_t batch_prefetch_rdpos[BATCH_COUNT];
-  LZ77Symbol batch[BATCH_COUNT * BATCH_SIZE];  ///< LZ77 batch data
-  uint8_t buf[PREFETCH_SIZE];                      ///< Prefetch buffer
+  LZ77Symbol batch[BATCH_COUNT * BATCH_SIZE];  /// LZ77 batch data
+  uint8_t buf[PREFETCH_SIZE];                      /// Prefetch buffer
 
 public:
-  
-  /** 
+
+  /**
    * \brief Read from shared memory buffer if lane t is part of the group.
    */
-  template <unsigned GROUPSIZE=uwarpsize, unsigned WARPSIZE=uwarpsize>
   __device__ inline uint8_t read_byte(uint32_t t,uint32_t pos) volatile {
-    return ( GROUPSIZE != WARPSIZE && t >= GROUPSIZE)
-           ? 0 
-           : this->buf[(pos) & (PREFETCH_SIZE - 1)];
+    return this->buf[(pos) & (PREFETCH_SIZE - 1)];
   }
-  
+
+  // TODO move this out to generalize the class
   /**
    * \brief Computes offset for short symbols up to 5 bytes total length (incl. tag_byte)
    *        except for copy symbols with 4 offset bytes.
-   * 
+   *
    * \note The caller must ensure that no tag byte of a copy with 4 offset bytes is passed
    *       to this routine!
-   * \note Returns the negative value of `cur_t+1` as offset for literals. 
+   * \note Returns the negative value of `cur_t+1` as offset for literals.
    * \note This routine is associated with `unsnap_queue_s` instead of `LZ77Symbol`
    *       as it may need additional bytes from the shared memory buffer `buf`
    *       depending on the symbol kind encoded into `tag_byte`.
@@ -85,8 +84,8 @@ public:
    */
   __device__ inline int32_t decode_short_symbol_offset__no_copy_with_4_offset_bytes(uint32_t tag_byte,uint32_t cur_t) volatile {
       // Original code:
-      // ofs  = (b0 & 1) ? ((b0 & 0xe0) << 3) | s->q.read_byte<GROUPSIZE,WARPSIZE>(t,cur_t + 1)
-      //                : (b0 & 2) ? s->q.read_byte<GROUPSIZE,WARPSIZE>(t,cur_t + 1) | (s->q.read_byte<GROUPSIZE,WARPSIZE>(t,cur_t + 2) << 8)
+      // ofs  = (b0 & 1) ? ((b0 & 0xe0) << 3) | s->q.read_byte<warpsize>(t,cur_t + 1)
+      //                : (b0 & 2) ? s->q.read_byte<warpsize>(t,cur_t + 1) | (s->q.read_byte<warpsize>(t,cur_t + 2) << 8)
       //                           : -(int32_t)(cur_t + 1);
       return LZ77Symbol::match_copy_with_1_or_4_offset_bytes(tag_byte)
               ? LZ77Symbol::decode_offset_for_copy_with_1_offset_byte(tag_byte,this->read_byte(0,cur_t + 1))
@@ -109,15 +108,20 @@ public:
 /**
  * \brief snappy decompression state
  **/
+template <typename LZ77Symbol, int batch_size, int batch_count, int prefetch_size>
 struct unsnap_state_s {
-  const uint8_t *base;         ///< base ptr of compressed stream
-  const uint8_t *end;          ///< end of compressed stream
-  uint32_t uncompressed_size;  ///< uncompressed stream size
-  uint32_t bytes_left;         ///< bytes to uncompressed remaining
-  int32_t error;               ///< current error status
-  uint32_t tstart;             ///< start time for perf logging
-  volatile unsnap_queue_s q;   ///< queue for cross-warp communication
-  gpu_input_parameters in;      ///< input parameters for current block
+  const uint8_t *base;         /// base ptr of compressed stream
+  const uint8_t *end;          /// end of compressed stream
+  uint32_t uncompressed_size;  /// uncompressed stream size
+  uint32_t bytes_left;         /// bytes to uncompressed remaining
+  int32_t error;               /// current error status
+  uint32_t tstart;             /// start time for perf logging
+  volatile unsnap_queue_s<LZ77Symbol, batch_size, batch_count, prefetch_size> q;   /// queue for cross-warp communication
+  gpu_input_parameters in;      /// input parameters for current block
+
+  static constexpr int BATCH_SIZE = batch_size;
+  static constexpr int BATCH_COUNT = batch_count;
+  static constexpr int PREFETCH_SIZE = prefetch_size;
 };
 
 } // namespace snappy

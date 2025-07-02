@@ -60,8 +60,8 @@ void snappyHlifBatchCompress(
     hipStream_t stream);
 
 void snappyHlifBatchDecompress(
-    const uint8_t* comp_buffer, 
-    uint8_t* decomp_buffer, 
+    const uint8_t* comp_buffer,
+    uint8_t* decomp_buffer,
     const size_t raw_chunk_size,
     uint32_t* ix_chunk,
     const size_t num_chunks,
@@ -71,7 +71,7 @@ void snappyHlifBatchDecompress(
     hipStream_t stream,
     hipcompStatus_t* output_status);
 
-size_t snappyHlifDecompMaxBlockOccupancy(const int device_id); 
+size_t snappyHlifDecompMaxBlockOccupancy(const int device_id);
 size_t snappyHlifCompMaxBlockOccupancy(const int device_id);
 
 } // namespace hipcomp

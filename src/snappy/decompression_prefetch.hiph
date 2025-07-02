@@ -37,9 +37,7 @@
 
 #pragma once
 
-#include "device_types.h"
 #include "device_functions.hiph"
-#include "snappy/config.h"
 #include "snappy/types.h"
 #include "snappy/symbol.hiph"
 #include "snappy/decompression_state.hiph"
@@ -51,34 +49,31 @@ namespace hipcomp
 
     /**
      * Prefetch byte stream strategy that needs
-     * to be passed ot the PrefetchByteStream class.
+     * to be passed ot the Decompressor class.
      */
-    template <typename GROUPMASK_T, typename WARPMASK_T>
+    template <int warpsize, typename UNSNAP_STATE_S,  int PREFETCH_SECTORS, size_t PREFETCH_SLEEP_NS>
     class PrefetchByteStream
     {
     private:
-      static constexpr unsigned GROUPSIZE= sizeof(GROUPMASK_T) * 8;
-      static constexpr unsigned WARPSIZE = sizeof(WARPMASK_T) * 8;
+      using MaskT = typename Mask<warpsize>::type;
+      static constexpr int BATCH_SIZE = UNSNAP_STATE_S::BATCH_SIZE;
+      static constexpr int PREFETCH_SIZE = UNSNAP_STATE_S::PREFETCH_SIZE;
 
     public:
       /**
        * \brief Applies the strategy.
        *
        * \param[inout] s decompression state
-       * \param[in] t warp lane index, i.e. threadIdx.x % WARPSIZE.
+       * \param[in] t warp lane index, i.e. threadIdx.x % warpsize.
        */
-      __device__ static inline void apply(unsnap_state_s *s, const int t)
+      __device__ static inline void apply(UNSNAP_STATE_S *s, const int t)
       {
-
-        if (GROUPSIZE != WARPSIZE && t >= GROUPSIZE) //: always false if GROUPSIZE==WARPSIZE
-          return;
-
         const uint8_t *base = s->base;
         uint32_t end = (uint32_t)(s->end - base);
-        uint32_t align_bytes = (uint32_t)(GROUPSIZE - ((GROUPSIZE - 1) & reinterpret_cast<uintptr_t>(base)));
+        uint32_t align_bytes = (uint32_t)(warpsize - ((warpsize - 1) & reinterpret_cast<uintptr_t>(base)));
         int32_t pos = min(align_bytes, end);
         int32_t blen;
-        // Start by prefetching up to the next a (GROUPSIZE)B-aligned location
+        // Start by prefetching up to the next a (warpsize)B-aligned location
         if (t < pos)
         {
           s->q.buf[t] = base[t];
@@ -91,8 +86,8 @@ namespace hipcomp
           {
             uint32_t minrdpos;
             s->q.prefetch_wrpos = pos;
-            minrdpos = pos - min(pos, PREFETCH_SIZE - PREFETCH_SECTORS * GROUPSIZE);
-            blen = (int)min(PREFETCH_SECTORS * GROUPSIZE, end - pos);
+            minrdpos = pos - min(pos, PREFETCH_SIZE - PREFETCH_SECTORS * warpsize);
+            blen = (int)min(PREFETCH_SECTORS * warpsize, end - pos);
             for (;;)
             {
               uint32_t rdpos = s->q.prefetch_rdpos;
@@ -107,18 +102,18 @@ namespace hipcomp
             }
           }
           blen = SHFL10(blen);
-          if (blen == PREFETCH_SECTORS * GROUPSIZE)
+          if (blen == PREFETCH_SECTORS * warpsize)
           {
             uint8_t vals[PREFETCH_SECTORS];
             for (int i = 0; i < PREFETCH_SECTORS; ++i)
-              vals[i] = base[pos + t + i * GROUPSIZE];
+              vals[i] = base[pos + t + i * warpsize];
             for (int i = 0; i < PREFETCH_SECTORS; ++i)
-              s->q.buf[(pos + t + i * GROUPSIZE) & (PREFETCH_SIZE - 1)] = vals[i];
+              s->q.buf[(pos + t + i * warpsize) & (PREFETCH_SIZE - 1)] = vals[i];
           }
           else
           {
 #pragma unroll 1
-            for (int elem = t; elem < blen; elem += GROUPSIZE)
+            for (int elem = t; elem < blen; elem += warpsize)
             {
               s->q.buf[(pos + elem) & (PREFETCH_SIZE - 1)] = base[pos + elem];
             }
