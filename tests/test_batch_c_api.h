@@ -349,7 +349,7 @@ int test_generic_batch_compression_and_decompression(
   for (size_t i = 0; i < batch_size; ++i) {
     HIP_CHECK(hipFree(host_in_ptrs[i]));
   }
-  hipFree(device_in_pointers);
+  HIP_CHECK(hipFree(device_in_pointers));
   free(host_in_ptrs);
 
   size_t temp_bytes;
@@ -388,8 +388,8 @@ int test_generic_batch_compression_and_decompression(
     HIP_CHECK(hipMalloc(&host_decomp_out[i], host_batch_bytes[i]));
   }
   void** device_decomp_out;
-  hipMalloc(
-      (void**)&device_decomp_out, sizeof(*device_decomp_out) * batch_size);
+  HIP_CHECK(hipMalloc(
+      (void**)&device_decomp_out, sizeof(*device_decomp_out) * batch_size));
   HIP_CHECK(hipMemcpy(
       device_decomp_out,
       host_decomp_out,
@@ -652,8 +652,8 @@ int test_generic_batch_decompression_errors(
     HIP_CHECK(hipMalloc(&host_decomp_out[i], host_decomp_bytes[i]));
   }
   void** device_decomp_out;
-  hipMalloc(
-      (void**)&device_decomp_out, sizeof(*device_decomp_out) * batch_size);
+  HIP_CHECK(hipMalloc(
+      (void**)&device_decomp_out, sizeof(*device_decomp_out) * batch_size));
   HIP_CHECK(hipMemcpy(
       device_decomp_out,
       host_decomp_out,
@@ -684,7 +684,7 @@ int test_generic_batch_decompression_errors(
   for (size_t i = 0; i < batch_size; ++i) {
     HIP_CHECK(hipFree(host_in_ptrs[i]));
   }
-  hipFree(device_in_pointers);
+  HIP_CHECK(hipFree(device_in_pointers));
   free(host_in_ptrs);
 
   // check statuses

@@ -266,7 +266,7 @@ void test_bitcomp_batch(
   std::vector<size_t> decomp_sizes(batches);
 
   hipStream_t stream;
-  hipStreamCreate(&stream);
+  HIP_CHECK(hipStreamCreate(&stream));
 
   // Compress async
   hipcompBatchedBitcompCompressAsync(
@@ -288,8 +288,8 @@ void test_bitcomp_batch(
   REQUIRE (decomp_sizes == input_sizes);
 
   // Overwrite input and input sizes
-  hipMemsetAsync(d_input_data, 0xee, input_bytes, stream);
-  hipMemsetAsync(d_decomp_sizes, 0xee, batchsize_bytes, stream);
+  HIP_CHECK(hipMemsetAsync(d_input_data, 0xee, input_bytes, stream));
+  HIP_CHECK(hipMemsetAsync(d_decomp_sizes, 0xee, batchsize_bytes, stream));
 
   // Decompress async, back into input
   hipcompBatchedBitcompDecompressAsync(
