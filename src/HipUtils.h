@@ -47,9 +47,19 @@
 
 #pragma once
 
-#include "hip/hip_runtime.h"
-
 #include <string>
+
+#include "hip/hip_runtime.h"
+#include "rocm-core/rocm_version.h"
+
+#define ROCM_VERSION (ROCM_VERSION_MAJOR * 10'000'000 + ROCM_VERSION_MINOR * 100'000 + ROCM_VERSION_PATCH)
+
+// NOTE(HIP/AMD): No feature check for warp sync builtins available
+#define HIPCOMP_HIP_HAS_WARP_SYNC_BUILTINS (ROCM_VERSION >= 60020000)
+
+#if HIPCOMP_HIP_HAS_WARP_SYNC_BUILTINS
+#
+#endif
 
 namespace hipcomp
 {
