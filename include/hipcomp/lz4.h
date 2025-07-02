@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_LZ4_H
-#define HIPCOMP_LZ4_H
+#pragma once
 
 #include "hipcomp.h"
 
@@ -244,6 +243,4 @@ hipcompStatus_t hipcompBatchedLZ4GetDecompressSizeAsync(
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

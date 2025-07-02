@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_GDEFLATE_KERNELS_H
-#define HIPCOMP_GDEFLATE_KERNELS_H
+#pragma once
 
 #include "hipcomp.h"
 #include "hipcomp.hpp"
@@ -67,4 +66,3 @@ namespace hipcomp
 }
 
 #endif // ENABLE_GDEFLATE
-#endif // HIPCOMP_GDEFLATE_KERNELS_H

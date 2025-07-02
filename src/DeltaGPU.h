@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_DELTAGPU_H
-#define HIPCOMP_DELTAGPU_H
+#pragma once
 
 #include "hipcomp.h"
 
@@ -97,5 +96,3 @@ public:
 };
 
 } // namespace hipcomp
-
-#endif

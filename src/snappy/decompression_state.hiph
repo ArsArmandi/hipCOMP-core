@@ -36,10 +36,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SNAPPY_DECOMPRESSION_STATE_HIPH
-#define SNAPPY_DECOMPRESSION_STATE_HIPH
-
-#include "snappy/symbol.hiph"
+#pragma once
 
 using namespace hipcomp::snappy;
 
@@ -125,5 +122,3 @@ struct unsnap_state_s {
 
 } // namespace snappy
 } // namespace hipcomp
-
-#endif // SNAPPY_DECOMPRESSION_STATE_HIPH

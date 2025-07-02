@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_CHECK_H
-#define HIPCOMP_CHECK_H
+#pragma once
 
 #include "hipcomp.h"
 #include "hipcomp.hpp"
@@ -116,5 +115,3 @@ private:
     }                                                                          \
     return err;                                                                \
   }(call)
-
-#endif

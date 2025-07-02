@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_TYPEMACROS_H
-#define HIPCOMP_TYPEMACROS_H
+#pragma once
 
 #include <stdexcept>
 #include <string>
@@ -271,5 +270,3 @@
       throw std::runtime_error("Unknown type: " + std::to_string(type_var));   \
     }                                                                          \
   } while (0)
-
-#endif

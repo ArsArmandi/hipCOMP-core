@@ -35,8 +35,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SNAPPY_DECOMPRESSION_PREFETCH_HIPH
-#define SNAPPY_DECOMPRESSION_PREFETCH_HIPH
+#pragma once
 
 #include "device_types.h"
 #include "device_functions.hiph"
@@ -131,5 +130,3 @@ namespace hipcomp
 
   } // namespace hipcomp
 } // namespace snappy
-
-#endif // SNAPPY_DECOMPRESSION_PREFETCH_HIPH

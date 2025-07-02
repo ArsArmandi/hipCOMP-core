@@ -20,11 +20,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef  HIP_HIP_COOPERATIVE_GROUP_H
-#define  HIP_HIP_COOPERATIVE_GROUP_H
+#pragma once
 
 #if defined(__HIP_PLATFORM_AMD__) || defined(__HIP_PLATFORM_HCC__)
 #include <hipext/hip_cooperative_groups_ext/amd_cooperative_groups_ext.cuh>
 #endif
-
-#endif // HIP_HIP_COOPERATIVE_GROUP_H

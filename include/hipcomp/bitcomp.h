@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_BITCOMP_H
-#define HIPCOMP_BITCOMP_H
+#pragma once
 
 #include "hipcomp.h"
 
@@ -380,6 +379,4 @@ hipcompStatus_t hipcompBatchedBitcompDecompressGetTempSize(
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

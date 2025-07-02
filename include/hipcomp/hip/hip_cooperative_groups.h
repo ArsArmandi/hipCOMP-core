@@ -20,13 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef  HIP_INCLUDE_HIP_HIP_COOPERATIVE_GROUP_H
-#define  HIP_INCLUDE_HIP_HIP_COOPERATIVE_GROUP_H
+#pragma once
 
 #if defined(__HIP_PLATFORM_NVCC__) || defined(__HIP_PLATFORM_NVIDIA__)
   #include <cooperative_groups.h>
 #else
   #error only use for HIP/NVIDIA compile path!
 #endif
-
-#endif // HIP_INCLUDE_HIP_HIP_COOPERATIVE_GROUP_H

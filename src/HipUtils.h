@@ -45,8 +45,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_HIPUTILS_H
-#define HIPCOMP_HIPUTILS_H
+#pragma once
 
 #include "hip/hip_runtime.h"
 
@@ -136,5 +135,3 @@ private:
 };
 
 } // namespace hipcomp
-
-#endif

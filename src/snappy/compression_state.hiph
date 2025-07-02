@@ -35,10 +35,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SNAPPY_COMPRESSION_STATE_HIPH
-#define SNAPPY_COMPRESSION_STATE_HIPH
-
-#include "snappy/config.h"
+#pragma once
 
 namespace hipcomp {
 namespace snappy {
@@ -46,19 +43,18 @@ namespace snappy {
 /**
  * \brief snappy compressor state
  **/
-struct snap_state_s {
-  const uint8_t *src;                 ///< Ptr to uncompressed data
-  uint32_t src_len;                   ///< Uncompressed data length
-  uint8_t *dst_base;                  ///< Base ptr to output compressed data
-  uint8_t *dst;                       ///< Current ptr to uncompressed data
-  uint8_t *end;                       ///< End of uncompressed data buffer
-  volatile uint32_t literal_length;   ///< Number of literal bytes
-  volatile uint32_t copy_length;      ///< Number of copy bytes
-  volatile uint32_t copy_distance;    ///< Distance for copy bytes
-  uint16_t hash_map[1 << HASH_BITS];  ///< Low 16-bit offset from hash
+template <int HASH_BITS>
+ struct snap_state_s {
+  const uint8_t *src;                 /// Ptr to uncompressed data
+  uint32_t src_len;                   /// Uncompressed data length
+  uint8_t *dst_base;                  /// Base ptr to output compressed data
+  uint8_t *dst;                       /// Current ptr to uncompressed data
+  uint8_t *end;                       /// End of uncompressed data buffer
+  volatile uint32_t literal_length;   /// Number of literal bytes
+  volatile uint32_t copy_length;      /// Number of copy bytes
+  volatile uint32_t copy_distance;    /// Distance for copy bytes
+  uint16_t hash_map[1 << HASH_BITS];  /// Low 16-bit offset from hash
 };
 
 } // namespace snappy
 } // namespace hipcomp
-
-#endif // SNAPPY_COMPRESSION_STATE_HIPH

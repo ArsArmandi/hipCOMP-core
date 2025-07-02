@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_H
-#define HIPCOMP_H
+#pragma once
 
 #include <hip/hip_runtime.h>
 #include "hipcomp/shared_types.h"
@@ -187,6 +186,4 @@ hipcompStatus_t hipcompDecompressAsync(
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

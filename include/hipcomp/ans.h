@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_ANS_H
-#define HIPCOMP_ANS_H
+#pragma once
 
 #include "hipcomp.h"
 
@@ -201,6 +200,4 @@ hipcompStatus_t hipcompBatchedANSDecompressAsync(
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

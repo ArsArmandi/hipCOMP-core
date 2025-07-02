@@ -35,8 +35,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef DEVICE_FUNCTIONS_HIPH
-#define DEVICE_FUNCTIONS_HIPH
+#pragma once
 
 #include "device_types.h"
 
@@ -487,5 +486,3 @@ inline __device__ bool nvstr_is_equal(const char *as, uint32_t alen, const char 
 #endif
 
 } // namespace hipcomp
-
-#endif // DEVICE_FUNCTIONS_HIPH

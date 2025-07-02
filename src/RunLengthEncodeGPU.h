@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_RUNLENGTHENCODEGPU_H
-#define HIPCOMP_RUNLENGTHENCODEGPU_H
+#pragma once
 
 #include "hipcomp.h"
 
@@ -134,5 +133,3 @@ private:
 };
 
 } // namespace hipcomp
-
-#endif

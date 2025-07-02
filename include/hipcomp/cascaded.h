@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_CASCADED_H
-#define HIPCOMP_CASCADED_H
+#pragma once
 
 #include "hipcomp.h"
 
@@ -296,6 +295,4 @@ hipcompStatus_t hipcompBatchedCascadedGetDecompressSizeAsync(
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

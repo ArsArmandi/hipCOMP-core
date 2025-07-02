@@ -47,8 +47,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIPCOMP_UNPACK_H
-#define HIPCOMP_UNPACK_H
+#pragma once
 
 #include <limits>
 #include <cstdint>
@@ -115,5 +114,3 @@ HIPCOMP_HOST_DEVICE T unpackBytes(
 }
 
 #undef HIPCOMP_HOST_DEVICE
-
-#endif

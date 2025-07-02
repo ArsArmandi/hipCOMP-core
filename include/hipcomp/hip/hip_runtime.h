@@ -20,8 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef HIP_INCLUDE_HIP_HIP_RUNTIME_H
-#define HIP_INCLUDE_HIP_HIP_RUNTIME_H
+#pragma once
 
 #if defined(__HIP_PLATFORM_NVCC__) || defined(__HIP_PLATFORM_NVIDIA__)
   #include "cuda_runtime.h"
@@ -69,5 +68,3 @@
 #else
   #error only use for HIP/NVIDIA compile path!
 #endif
-
-#endif // HIP_INCLUDE_HIP_HIP_RUNTIME_H
