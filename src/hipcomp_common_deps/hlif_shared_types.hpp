@@ -62,11 +62,11 @@ enum FormatType : uint8_t {
   GDeflate = 3,
   Cascaded = 4,
   Bitcomp = 5,
-  NotSupportedError = 6  
+  NotSupportedError = 6
 };
 
 struct CommonHeader {
-  uint32_t magic_number; // 
+  uint32_t magic_number; //
   uint8_t major_version;
   uint8_t minor_version;
   FormatType format;
@@ -85,8 +85,8 @@ struct CommonHeader {
 struct CompressArgs {
   CommonHeader* common_header;
   const uint8_t* decomp_buffer;
-  size_t decomp_buffer_size; 
-  uint8_t* comp_buffer; 
+  size_t decomp_buffer_size;
+  uint8_t* comp_buffer;
   uint8_t* scratch_buffer;
   size_t uncomp_chunk_size;
   size_t* ix_output;
