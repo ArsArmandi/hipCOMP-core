@@ -1,3 +1,4 @@
+# ~~~
 # Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -23,7 +24,7 @@
 # OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+###############################################################################
 # MIT License
 #
 # Modifications Copyright (C) 2023-2025 Advanced Micro Devices, Inc. All rights reserved.
@@ -45,6 +46,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+# ~~~
+
 cmake_minimum_required(VERSION 3.21) # HIP language support requires 3.21
 cmake_policy(VERSION 3.21.3...3.27)
 project(hipcomp VERSION 2.2.0 LANGUAGES C CXX)

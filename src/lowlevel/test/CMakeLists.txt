@@ -1,3 +1,5 @@
+
+# ~~~
 ##
 # Copyright 2020 NVIDIA Corporation.  All rights reserved.
 #
@@ -6,7 +8,7 @@
 # this software. Any use, reproduction, disclosure, or distribution of
 # this software and related documentation outside the terms of the EULA
 # is strictly prohibited.
-
+###############################################################################
 # MIT License
 #
 # Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
@@ -28,6 +30,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+# ~~~
 
 function(add_unit_test test_file)
   get_filename_component(test_name "${test_file}" NAME_WE)
