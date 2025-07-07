@@ -73,10 +73,10 @@ macro (set_cuda_compilation_options)
   target_include_directories(hipcomp PRIVATE "${CUDAToolkit_INCLUDE_DIRS}")
 endmacro (set_cuda_compilation_options)
 
-file(GLOB HIP_SOURCES
-  ./*.hip
-  ./lowlevel/*.hip
-  ./highlevel/*.hip)
+file(GLOB CUDA_SOURCES
+  ./*.cu
+  ./lowlevel/*.cu
+  ./highlevel/*.cu)
 file(GLOB CPP_SOURCES
   ./*.cpp
   ./lowlevel/*.cpp
@@ -84,17 +84,18 @@ file(GLOB CPP_SOURCES
 
 if (CUDA_BACKEND)
   setup_cuda_devices()
-  set_source_files_properties(${HIP_SOURCES} PROPERTIES LANGUAGE CUDA)
-endif (CUDA_BACKEND)
+else()
+  set_source_files_properties(${CUDA_SOURCES} PROPERTIES LANGUAGE HIP)
+endif()
 
 if (BUILD_STATIC)
-  add_library(hipcomp STATIC ${HIP_SOURCES} ${CPP_SOURCES})
+  add_library(hipcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
 else()
   if (MSVC_VERSION)
     # we have to export all symbols on windows for a dll
-    add_library(hipcomp STATIC ${HIP_SOURCES} ${CPP_SOURCES})
+    add_library(hipcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
   else()
-    add_library(hipcomp SHARED ${HIP_SOURCES} ${CPP_SOURCES})
+    add_library(hipcomp SHARED ${CUDA_SOURCES} ${CPP_SOURCES})
   endif()
 endif()
 
@@ -103,7 +104,7 @@ target_include_directories(hipcomp PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOU
 
 if (CUDA_BACKEND)
   set_cuda_compilation_options()
-endif (CUDA_BACKEND)
+endif()
 
 if(UNIX)
 target_include_directories(hipcomp PUBLIC
