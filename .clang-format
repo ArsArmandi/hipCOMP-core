@@ -1,0 +1,18 @@
+# Refer to the following link for the explanation of each params:
+#   http://releases.llvm.org/8.0.0/tools/clang/docs/ClangFormatStyleOptions.html
+Language: Cpp
+BasedOnStyle: LLVM
+TabWidth: 2
+UseTab: Never
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex:    '^"' # quoted includes
+    Priority: 1
+  - Regex:    '^<\b(thrust|hipcub|hip)/' # rocThrust, libhipcxx, hipCUB includes
+    Priority: 2
+  - Regex:    '^<\b(cooperative_groups|hip\w*.h)' # HIP includes
+    Priority: 3
+  - Regex:    '^<.*\..*' # other system includes (e.g. with a '.')
+    Priority: 4
+  - Regex:    '^<[^.]+' # STL includes (no '.')
+    Priority: 5
