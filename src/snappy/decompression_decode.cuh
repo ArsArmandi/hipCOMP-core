@@ -37,11 +37,11 @@
 
 #pragma once
 
-#include "device_functions.hiph"
+#include "device_functions.cuh"
 #include "snappy/types.h"
-#include "snappy/symbol.hiph"
-#include "snappy/decompression_state.hiph"
-#include "snappy/decompression_decode_strategies.hiph"
+#include "snappy/symbol.cuh"
+#include "snappy/decompression_state.cuh"
+#include "snappy/decompression_decode_strategies.cuh"
 
 namespace hipcomp {
 namespace snappy {

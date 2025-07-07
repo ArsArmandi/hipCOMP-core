@@ -48,8 +48,8 @@
 // SOFTWARE.
 
 #include "lowlevel/SnappyBatchKernels.h"
-#include "snappy/compression.hiph"
-#include "snappy/decompression.hiph"
+#include "snappy/compression.cuh"
+#include "snappy/decompression.cuh"
 #include "HipUtils.h"
 
 namespace hipcomp {

@@ -54,7 +54,7 @@
 #include "common.h"
 
 #include "hip/hip_runtime.h"
-#include "hipcomp_hipcub.hiph"
+#include "hipcomp_hipcub.cuh"
 #include "LZ4Types.h"
 
 #include <cassert>

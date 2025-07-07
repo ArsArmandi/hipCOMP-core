@@ -37,7 +37,7 @@
 
 #pragma once
 
-#include "device_functions.hiph"
+#include "device_functions.cuh"
 
 namespace hipcomp
 {

@@ -37,13 +37,13 @@
 
 #pragma once
 
-#include "device_functions.hiph"
+#include "device_functions.cuh"
 #include "snappy/types.h"
-#include "snappy/symbol.hiph"
-#include "snappy/decompression_state.hiph"
-#include "snappy/decompression_prefetch.hiph"
-#include "snappy/decompression_decode.hiph"
-#include "snappy/decompression_process.hiph"
+#include "snappy/symbol.cuh"
+#include "snappy/decompression_state.cuh"
+#include "snappy/decompression_prefetch.cuh"
+#include "snappy/decompression_decode.cuh"
+#include "snappy/decompression_process.cuh"
 
 namespace hipcomp
 {

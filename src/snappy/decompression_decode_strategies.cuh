@@ -37,7 +37,8 @@
 
 #pragma once
 
-#include "snappy/decompression_decode_warp_scans.hiph"
+#include "snappy/decompression_decode_warp_scans.cuh"
+#include "snappy/symbol.cuh"
 
 // Decoder stage
 namespace hipcomp {

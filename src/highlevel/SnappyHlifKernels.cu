@@ -49,9 +49,9 @@
 
 
 #include "highlevel/SnappyHlifKernels.h"
-#include "hipcomp_common_deps/hlif_shared.hiph"
-#include "snappy/compression.hiph"
-#include "snappy/decompression.hiph"
+#include "hipcomp_common_deps/hlif_shared.cuh"
+#include "snappy/compression.cuh"
+#include "snappy/decompression.cuh"
 #include "HipUtils.h"
 
 namespace hipcomp {

@@ -54,7 +54,7 @@
 #include "hipcomp.hpp"
 #include "type_macros.h"
 
-#include "hipcomp_hipcub.hiph"
+#include "hipcomp_hipcub.cuh"
 
 #include <cassert>
 #include <stdexcept>

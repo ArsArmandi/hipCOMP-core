@@ -49,12 +49,12 @@
 
 #include "HipUtils.h"
 #include "LZ4CompressionKernels.h"
-#include "LZ4Kernels.hiph"
+#include "LZ4Kernels.cuh"
 #include "TempSpaceBroker.h"
 #include "common.h"
 
 #include "hip/hip_runtime.h"
-#include "hipcomp_hipcub.hiph"
+#include "hipcomp_hipcub.cuh"
 
 #include <cassert>
 #include <fstream>

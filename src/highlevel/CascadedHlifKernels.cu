@@ -47,9 +47,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "CascadedKernels.hiph"
+#include "CascadedKernels.cuh"
 #include "highlevel/CascadedHlifKernels.h"
-#include "hipcomp_common_deps/hlif_shared.hiph"
+#include "hipcomp_common_deps/hlif_shared.cuh"
 #include "hipcomp/cascaded.h"
 #include "HipUtils.h"
 

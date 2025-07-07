@@ -37,9 +37,9 @@
 
 #pragma once
 
-#include "device_functions.hiph"
+#include "device_functions.cuh"
 #include "snappy/types.h"
-#include "snappy/compression_state.hiph"
+#include "snappy/compression_state.cuh"
 
 namespace hipcomp {
 namespace snappy {

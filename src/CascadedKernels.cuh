@@ -56,7 +56,7 @@
 #include <assert.h>
 #include <stdint.h>
 
-#include "hipcomp_hipcub.hiph"
+#include "hipcomp_hipcub.cuh"
 
 namespace hipcomp
 {

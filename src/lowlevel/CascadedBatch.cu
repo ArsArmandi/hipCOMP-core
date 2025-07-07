@@ -51,7 +51,7 @@
 #include "hipcomp.h"
 #include "hipcomp/cascaded.h"
 #include "type_macros.h"
-#include "CascadedKernels.hiph"
+#include "CascadedKernels.cuh"
 #include "Check.h"
 #include "HipUtils.h"
 
