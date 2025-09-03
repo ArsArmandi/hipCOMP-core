@@ -48,6 +48,7 @@
 #pragma once
 
 #include <string>
+#include <iostream>
 
 #include "hip/hip_runtime.h"
 #include "rocm-core/rocm_version.h"
@@ -57,9 +58,51 @@
 // NOTE(HIP/AMD): No feature check for warp sync builtins available (not yet used)
 #define HIPCOMP_HIP_HAS_WARP_SYNC_BUILTINS (ROCM_VERSION >= 60020000)
 
-#if HIPCOMP_HIP_HAS_WARP_SYNC_BUILTINS
-#
+// This macro dynamically obtains the warp size and adjust itself for host and device
+// compilation.
+// Attention: when used inside of a device function it is necessary to guard this macro
+// within #ifdef __HIP_DEVICE_COMPILE__ guards to avoid calling a host function from
+// a device function
+// NOTE: If you are on the device, you can pass any value for DeviceNum.
+// NOTE: On the host, if you provide a DeviceNum < 0, the macro will try to autodetect the
+//       number of the current device.
+#ifdef __HIP_DEVICE_COMPILE__
+#define HIPCOMP_OBTAIN_DYNAMIC_WARPSIZE(DeviceNum) int __WS = warpSize;
+#else
+#define HIPCOMP_OBTAIN_DYNAMIC_WARPSIZE(DeviceNum) \
+    int __current_device_id = DeviceNum; \
+    if ( __current_device_id < 0 && hipGetDevice(&__current_device_id) != hipSuccess ) { \
+      std::cerr << "error: no AMD device found" << std::endl; \
+      __builtin_trap(); \
+    } \
+    int __WS = -1; \
+    if ( hipDeviceGetAttribute(&__WS, hipDeviceAttributeWarpSize, __current_device_id) != hipSuccess ) { \
+      std::cerr << "error: could not obtain warp size" << std::endl; \
+      __builtin_trap(); \
+    } \
+    (void)__current_device_id;
 #endif
+
+// A macro that takes arbitrary code and executes it while setting the warp size
+// to the provided name as a constexpr.
+// USAGE: HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(<device-num-expr>, <statements>)
+// NOTE: The macro currently assumes that code is always run on the current
+//       device.
+#define HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(DeviceNum, ...) \
+    do { \
+      HIPCOMP_OBTAIN_DYNAMIC_WARPSIZE(DeviceNum); \
+      if(__WS == 64){ \
+        constexpr int HIPCOMP_WARPSIZE = 64; \
+        __VA_ARGS__ \
+      } \
+      else if(__WS == 32){ \
+        constexpr int HIPCOMP_WARPSIZE = 32; \
+        __VA_ARGS__ \
+      } \
+      else{ \
+        __builtin_trap(); \
+      } \
+    } while(0);
 
 namespace hipcomp
 {
