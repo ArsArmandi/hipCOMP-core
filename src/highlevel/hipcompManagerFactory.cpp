@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -47,104 +48,136 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <assert.h>
-
+#include "HipUtils.h"
 #include "hipcomp.hpp"
-#include "hipcomp/hipcompManager.hpp"
 #include "hipcomp/ans.hpp"
+#include "hipcomp/bitcomp.hpp"
+#include "hipcomp/cascaded.hpp"
+#include "hipcomp/gdeflate.hpp"
+#include "hipcomp/hipcompManager.hpp"
 #include "hipcomp/lz4.hpp"
 #include "hipcomp/snappy.hpp"
-#include "hipcomp/gdeflate.hpp"
-#include "hipcomp/cascaded.hpp"
-#include "hipcomp/bitcomp.hpp"
 #include "hipcomp_common_deps/hlif_shared_types.hpp"
-#include "HipUtils.h"
+
+#include <assert.h>
 
 namespace hipcomp {
 
-std::shared_ptr<hipcompManagerBase> create_manager(const uint8_t* comp_buffer, hipStream_t stream = 0, const int device_id = 0) {
+std::shared_ptr<hipcompManagerBase> create_manager(const uint8_t *comp_buffer,
+                                                   hipStream_t stream = 0,
+                                                   const int device_id = 0) {
   // Need to determine the type of manager
-  const CommonHeader* common_header = reinterpret_cast<const CommonHeader*>(comp_buffer);
+  const CommonHeader *common_header =
+      reinterpret_cast<const CommonHeader *>(comp_buffer);
   CommonHeader cpu_common_header;
-  HipUtils::check(hipMemcpyAsync(&cpu_common_header, common_header, sizeof(CommonHeader), hipMemcpyDefault, stream));
+  HipUtils::check(hipMemcpyAsync(&cpu_common_header, common_header,
+                                 sizeof(CommonHeader), hipMemcpyDefault,
+                                 stream));
   HipUtils::check(hipStreamSynchronize(stream));
 
   std::shared_ptr<hipcompManagerBase> res;
 
-  switch(cpu_common_header.format) {
-    case FormatType::LZ4: 
-    {
-      LZ4FormatSpecHeader format_spec;
-      const LZ4FormatSpecHeader* gpu_format_header = reinterpret_cast<const LZ4FormatSpecHeader*>(comp_buffer + sizeof(CommonHeader));
-      HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header, sizeof(LZ4FormatSpecHeader), hipMemcpyDefault, stream));
-      HipUtils::check(hipStreamSynchronize(stream));
+  switch (cpu_common_header.format) {
+  case FormatType::LZ4: {
+    LZ4FormatSpecHeader format_spec;
+    const LZ4FormatSpecHeader *gpu_format_header =
+        reinterpret_cast<const LZ4FormatSpecHeader *>(comp_buffer +
+                                                      sizeof(CommonHeader));
+    HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header,
+                                   sizeof(LZ4FormatSpecHeader),
+                                   hipMemcpyDefault, stream));
+    HipUtils::check(hipStreamSynchronize(stream));
 
-      res = std::make_shared<LZ4Manager>(cpu_common_header.uncomp_chunk_size, format_spec.data_type, stream, device_id);
-      break;
-    }
-    case FormatType::Snappy: 
-    {
-      SnappyFormatSpecHeader format_spec;
-      const SnappyFormatSpecHeader* gpu_format_header = reinterpret_cast<const SnappyFormatSpecHeader*>(comp_buffer + sizeof(CommonHeader));
-      HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header, sizeof(SnappyFormatSpecHeader), hipMemcpyDefault, stream));
-      HipUtils::check(hipStreamSynchronize(stream));
-      
-      res = std::make_shared<SnappyManager>(cpu_common_header.uncomp_chunk_size, stream, device_id);
-      break;
-    }
-    case FormatType::GDeflate: 
-    {
-      hipcompBatchedGdeflateOpts_t format_spec;
-      const hipcompBatchedGdeflateOpts_t* gpu_format_header = reinterpret_cast<const hipcompBatchedGdeflateOpts_t*>(comp_buffer + sizeof(CommonHeader));
-      HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header, sizeof(hipcompBatchedGdeflateOpts_t), hipMemcpyDefault, stream));
-      HipUtils::check(hipStreamSynchronize(stream));
+    res =
+        std::make_shared<LZ4Manager>(cpu_common_header.uncomp_chunk_size,
+                                     format_spec.data_type, stream, device_id);
+    break;
+  }
+  case FormatType::Snappy: {
+    SnappyFormatSpecHeader format_spec;
+    const SnappyFormatSpecHeader *gpu_format_header =
+        reinterpret_cast<const SnappyFormatSpecHeader *>(comp_buffer +
+                                                         sizeof(CommonHeader));
+    HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header,
+                                   sizeof(SnappyFormatSpecHeader),
+                                   hipMemcpyDefault, stream));
+    HipUtils::check(hipStreamSynchronize(stream));
 
-      res = std::make_shared<GdeflateManager>(cpu_common_header.uncomp_chunk_size, format_spec.algo, stream, device_id);
-      break;
-    }
-    case FormatType::Bitcomp: 
-    {
+    res = std::make_shared<SnappyManager>(cpu_common_header.uncomp_chunk_size,
+                                          stream, device_id);
+    break;
+  }
+  case FormatType::GDeflate: {
+    hipcompBatchedGdeflateOpts_t format_spec;
+    const hipcompBatchedGdeflateOpts_t *gpu_format_header =
+        reinterpret_cast<const hipcompBatchedGdeflateOpts_t *>(
+            comp_buffer + sizeof(CommonHeader));
+    HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header,
+                                   sizeof(hipcompBatchedGdeflateOpts_t),
+                                   hipMemcpyDefault, stream));
+    HipUtils::check(hipStreamSynchronize(stream));
+
+    res =
+        std::make_shared<GdeflateManager>(cpu_common_header.uncomp_chunk_size,
+                                          format_spec.algo, stream, device_id);
+    break;
+  }
+  case FormatType::Bitcomp: {
 #ifdef ENABLE_BITCOMP
-      BitcompFormatSpecHeader format_spec;
-      const BitcompFormatSpecHeader* gpu_format_header = reinterpret_cast<const BitcompFormatSpecHeader*>(comp_buffer + sizeof(CommonHeader));
-      HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header, sizeof(BitcompFormatSpecHeader), hipMemcpyDefault, stream));
-      HipUtils::check(hipStreamSynchronize(stream));
+    BitcompFormatSpecHeader format_spec;
+    const BitcompFormatSpecHeader *gpu_format_header =
+        reinterpret_cast<const BitcompFormatSpecHeader *>(comp_buffer +
+                                                          sizeof(CommonHeader));
+    HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header,
+                                   sizeof(BitcompFormatSpecHeader),
+                                   hipMemcpyDefault, stream));
+    HipUtils::check(hipStreamSynchronize(stream));
 
-      res = std::make_shared<BitcompManager>(format_spec.data_type, format_spec.algo, stream, device_id);
+    res = std::make_shared<BitcompManager>(format_spec.data_type,
+                                           format_spec.algo, stream, device_id);
 #else
-      throw HipCompException(hipcompErrorNotSupported, "Bitcomp support not available in this build.");
+    throw HipCompException(hipcompErrorNotSupported,
+                           "Bitcomp support not available in this build.");
 #endif
-      break;
-    }
-    case FormatType::ANS: 
-    {
-      ANSFormatSpecHeader format_spec;
-      const ANSFormatSpecHeader* gpu_format_header = reinterpret_cast<const ANSFormatSpecHeader*>(comp_buffer + sizeof(CommonHeader));
-      HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header, sizeof(ANSFormatSpecHeader), hipMemcpyDefault, stream));
-      HipUtils::check(hipStreamSynchronize(stream));
+    break;
+  }
+  case FormatType::ANS: {
+    ANSFormatSpecHeader format_spec;
+    const ANSFormatSpecHeader *gpu_format_header =
+        reinterpret_cast<const ANSFormatSpecHeader *>(comp_buffer +
+                                                      sizeof(CommonHeader));
+    HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header,
+                                   sizeof(ANSFormatSpecHeader),
+                                   hipMemcpyDefault, stream));
+    HipUtils::check(hipStreamSynchronize(stream));
 
-      res = std::make_shared<ANSManager>(cpu_common_header.uncomp_chunk_size, stream, device_id);
-      break;
-    }
-    case FormatType::Cascaded: 
-    {
-      CascadedFormatSpecHeader format_spec;
-      const CascadedFormatSpecHeader* gpu_format_header = reinterpret_cast<const CascadedFormatSpecHeader*>(comp_buffer + sizeof(CommonHeader));
-      HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header, sizeof(CascadedFormatSpecHeader), hipMemcpyDefault, stream));
-      HipUtils::check(hipStreamSynchronize(stream));
+    res = std::make_shared<ANSManager>(cpu_common_header.uncomp_chunk_size,
+                                       stream, device_id);
+    break;
+  }
+  case FormatType::Cascaded: {
+    CascadedFormatSpecHeader format_spec;
+    const CascadedFormatSpecHeader *gpu_format_header =
+        reinterpret_cast<const CascadedFormatSpecHeader *>(
+            comp_buffer + sizeof(CommonHeader));
+    HipUtils::check(hipMemcpyAsync(&format_spec, gpu_format_header,
+                                   sizeof(CascadedFormatSpecHeader),
+                                   hipMemcpyDefault, stream));
+    HipUtils::check(hipStreamSynchronize(stream));
 
-      assert(cpu_common_header.uncomp_chunk_size == format_spec.options.chunk_size);
+    assert(cpu_common_header.uncomp_chunk_size ==
+           format_spec.options.chunk_size);
 
-      res = std::make_shared<CascadedManager>(format_spec.options, stream, device_id);
-      break;
-    }
-    case FormatType::NotSupportedError:
-    {
-      assert(false);
-    }
+    res = std::make_shared<CascadedManager>(format_spec.options, stream,
+                                            device_id);
+    break;
+  }
+  case FormatType::NotSupportedError: {
+    assert(false);
+  }
   }
 
   return res;
 }
 
-} // namespace hipcomp 
+} // namespace hipcomp

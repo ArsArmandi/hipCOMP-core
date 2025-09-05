@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -77,15 +78,11 @@ namespace hipcomp {
  * @param[in] stream All the compression will be enqueued into this HIP
  * stream and run asynchronously.
  **/
-void gpu_snap(
-  const void* const* device_in_ptr,
-	const size_t* device_in_bytes,
-	void* const* device_out_ptr,
-	const size_t* device_out_available_bytes,
-	gpu_snappy_status_s *outputs,
-	size_t* device_out_bytes,
-  int count,
-  hipStream_t stream);
+void gpu_snap(const void *const *device_in_ptr, const size_t *device_in_bytes,
+              void *const *device_out_ptr,
+              const size_t *device_out_available_bytes,
+              gpu_snappy_status_s *outputs, size_t *device_out_bytes, int count,
+              hipStream_t stream);
 
 /**
  * @brief Interface for decompressing data with Snappy
@@ -110,15 +107,11 @@ void gpu_snap(
  * @param[in] stream All the decompression will be enqueued into this HIP
  * stream and run asynchronously.
  **/
-void gpu_unsnap(
-    const void* const* device_in_ptr,
-    const size_t* device_in_bytes,
-    void* const* device_out_ptr,
-    const size_t* device_out_available_bytes,
-    hipcompStatus_t* outputs,
-    size_t* device_out_bytes,
-    int count,
-    hipStream_t stream);
+void gpu_unsnap(const void *const *device_in_ptr, const size_t *device_in_bytes,
+                void *const *device_out_ptr,
+                const size_t *device_out_available_bytes,
+                hipcompStatus_t *outputs, size_t *device_out_bytes, int count,
+                hipStream_t stream);
 
 /**
  * @brief Compute the sizes of the uncompressed data chunks
@@ -140,11 +133,9 @@ void gpu_unsnap(
  * @param[in] stream All the computations will be enqueued into this HIP
  * stream and run asynchronously.
  **/
-void gpu_get_uncompressed_sizes(
-  const void* const* device_in_ptr,
-  const size_t* device_in_bytes,
-  size_t* device_out_bytes,
-  int count,
-  hipStream_t stream);
+void gpu_get_uncompressed_sizes(const void *const *device_in_ptr,
+                                const size_t *device_in_bytes,
+                                size_t *device_out_bytes, int count,
+                                hipStream_t stream);
 
 } // namespace hipcomp

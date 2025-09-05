@@ -29,7 +29,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -38,8 +39,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,31 +50,29 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <memory>
-
-#include "hipcomp/cascaded.hpp"
 #include "Check.h"
 #include "HipUtils.h"
 #include "common.h"
-#include "hipcomp/cascaded.h"
-#include "hipcomp_common_deps/hlif_shared_types.hpp"
-#include "highlevel/CascadedHlifKernels.h"
 #include "highlevel/BatchManager.hpp"
+#include "highlevel/CascadedHlifKernels.h"
+#include "hipcomp/cascaded.h"
+#include "hipcomp/cascaded.hpp"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
+
+#include <memory>
 
 namespace hipcomp {
 
 struct CascadedBatchManager : BatchManager<CascadedFormatSpecHeader> {
 private:
-  CascadedFormatSpecHeader* format_spec;
+  CascadedFormatSpecHeader *format_spec;
 
 public:
-  CascadedBatchManager(
-      const hipcompBatchedCascadedOpts_t& options = hipcompBatchedCascadedDefaultOpts,
-      hipStream_t user_stream = 0,
-      int device_id = 0) :
-      BatchManager(options.chunk_size, user_stream, device_id),
-      format_spec(nullptr)
-  {
+  CascadedBatchManager(const hipcompBatchedCascadedOpts_t &options =
+                           hipcompBatchedCascadedDefaultOpts,
+                       hipStream_t user_stream = 0, int device_id = 0)
+      : BatchManager(options.chunk_size, user_stream, device_id),
+        format_spec(nullptr) {
     HipUtils::check(hipHostMalloc(
         &format_spec, sizeof(CascadedFormatSpecHeader), hipHostMallocDefault));
     format_spec->options = options;
@@ -81,87 +80,58 @@ public:
     finish_init();
   }
 
-  virtual ~CascadedBatchManager()
-  {
-    HipUtils::check(hipHostFree(format_spec));
-  }
+  virtual ~CascadedBatchManager() { HipUtils::check(hipHostFree(format_spec)); }
 
-  CascadedBatchManager(const CascadedBatchManager&) = delete;
-  CascadedBatchManager& operator=(const CascadedBatchManager&) = delete;
+  CascadedBatchManager(const CascadedBatchManager &) = delete;
+  CascadedBatchManager &operator=(const CascadedBatchManager &) = delete;
 
-  size_t compute_max_compressed_chunk_size() final override
-  {
+  size_t compute_max_compressed_chunk_size() final override {
     size_t max_comp_chunk_size;
     hipcompBatchedCascadedCompressGetMaxOutputChunkSize(
-        get_uncomp_chunk_size(),
-        hipcompBatchedCascadedDefaultOpts,
+        get_uncomp_chunk_size(), hipcompBatchedCascadedDefaultOpts,
         &max_comp_chunk_size);
     return max_comp_chunk_size;
   }
 
-  uint32_t compute_compression_max_block_occupancy() final override
-  {
-    return cascadedHlifCompMaxBlockOccupancy(
-        device_id, format_spec->options.type);
+  uint32_t compute_compression_max_block_occupancy() final override {
+    return cascadedHlifCompMaxBlockOccupancy(device_id,
+                                             format_spec->options.type);
   }
 
-  uint32_t compute_decompression_max_block_occupancy() final override
-  {
-    return cascadedHlifDecompMaxBlockOccupancy(
-        device_id, format_spec->options.type);
+  uint32_t compute_decompression_max_block_occupancy() final override {
+    return cascadedHlifDecompMaxBlockOccupancy(device_id,
+                                               format_spec->options.type);
   }
 
-  CascadedFormatSpecHeader* get_format_header() final override
-  {
+  CascadedFormatSpecHeader *get_format_header() final override {
     return format_spec;
   }
 
-  void do_batch_compress(const CompressArgs& compress_args) final override
-  {
-    cascadedHlifBatchCompress(
-        compress_args,
-        get_max_comp_ctas(),
-        user_stream,
-        &(format_spec->options));
+  void do_batch_compress(const CompressArgs &compress_args) final override {
+    cascadedHlifBatchCompress(compress_args, get_max_comp_ctas(), user_stream,
+                              &(format_spec->options));
   }
 
-  void do_batch_decompress(
-      const uint8_t* comp_data_buffer,
-      uint8_t* decomp_buffer,
-      const uint32_t num_chunks,
-      const size_t* comp_chunk_offsets,
-      const size_t* comp_chunk_sizes,
-      hipcompStatus_t* output_status) final override
-  {
+  void do_batch_decompress(const uint8_t *comp_data_buffer,
+                           uint8_t *decomp_buffer, const uint32_t num_chunks,
+                           const size_t *comp_chunk_offsets,
+                           const size_t *comp_chunk_sizes,
+                           hipcompStatus_t *output_status) final override {
     cascadedHlifBatchDecompress(
-        comp_data_buffer,
-        decomp_buffer,
-        get_uncomp_chunk_size(),
-        ix_chunk,
-        num_chunks,
-        comp_chunk_offsets,
-        comp_chunk_sizes,
-        get_max_decomp_ctas(),
-        user_stream,
-        output_status,
-        &(format_spec->options));
+        comp_data_buffer, decomp_buffer, get_uncomp_chunk_size(), ix_chunk,
+        num_chunks, comp_chunk_offsets, comp_chunk_sizes, get_max_decomp_ctas(),
+        user_stream, output_status, &(format_spec->options));
   }
 };
 
-
 // CascadedManager implementation
 
-CascadedManager::CascadedManager(
-    const hipcompBatchedCascadedOpts_t& options,
-    hipStream_t user_stream,
-    int device_id)
-{
-  impl = std::make_unique<CascadedBatchManager>(
-      options, user_stream, device_id);
+CascadedManager::CascadedManager(const hipcompBatchedCascadedOpts_t &options,
+                                 hipStream_t user_stream, int device_id) {
+  impl =
+      std::make_unique<CascadedBatchManager>(options, user_stream, device_id);
 }
 
-CascadedManager::~CascadedManager()
-{
-}
+CascadedManager::~CascadedManager() {}
 
 } // namespace hipcomp

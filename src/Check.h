@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -56,27 +57,17 @@
 #include <stdexcept>
 #include <string>
 
-namespace hipcomp
-{
+namespace hipcomp {
 
-class Check
-{
+class Check {
 public:
-  static void not_null(
-      const void* const ptr,
-      const std::string& name,
-      const std::string& filename,
-      const int line);
+  static void not_null(const void *const ptr, const std::string &name,
+                       const std::string &filename, const int line);
 
   template <typename T>
-  static void equal(
-      const T& a,
-      const T& b,
-      const std::string& a_name,
-      const std::string& b_name,
-      const std::string& filename,
-      const int line)
-  {
+  static void equal(const T &a, const T &b, const std::string &a_name,
+                    const std::string &b_name, const std::string &filename,
+                    const int line) {
     if (!(a == b)) {
       print_fail_position(filename, line);
       std::cerr << a_name << "(" << a << ")"
@@ -85,17 +76,17 @@ public:
     }
   }
 
-  static void
-  api_call(hipcompStatus_t err, const std::string& filename, const int line);
+  static void api_call(hipcompStatus_t err, const std::string &filename,
+                       const int line);
 
   // NOTE: there is no C++11/C++14 standard way to get the function name.
   // In the future we could try to handle major compilers, and get the
   // name that way, as well as use the c++20 method.
-  static hipcompStatus_t
-  exception_to_error(const std::exception& e, const std::string& function_name);
+  static hipcompStatus_t exception_to_error(const std::exception &e,
+                                            const std::string &function_name);
 
 private:
-  static void print_fail_position(const std::string& filename, const int line);
+  static void print_fail_position(const std::string &filename, const int line);
 };
 
 } // namespace hipcomp
@@ -110,7 +101,7 @@ private:
   [](auto err) {                                                               \
     try {                                                                      \
       Check::api_call(err, __FILE__, __LINE__);                                \
-    } catch (const std::exception& e) {                                        \
+    } catch (const std::exception &e) {                                        \
       return Check::exception_to_error(e, func_name);                          \
     }                                                                          \
     return err;                                                                \

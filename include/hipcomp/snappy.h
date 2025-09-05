@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -58,16 +59,15 @@
 extern "C" {
 #endif
 
-typedef struct
-{
+typedef struct {
   int reserved;
 } hipcompBatchedSnappyOpts_t;
 
 static const hipcompBatchedSnappyOpts_t hipcompBatchedSnappyDefaultOpts = {0};
 
 /**
- * Minimum alignment requirement for HIP memory buffers (input, output, temporary space)
- * when used with compression/decompression functions.
+ * Minimum alignment requirement for HIP memory buffers (input, output,
+ * temporary space) when used with compression/decompression functions.
  */
 const size_t hipcompSnappyRequiredAlignment = 1;
 
@@ -75,19 +75,21 @@ const size_t hipcompSnappyRequiredAlignment = 1;
  * @brief Get the amount of temp space required on the GPU for decompression.
  *
  * @param num_chunks The number of items in the batch.
- * @param max_uncompressed_chunk_size The size of the largest chunk when uncompressed.
+ * @param max_uncompressed_chunk_size The size of the largest chunk when
+ * uncompressed.
  * @param temp_bytes The amount of temporary GPU space that will be required to
  * decompress.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedSnappyDecompressGetTempSize(
-    size_t num_chunks, size_t max_uncompressed_chunk_size, size_t* temp_bytes);
+    size_t num_chunks, size_t max_uncompressed_chunk_size, size_t *temp_bytes);
 
 /**
  * @brief Compute uncompressed sizes.
  *
- * @param device_compresed_ptrs The pointers on the GPU, to the compressed chunks.
+ * @param device_compresed_ptrs The pointers on the GPU, to the compressed
+ * chunks.
  * @param device_compressed_bytes The size of each compressed chunk on the GPU.
  * @param device_uncompressed_bytes The actual size of each uncompressed chunk.
  * @param batch_size The number of chunks in the batch.
@@ -96,40 +98,41 @@ hipcompStatus_t hipcompBatchedSnappyDecompressGetTempSize(
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedSnappyGetDecompressSizeAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    size_t* device_uncompressed_bytes,
-    size_t batch_size,
-    hipStream_t stream);
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes, size_t *device_uncompressed_bytes,
+    size_t batch_size, hipStream_t stream);
 
 /**
  * @brief Perform decompression.
  *
- * @param device_compresed_ptrs The pointers on the GPU, to the compressed chunks.
+ * @param device_compresed_ptrs The pointers on the GPU, to the compressed
+ * chunks.
  * @param device_compressed_bytes The size of each compressed chunk on the GPU.
- * @param device_uncompressed_bytes The size of each device_uncompressed_ptr[i] buffer.
- * @param device_actual_uncompressed_bytes The actual size of each uncompressed chunk
- * Can be nullptr if desired, in which case the actual_uncompressed_bytes is not reported.
+ * @param device_uncompressed_bytes The size of each device_uncompressed_ptr[i]
+ * buffer.
+ * @param device_actual_uncompressed_bytes The actual size of each uncompressed
+ * chunk Can be nullptr if desired, in which case the actual_uncompressed_bytes
+ * is not reported.
  * @param batch_size The number of chunks in the batch.
- * @param device_temp_ptr The temporary GPU space, could be NULL in case temprorary space is not needed.
+ * @param device_temp_ptr The temporary GPU space, could be NULL in case
+ * temprorary space is not needed.
  * @param temp_bytes The size of the temporary GPU space.
- * @param device_uncompressed_ptr The pointers on the GPU, to where to uncompress each chunk (output).
- * @param device_statuses The pointers on the GPU, to where to uncompress each chunk (output).
- * Can be nullptr if desired, in which case error status is not reported.
+ * @param device_uncompressed_ptr The pointers on the GPU, to where to
+ * uncompress each chunk (output).
+ * @param device_statuses The pointers on the GPU, to where to uncompress each
+ * chunk (output). Can be nullptr if desired, in which case error status is not
+ * reported.
  * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedSnappyDecompressAsync(
-    const void* const* device_compresed_ptrs,
-    const size_t* device_compressed_bytes,
-    const size_t* device_uncompressed_bytes,
-    size_t* device_actual_uncompressed_bytes,
-    size_t batch_size,
-    void* const device_temp_ptr,
-    const size_t temp_bytes,
-    void* const* device_uncompressed_ptr,
-    hipcompStatus_t* device_statuses,
+    const void *const *device_compresed_ptrs,
+    const size_t *device_compressed_bytes,
+    const size_t *device_uncompressed_bytes,
+    size_t *device_actual_uncompressed_bytes, size_t batch_size,
+    void *const device_temp_ptr, const size_t temp_bytes,
+    void *const *device_uncompressed_ptr, hipcompStatus_t *device_statuses,
     hipStream_t stream);
 
 /**
@@ -144,10 +147,8 @@ hipcompStatus_t hipcompBatchedSnappyDecompressAsync(
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedSnappyCompressGetTempSize(
-    size_t batch_size,
-    size_t max_chunk_size,
-    hipcompBatchedSnappyOpts_t format_ops,
-    size_t* temp_bytes);
+    size_t batch_size, size_t max_chunk_size,
+    hipcompBatchedSnappyOpts_t format_ops, size_t *temp_bytes);
 
 /**
  * @brief Get the maximum size any chunk could compress to in the batch. That
@@ -162,9 +163,8 @@ hipcompStatus_t hipcompBatchedSnappyCompressGetTempSize(
  * @return The hipcompSuccess unless there is an error.
  */
 hipcompStatus_t hipcompBatchedSnappyCompressGetMaxOutputChunkSize(
-    size_t max_chunk_size,
-    hipcompBatchedSnappyOpts_t format_opts,
-    size_t* max_compressed_size);
+    size_t max_chunk_size, hipcompBatchedSnappyOpts_t format_opts,
+    size_t *max_compressed_size);
 
 /**
  * @brief Perform compression.
@@ -172,30 +172,32 @@ hipcompStatus_t hipcompBatchedSnappyCompressGetMaxOutputChunkSize(
  * The caller is responsible for passing device_compressed_bytes of size
  * sufficient to hold compressed data
  *
- * @param device_uncompressed_ptr The pointers on the GPU, to uncompressed batched items.
- * @param device_uncompressed_bytes The size of each uncompressed batch item on the GPU.
- * @param max_uncompressed_chunk_bytes The size of the largest uncompressed chunk.
+ * @param device_uncompressed_ptr The pointers on the GPU, to uncompressed
+ * batched items.
+ * @param device_uncompressed_bytes The size of each uncompressed batch item on
+ * the GPU.
+ * @param max_uncompressed_chunk_bytes The size of the largest uncompressed
+ * chunk.
  * @param batch_size The number of chunks in the batch.
- * @param device_temp_ptr The temporary GPU workspace, could be NULL in case temprorary space is not needed.
+ * @param device_temp_ptr The temporary GPU workspace, could be NULL in case
+ * temprorary space is not needed.
  * @param temp_bytes The size of the temporary GPU workspace.
- * @param device_compressed_ptr The pointers on the GPU, to the output location for each compressed batch item (output).
- * @param device_compressed_bytes The compressed size of each chunk on the GPU (output).
+ * @param device_compressed_ptr The pointers on the GPU, to the output location
+ * for each compressed batch item (output).
+ * @param device_compressed_bytes The compressed size of each chunk on the GPU
+ * (output).
  * @param format_ops Snappy compression options.
  * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successfully launched, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedSnappyCompressAsync(
-    const void* const* device_uncompressed_ptr,
-    const size_t* device_uncompressed_bytes,
-    size_t max_uncompressed_chunk_bytes,
-    size_t batch_size,
-    void* device_temp_ptr,
-    size_t temp_bytes,
-    void* const* device_compressed_ptr,
-    size_t* device_compressed_bytes,
-    hipcompBatchedSnappyOpts_t format_ops,
-    hipStream_t stream);
+    const void *const *device_uncompressed_ptr,
+    const size_t *device_uncompressed_bytes,
+    size_t max_uncompressed_chunk_bytes, size_t batch_size,
+    void *device_temp_ptr, size_t temp_bytes,
+    void *const *device_compressed_ptr, size_t *device_compressed_bytes,
+    hipcompBatchedSnappyOpts_t format_ops, hipStream_t stream);
 
 #ifdef __cplusplus
 }

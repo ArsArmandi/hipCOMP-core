@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -47,14 +48,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "hipcomp/snappy.h"
-
 #include "Check.h"
 #include "HipUtils.h"
 #include "SnappyBatchKernels.h"
 #include "common.h"
 #include "hipcomp.h"
 #include "hipcomp.hpp"
+#include "hipcomp/snappy.h"
 #include "type_macros.h"
 
 #include <cassert>
@@ -66,11 +66,9 @@
 #include <vector>
 
 using namespace hipcomp;
-namespace
-{
+namespace {
 
-size_t snappy_get_max_compressed_length(size_t source_bytes)
-{
+size_t snappy_get_max_compressed_length(size_t source_bytes) {
   // This is an estimate from the original snappy library
   return 32 + source_bytes + source_bytes / 6;
 }
@@ -82,10 +80,8 @@ size_t snappy_get_max_compressed_length(size_t source_bytes)
  *****************************************************************************/
 
 hipcompStatus_t hipcompBatchedSnappyDecompressGetTempSize(
-    size_t /* num_chunks */,
-    size_t /* max_uncompressed_chunk_size */,
-    size_t* temp_bytes)
-{
+    size_t /* num_chunks */, size_t /* max_uncompressed_chunk_size */,
+    size_t *temp_bytes) {
   try {
     // error check inputs
     CHECK_NOT_NULL(temp_bytes);
@@ -93,7 +89,7 @@ hipcompStatus_t hipcompBatchedSnappyDecompressGetTempSize(
     // Snappy doesn't need any workspace in GPU memory
     *temp_bytes = 0;
 
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     return Check::exception_to_error(
         e, "hipcompBatchedSnappyDecompressGetTempSize()");
   }
@@ -102,26 +98,19 @@ hipcompStatus_t hipcompBatchedSnappyDecompressGetTempSize(
 }
 
 hipcompStatus_t hipcompBatchedSnappyGetDecompressSizeAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    size_t* device_uncompressed_bytes,
-    size_t batch_size,
-    hipStream_t stream)
-{
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes, size_t *device_uncompressed_bytes,
+    size_t batch_size, hipStream_t stream) {
   try {
     // error check inputs
     CHECK_NOT_NULL(device_compressed_ptrs);
     CHECK_NOT_NULL(device_compressed_bytes);
     CHECK_NOT_NULL(device_uncompressed_bytes);
 
-    gpu_get_uncompressed_sizes(
-        device_compressed_ptrs,
-        device_compressed_bytes,
-        device_uncompressed_bytes,
-        batch_size,
-        stream);
+    gpu_get_uncompressed_sizes(device_compressed_ptrs, device_compressed_bytes,
+                               device_uncompressed_bytes, batch_size, stream);
 
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     return Check::exception_to_error(
         e, "hipcompBatchedSnappyGetDecompressSizeAsync()");
   }
@@ -130,17 +119,13 @@ hipcompStatus_t hipcompBatchedSnappyGetDecompressSizeAsync(
 }
 
 hipcompStatus_t hipcompBatchedSnappyDecompressAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    const size_t* device_uncompressed_bytes,
-    size_t* device_actual_uncompressed_bytes,
-    size_t batch_size,
-    void* const /* temp_ptr */,
-    const size_t /* temp_bytes */,
-    void* const* device_uncompressed_ptr,
-    hipcompStatus_t* device_statuses,
-    hipStream_t stream)
-{
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes,
+    const size_t *device_uncompressed_bytes,
+    size_t *device_actual_uncompressed_bytes, size_t batch_size,
+    void *const /* temp_ptr */, const size_t /* temp_bytes */,
+    void *const *device_uncompressed_ptr, hipcompStatus_t *device_statuses,
+    hipStream_t stream) {
   try {
     // error check inputs
     CHECK_NOT_NULL(device_compressed_ptrs);
@@ -148,29 +133,23 @@ hipcompStatus_t hipcompBatchedSnappyDecompressAsync(
     CHECK_NOT_NULL(device_uncompressed_bytes);
     CHECK_NOT_NULL(device_uncompressed_ptr);
 
-    gpu_unsnap(
-        device_compressed_ptrs,
-        device_compressed_bytes,
-        device_uncompressed_ptr,
-        device_uncompressed_bytes,
-        device_statuses,
-        device_actual_uncompressed_bytes,
-        batch_size,
-        stream);
+    gpu_unsnap(device_compressed_ptrs, device_compressed_bytes,
+               device_uncompressed_ptr, device_uncompressed_bytes,
+               device_statuses, device_actual_uncompressed_bytes, batch_size,
+               stream);
 
-  } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "hipcompBatchedSnappyDecompressAsync()");
+  } catch (const std::exception &e) {
+    return Check::exception_to_error(e,
+                                     "hipcompBatchedSnappyDecompressAsync()");
   }
 
   return hipcompSuccess;
 }
 
 hipcompStatus_t hipcompBatchedSnappyCompressGetTempSize(
-    const size_t /* batch_size */,
-    const size_t /* max_chunk_size */,
+    const size_t /* batch_size */, const size_t /* max_chunk_size */,
     const hipcompBatchedSnappyOpts_t /* format_opts */,
-    size_t* const temp_bytes)
-{
+    size_t *const temp_bytes) {
   try {
     // error check inputs
     CHECK_NOT_NULL(temp_bytes);
@@ -178,7 +157,7 @@ hipcompStatus_t hipcompBatchedSnappyCompressGetTempSize(
     // Snappy doesn't need any workspace in GPU memory
     *temp_bytes = 0;
 
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     return Check::exception_to_error(
         e, "hipcompBatchedSnappyCompressGetTempSize()");
   }
@@ -189,15 +168,14 @@ hipcompStatus_t hipcompBatchedSnappyCompressGetTempSize(
 hipcompStatus_t hipcompBatchedSnappyCompressGetMaxOutputChunkSize(
     const size_t max_chunk_size,
     const hipcompBatchedSnappyOpts_t /* format_opts */,
-    size_t* const max_compressed_size)
-{
+    size_t *const max_compressed_size) {
   try {
     // error check inputs
     CHECK_NOT_NULL(max_compressed_size);
 
     *max_compressed_size = snappy_get_max_compressed_length(max_chunk_size);
 
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     return Check::exception_to_error(
         e, "hipcompBatchedSnappyCompressGetOutputSize()");
   }
@@ -206,17 +184,12 @@ hipcompStatus_t hipcompBatchedSnappyCompressGetMaxOutputChunkSize(
 }
 
 hipcompStatus_t hipcompBatchedSnappyCompressAsync(
-    const void* const* device_uncompressed_ptr,
-    const size_t* device_uncompressed_bytes,
-    size_t /*max_uncompressed_chunk_bytes*/,
-    size_t batch_size,
-    void* /* device_temp_ptr */,
-    size_t /* temp_bytes */,
-    void* const* device_compressed_ptr,
-    size_t* device_compressed_bytes,
-    const hipcompBatchedSnappyOpts_t /* format_ops */,
-    hipStream_t stream)
-{
+    const void *const *device_uncompressed_ptr,
+    const size_t *device_uncompressed_bytes,
+    size_t /*max_uncompressed_chunk_bytes*/, size_t batch_size,
+    void * /* device_temp_ptr */, size_t /* temp_bytes */,
+    void *const *device_compressed_ptr, size_t *device_compressed_bytes,
+    const hipcompBatchedSnappyOpts_t /* format_ops */, hipStream_t stream) {
   try {
     // error check inputs
     CHECK_NOT_NULL(device_uncompressed_ptr);
@@ -224,20 +197,14 @@ hipcompStatus_t hipcompBatchedSnappyCompressAsync(
     CHECK_NOT_NULL(device_compressed_ptr);
     CHECK_NOT_NULL(device_compressed_bytes);
 
-    size_t* device_out_available_bytes = nullptr;
-    gpu_snappy_status_s* statuses = nullptr;
+    size_t *device_out_available_bytes = nullptr;
+    gpu_snappy_status_s *statuses = nullptr;
 
-    gpu_snap(
-        device_uncompressed_ptr,
-        device_uncompressed_bytes,
-        device_compressed_ptr,
-        device_out_available_bytes,
-        statuses,
-        device_compressed_bytes,
-        batch_size,
-        stream);
+    gpu_snap(device_uncompressed_ptr, device_uncompressed_bytes,
+             device_compressed_ptr, device_out_available_bytes, statuses,
+             device_compressed_bytes, batch_size, stream);
 
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     return Check::exception_to_error(e, "hipcompBatchedSnappyCompressAsync()");
   }
 

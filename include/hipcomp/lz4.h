@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -61,8 +62,7 @@ extern "C" {
 /**
  * @brief Structure for configuring LZ4 compression.
  */
-typedef struct
-{
+typedef struct {
   /**
    * @brief The size of each chunk of data to decompress indepentently with
    * LZ4. Must be within the range of [32768, 16777216]. Larger sizes will
@@ -75,17 +75,17 @@ typedef struct
 /**
  * LZ4 compression options for the low-level API
  */
-typedef struct
-{
+typedef struct {
   hipcompType_t data_type;
 } hipcompBatchedLZ4Opts_t;
 
-static const hipcompBatchedLZ4Opts_t hipcompBatchedLZ4DefaultOpts = {HIPCOMP_TYPE_CHAR};
+static const hipcompBatchedLZ4Opts_t hipcompBatchedLZ4DefaultOpts = {
+    HIPCOMP_TYPE_CHAR};
 
 /**
-* Minimum alignment requirement for HIP memory buffers (input, output, temporary space)
-* when used with compression/decompression functions.
-*/
+ * Minimum alignment requirement for HIP memory buffers (input, output,
+ * temporary space) when used with compression/decompression functions.
+ */
 const size_t hipcompLZ4RequiredAlignment = 4;
 
 /******************************************************************************
@@ -109,10 +109,8 @@ const size_t hipcompLZ4RequiredAlignment = 4;
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedLZ4CompressGetTempSize(
-    size_t batch_size,
-    size_t max_uncompressed_chunk_bytes,
-    hipcompBatchedLZ4Opts_t format_opts,
-    size_t* temp_bytes);
+    size_t batch_size, size_t max_uncompressed_chunk_bytes,
+    hipcompBatchedLZ4Opts_t format_opts, size_t *temp_bytes);
 
 /**
  * @brief Get the maximum size any chunk could compress to in the batch. That
@@ -131,9 +129,8 @@ hipcompStatus_t hipcompBatchedLZ4CompressGetTempSize(
  * @return The hipcompSuccess unless there is an error.
  */
 hipcompStatus_t hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
-    size_t max_uncompressed_chunk_bytes,
-    hipcompBatchedLZ4Opts_t format_opts,
-    size_t* max_compressed_bytes);
+    size_t max_uncompressed_chunk_bytes, hipcompBatchedLZ4Opts_t format_opts,
+    size_t *max_compressed_bytes);
 
 /**
  * @brief Perform compression asynchronously. All pointers must point to GPU
@@ -141,9 +138,10 @@ hipcompStatus_t hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
  * 16777216 bytes. For best performance, a chunk size of 65536 bytes is
  * recommended.
  *
- * @param device_uncompressed_ptrs The pointers on the GPU, to uncompressed batched items.
- * This pointer must be GPU accessible.
- * @param device_uncompressed_bytes The size of each uncompressed batch item on the GPU.
+ * @param device_uncompressed_ptrs The pointers on the GPU, to uncompressed
+ * batched items. This pointer must be GPU accessible.
+ * @param device_uncompressed_bytes The size of each uncompressed batch item on
+ * the GPU.
  * @param max_uncompressed_chunk_bytes The maximum size in bytes of the largest
  * chunk in the batch. This parameter is currently unused, so if it is not set
  * with the maximum size, it should be set to zero. If a future version makes
@@ -151,8 +149,8 @@ hipcompStatus_t hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
  * @param batch_size The number of chunks to compress.
  * @param device_temp_ptr The temporary GPU workspace.
  * @param temp_bytes The size of the temporary GPU workspace.
- * @param device_compressed_ptrs The pointers on the GPU, to the output location for
- * each compressed batch item (output). This pointer must be GPU accessible.
+ * @param device_compressed_ptrs The pointers on the GPU, to the output location
+ * for each compressed batch item (output). This pointer must be GPU accessible.
  * @param device_compressed_bytes The compressed size of each chunk on the GPU
  * (output). This pointer must be GPU accessible.
  * @param format_opts The LZ4 compression options to use.
@@ -161,16 +159,12 @@ hipcompStatus_t hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
  * @return hipcompSuccess if successfully launched, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedLZ4CompressAsync(
-    const void* const* device_uncompressed_ptrs,
-    const size_t* device_uncompressed_bytes,
-    size_t max_uncompressed_chunk_bytes,
-    size_t batch_size,
-    void* device_temp_ptr,
-    size_t temp_bytes,
-    void* const* device_compressed_ptrs,
-    size_t* device_compressed_bytes,
-    hipcompBatchedLZ4Opts_t format_opts,
-    hipStream_t stream);
+    const void *const *device_uncompressed_ptrs,
+    const size_t *device_uncompressed_bytes,
+    size_t max_uncompressed_chunk_bytes, size_t batch_size,
+    void *device_temp_ptr, size_t temp_bytes,
+    void *const *device_compressed_ptrs, size_t *device_compressed_bytes,
+    hipcompBatchedLZ4Opts_t format_opts, hipStream_t stream);
 
 /**
  * @brief Get the amount of temp space required on the GPU for decompression.
@@ -184,7 +178,7 @@ hipcompStatus_t hipcompBatchedLZ4CompressAsync(
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedLZ4DecompressGetTempSize(
-    size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t* temp_bytes);
+    size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t *temp_bytes);
 
 /**
  * @brief Perform decompression asynchronously. All pointers must be GPU
@@ -198,7 +192,7 @@ hipcompStatus_t hipcompBatchedLZ4DecompressGetTempSize(
  * @param device_uncompressed_bytes The decompressed buffer size. This is needed
  * to prevent OOB accesses.
  * @param device_actual_uncompressed_bytes The actual calculated decompressed
- * size of each chunk. Can be nullptr if desired, 
+ * size of each chunk. Can be nullptr if desired,
  * in which case the actual_uncompressed_bytes is not reported.
  * @param batch_size The number of chunks to decompress.
  * @param device_temp_ptr The temporary GPU space.
@@ -206,22 +200,19 @@ hipcompStatus_t hipcompBatchedLZ4DecompressGetTempSize(
  * @param device_uncompressed_ptrs The pointers on the GPU, to where to
  * uncompress each chunk (output).
  * @param device_statuses The status for each chunk of whether it was
- * decompressed or not. Can be nullptr if desired, 
+ * decompressed or not. Can be nullptr if desired,
  * in which case error status is not reported.
  * @param stream The HIP stream to operate on.
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    const size_t* device_uncompressed_bytes,
-    size_t* device_actual_uncompressed_bytes,
-    size_t batch_size,
-    void* const device_temp_ptr,
-    size_t temp_bytes,
-    void* const* device_uncompressed_ptrs,
-    hipcompStatus_t* device_statuses,
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes,
+    const size_t *device_uncompressed_bytes,
+    size_t *device_actual_uncompressed_bytes, size_t batch_size,
+    void *const device_temp_ptr, size_t temp_bytes,
+    void *const *device_uncompressed_ptrs, hipcompStatus_t *device_statuses,
     hipStream_t stream);
 
 /**
@@ -241,11 +232,9 @@ hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedLZ4GetDecompressSizeAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    size_t* device_uncompressed_bytes,
-    size_t batch_size,
-    hipStream_t stream);
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes, size_t *device_uncompressed_bytes,
+    size_t batch_size, hipStream_t stream);
 
 #ifdef __cplusplus
 }

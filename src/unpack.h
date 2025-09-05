@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,10 +50,10 @@
 
 #pragma once
 
-#include <limits>
+#include <cassert>
 #include <cstdint>
 #include <cstdio>
-#include <cassert>
+#include <limits>
 
 #if defined(__HIP_PLATFORM_AMD__) or defined(__HIP_PLATFORM_NVCC__)
 #define HIPCOMP_HOST_DEVICE __device__ __host__
@@ -60,13 +61,11 @@
 #define HIPCOMP_HOST_DEVICE
 #endif
 
-namespace hipcomp
-{
-  
+namespace hipcomp {
+
 template <typename T>
-HIPCOMP_HOST_DEVICE T unpackBytes(
-    const void* data, const uint8_t numBits, const T minValue, const size_t i)
-{
+HIPCOMP_HOST_DEVICE T unpackBytes(const void *data, const uint8_t numBits,
+                                  const T minValue, const size_t i) {
   using U = typename std::make_unsigned<T>::type;
 
   if (numBits == 0) {
@@ -76,9 +75,10 @@ HIPCOMP_HOST_DEVICE T unpackBytes(
     uint8_t scratch[9];
 
     // shifting by width of the type is UB
-    const U mask = numBits < sizeof(T)*8U ? static_cast<U>((1ULL << numBits) -
-        1) : static_cast<U>(-1);
-    const uint8_t* byte_data = reinterpret_cast<decltype(byte_data)>(data);
+    const U mask = numBits < sizeof(T) * 8U
+                       ? static_cast<U>((1ULL << numBits) - 1)
+                       : static_cast<U>(-1);
+    const uint8_t *byte_data = reinterpret_cast<decltype(byte_data)>(data);
 
     // Specialized
     // Need to copy into scratch because
@@ -111,6 +111,6 @@ HIPCOMP_HOST_DEVICE T unpackBytes(
   }
 }
 
-}
+} // namespace hipcomp
 
 #undef HIPCOMP_HOST_DEVICE

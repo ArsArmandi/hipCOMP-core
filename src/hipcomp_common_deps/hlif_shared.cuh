@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -50,61 +51,58 @@
 #pragma once
 
 #include <cassert>
-#if (defined(__HIP_PLATFORM_HCC__) || defined(__HIP_PLATFORM_AMD__)) && defined(CG_WORKAROUND)
+#if (defined(__HIP_PLATFORM_HCC__) || defined(__HIP_PLATFORM_AMD__)) &&        \
+    defined(CG_WORKAROUND)
 #include <hipext/hip_cooperative_groups.h>
 namespace cg = hip_extensions::hip_cooperative_groups_ext;
 #else
 #include <hip/hip_cooperative_groups.h>
 namespace cg = cooperative_groups;
 #endif
-#include <stdint.h>
-#include <stdio.h>
-#include <type_traits>
-
+#include "HipUtils.h"
 #include "hipcomp/shared_types.h"
 #include "hlif_shared_types.hpp"
-#include "HipUtils.h"
+
+#include <stdint.h>
+#include <stdio.h>
+
+#include <type_traits>
 
 // Compress wrapper must meet this requirement
 struct hlif_compress_wrapper {
-  __device__ void compress_chunk(
-      uint8_t* /*scratch_output_buffer*/,
-      const uint8_t* /*this_decomp_buffer*/,
-      const size_t /*decomp_size*/,
-      const size_t /*max_comp_chunk_size*/,
-      size_t*) /*comp_chunk_size*/
+  __device__ void compress_chunk(uint8_t * /*scratch_output_buffer*/,
+                                 const uint8_t * /*this_decomp_buffer*/,
+                                 const size_t /*decomp_size*/,
+                                 const size_t /*max_comp_chunk_size*/,
+                                 size_t *) /*comp_chunk_size*/
   {
     assert(false); // This must be implemented in the derived class
   }
 
-  __device__ hipcompStatus_t get_output_status()
-  {
+  __device__ hipcompStatus_t get_output_status() {
     assert(false); // This must be implemented in the derived class
     return hipcompErrorNotSupported;
   }
 
-  __device__ FormatType get_format_type()
-  {
+  __device__ FormatType get_format_type() {
     assert(false); // This must be implemented in the derived class
     return NotSupportedError;
   }
 
-  __device__ ~hlif_compress_wrapper() {};
+  __device__ ~hlif_compress_wrapper(){};
 };
 
 // Decompress wrapper must meet this requirement
 struct hlif_decompress_wrapper {
-  __device__ void decompress_chunk(
-      uint8_t*, /*decomp_buffer*/
-      const uint8_t*, /*comp_buffer*/
-      const size_t, /*comp_chunk_size*/
-      const size_t) /*decomp_buffer_size*/
+  __device__ void decompress_chunk(uint8_t *,       /*decomp_buffer*/
+                                   const uint8_t *, /*comp_buffer*/
+                                   const size_t,    /*comp_chunk_size*/
+                                   const size_t)    /*decomp_buffer_size*/
   {
     assert(false); // This must be implemented in the derived class
   }
 
-  __device__ hipcompStatus_t get_output_status()
-  {
+  __device__ hipcompStatus_t get_output_status() {
     assert(false); // This must be implemented in the derived class
     return hipcompErrorNotSupported;
   }
@@ -112,40 +110,41 @@ struct hlif_decompress_wrapper {
   __device__ ~hlif_decompress_wrapper() {}
 };
 
-__device__ inline void fill_common_header(
-    const CompressArgs& compress_args,
-    const FormatType format_type)
-{
+__device__ inline void fill_common_header(const CompressArgs &compress_args,
+                                          const FormatType format_type) {
   compress_args.common_header->magic_number = 0;
   compress_args.common_header->major_version = 2;
   compress_args.common_header->minor_version = 2;
   compress_args.common_header->format = format_type;
-  compress_args.common_header->decomp_data_size = compress_args.decomp_buffer_size;
+  compress_args.common_header->decomp_data_size =
+      compress_args.decomp_buffer_size;
   compress_args.common_header->num_chunks = compress_args.num_chunks;
   compress_args.common_header->include_chunk_starts = true;
   compress_args.common_header->full_comp_buffer_checksum = 0;
   compress_args.common_header->decomp_buffer_checksum = 0;
   compress_args.common_header->include_per_chunk_comp_buffer_checksums = false;
-  compress_args.common_header->include_per_chunk_decomp_buffer_checksums = false;
-  compress_args.common_header->uncomp_chunk_size = compress_args.uncomp_chunk_size;
-  compress_args.common_header->comp_data_offset = (uintptr_t)compress_args.comp_buffer - (uintptr_t)compress_args.common_header;
+  compress_args.common_header->include_per_chunk_decomp_buffer_checksums =
+      false;
+  compress_args.common_header->uncomp_chunk_size =
+      compress_args.uncomp_chunk_size;
+  compress_args.common_header->comp_data_offset =
+      (uintptr_t)compress_args.comp_buffer -
+      (uintptr_t)compress_args.common_header;
 }
 
-__device__ inline void copyScratchBuffer(
-    size_t* comp_chunk_offsets,
-    size_t* comp_chunk_sizes,
-    const uint8_t* scratch_output_buffer,
-    uint8_t* comp_buffer,
-    uint64_t* ix_output,
-    uint32_t ix_chunk)
-{
+__device__ inline void
+copyScratchBuffer(size_t *comp_chunk_offsets, size_t *comp_chunk_sizes,
+                  const uint8_t *scratch_output_buffer, uint8_t *comp_buffer,
+                  uint64_t *ix_output, uint32_t ix_chunk) {
   // Do the copy into the final buffer.
   size_t comp_chunk_offset = comp_chunk_offsets[ix_chunk];
   size_t comp_chunk_size = comp_chunk_sizes[ix_chunk];
-  const int ix_alignment_input = sizeof(uint32_t) - ((uintptr_t)scratch_output_buffer % sizeof(uint32_t));
+  const int ix_alignment_input =
+      sizeof(uint32_t) - ((uintptr_t)scratch_output_buffer % sizeof(uint32_t));
   if (ix_alignment_input % 4 == 0) {
-    const char4* aligned_input = reinterpret_cast<const char4*>(scratch_output_buffer);
-    uint8_t* output = comp_buffer + comp_chunk_offset;
+    const char4 *aligned_input =
+        reinterpret_cast<const char4 *>(scratch_output_buffer);
+    uint8_t *output = comp_buffer + comp_chunk_offset;
     for (size_t ix = threadIdx.x; ix < comp_chunk_size / 4; ix += blockDim.x) {
       char4 val = aligned_input[ix];
       output[4 * ix] = val.x;
@@ -155,7 +154,8 @@ __device__ inline void copyScratchBuffer(
     }
     int rem_bytes = comp_chunk_size % sizeof(uint32_t);
     if (threadIdx.x < rem_bytes) {
-      output[comp_chunk_size - rem_bytes + threadIdx.x] = scratch_output_buffer[comp_chunk_size - rem_bytes + threadIdx.x];
+      output[comp_chunk_size - rem_bytes + threadIdx.x] =
+          scratch_output_buffer[comp_chunk_size - rem_bytes + threadIdx.x];
     }
   } else {
     for (size_t ix = threadIdx.x; ix < comp_chunk_size; ix += blockDim.x) {
@@ -164,20 +164,16 @@ __device__ inline void copyScratchBuffer(
   }
 }
 
-template<int chunks_per_block, typename CompressT, typename GroupT>
-__device__ inline void HlifCompressBatch(
-    const CompressArgs& compression_args,
-    CompressT&& compressor,
-    GroupT&& cg_group)
-{
+template <int chunks_per_block, typename CompressT, typename GroupT>
+__device__ inline void HlifCompressBatch(const CompressArgs &compression_args,
+                                         CompressT &&compressor,
+                                         GroupT &&cg_group) {
   if (blockIdx.x == 0 && cg::this_thread_block().thread_rank() == 0) {
-    fill_common_header(
-        compression_args,
-        compressor.get_format_type());
+    fill_common_header(compression_args, compressor.get_format_type());
   }
 
   __shared__ uint32_t ix_chunks[chunks_per_block];
-  volatile uint32_t& this_ix_chunk = ix_chunks[threadIdx.y];
+  volatile uint32_t &this_ix_chunk = ix_chunks[threadIdx.y];
 
   if (cg_group.thread_rank() == 0) {
     this_ix_chunk = blockIdx.x * chunks_per_block + threadIdx.y;
@@ -185,39 +181,40 @@ __device__ inline void HlifCompressBatch(
 
   cg_group.sync();
 
-  uint8_t* scratch_output_buffer = compression_args.scratch_buffer + this_ix_chunk * compression_args.max_comp_chunk_size;
+  uint8_t *scratch_output_buffer =
+      compression_args.scratch_buffer +
+      this_ix_chunk * compression_args.max_comp_chunk_size;
 
   int initial_chunks = gridDim.x * chunks_per_block;
 
   while (this_ix_chunk < compression_args.num_chunks) {
     size_t ix_decomp_start = this_ix_chunk * compression_args.uncomp_chunk_size;
-    const uint8_t* this_decomp_buffer = compression_args.decomp_buffer + ix_decomp_start;
-    size_t decomp_size = min(compression_args.uncomp_chunk_size, compression_args.decomp_buffer_size - ix_decomp_start);
+    const uint8_t *this_decomp_buffer =
+        compression_args.decomp_buffer + ix_decomp_start;
+    size_t decomp_size =
+        min(compression_args.uncomp_chunk_size,
+            compression_args.decomp_buffer_size - ix_decomp_start);
     compressor.compress_chunk(
-        scratch_output_buffer,
-        this_decomp_buffer,
-        decomp_size,
+        scratch_output_buffer, this_decomp_buffer, decomp_size,
         compression_args.max_comp_chunk_size,
         &compression_args.comp_chunk_sizes[this_ix_chunk]);
 
     // Determine the right place to output this buffer.
     if (cg_group.thread_rank() == 0) {
-        static_assert(sizeof(uint64_t) == sizeof(unsigned long long int),
-          "The cast below requires that the sizes are the same.");
-        compression_args.comp_chunk_offsets[this_ix_chunk] = atomicAdd(
-          reinterpret_cast<unsigned long long int*>(compression_args.ix_output),
-          compression_args.comp_chunk_sizes[this_ix_chunk]);
+      static_assert(sizeof(uint64_t) == sizeof(unsigned long long int),
+                    "The cast below requires that the sizes are the same.");
+      compression_args.comp_chunk_offsets[this_ix_chunk] =
+          atomicAdd(reinterpret_cast<unsigned long long int *>(
+                        compression_args.ix_output),
+                    compression_args.comp_chunk_sizes[this_ix_chunk]);
     }
 
     cg_group.sync();
 
-    copyScratchBuffer(
-        compression_args.comp_chunk_offsets,
-        compression_args.comp_chunk_sizes,
-        scratch_output_buffer,
-        compression_args.comp_buffer,
-        compression_args.ix_output,
-        this_ix_chunk);
+    copyScratchBuffer(compression_args.comp_chunk_offsets,
+                      compression_args.comp_chunk_sizes, scratch_output_buffer,
+                      compression_args.comp_buffer, compression_args.ix_output,
+                      this_ix_chunk);
 
     // Check for errors. Any error should be reported in the global status value
     if (cg_group.thread_rank() == 0) {
@@ -227,85 +224,85 @@ __device__ inline void HlifCompressBatch(
     }
 
     if (cg_group.thread_rank() == 0) {
-      this_ix_chunk = initial_chunks + atomicAdd(compression_args.ix_chunk, size_t{1});
+      this_ix_chunk =
+          initial_chunks + atomicAdd(compression_args.ix_chunk, size_t{1});
     }
     cg_group.sync();
   }
 }
 
-template<int warpsize,
-         typename CompressT,
-         typename CompressorArg,
-         int chunks_per_block = 1>
-__global__ std::enable_if_t<std::is_base_of<hlif_compress_wrapper, CompressT>::value>
-HlifCompressBatchKernel(
-    CompressArgs compression_args,
-    CompressorArg compressor_arg)
-{
+template <int warpsize, typename CompressT, typename CompressorArg,
+          int chunks_per_block = 1>
+__global__
+    std::enable_if_t<std::is_base_of<hlif_compress_wrapper, CompressT>::value>
+    HlifCompressBatchKernel(CompressArgs compression_args,
+                            CompressorArg compressor_arg) {
   extern __shared__ uint8_t share_buffer[];
 
-  uint8_t* free_scratch_buffer =
-      compression_args.scratch_buffer + (compression_args.max_comp_chunk_size * gridDim.x * blockDim.y);
+  uint8_t *free_scratch_buffer =
+      compression_args.scratch_buffer +
+      (compression_args.max_comp_chunk_size * gridDim.x * blockDim.y);
 
   __shared__ hipcompStatus_t output_status[chunks_per_block];
 
-  CompressT compressor{compressor_arg, free_scratch_buffer, share_buffer, &output_status[threadIdx.y]};
+  CompressT compressor{compressor_arg, free_scratch_buffer, share_buffer,
+                       &output_status[threadIdx.y]};
 
   auto cta_group = cg::this_thread_block();
   if (chunks_per_block == 1) {
-    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cta_group);
+    HlifCompressBatch<chunks_per_block>(compression_args, compressor,
+                                        cta_group);
   } else {
-    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cg::tiled_partition<warpsize>(cta_group));
+    HlifCompressBatch<chunks_per_block>(
+        compression_args, compressor, cg::tiled_partition<warpsize>(cta_group));
   }
 }
 
-template<int warpsize, typename CompressT, int chunks_per_block = 1>
-__global__ std::enable_if_t<std::is_base_of<hlif_compress_wrapper, CompressT>::value>
-HlifCompressBatchKernel(CompressArgs compression_args)
-{
+template <int warpsize, typename CompressT, int chunks_per_block = 1>
+__global__
+    std::enable_if_t<std::is_base_of<hlif_compress_wrapper, CompressT>::value>
+    HlifCompressBatchKernel(CompressArgs compression_args) {
   extern __shared__ uint8_t share_buffer[];
 
-  uint8_t* free_scratch_buffer =
-      compression_args.scratch_buffer + (compression_args.max_comp_chunk_size * gridDim.x * blockDim.y);
+  uint8_t *free_scratch_buffer =
+      compression_args.scratch_buffer +
+      (compression_args.max_comp_chunk_size * gridDim.x * blockDim.y);
 
   __shared__ hipcompStatus_t output_status[chunks_per_block];
 
-  CompressT compressor{free_scratch_buffer, share_buffer, &output_status[threadIdx.y]};
+  CompressT compressor{free_scratch_buffer, share_buffer,
+                       &output_status[threadIdx.y]};
 
   auto cta_group = cg::this_thread_block();
   if (chunks_per_block == 1) {
-    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cta_group);
+    HlifCompressBatch<chunks_per_block>(compression_args, compressor,
+                                        cta_group);
   } else {
-    HlifCompressBatch<chunks_per_block>(compression_args, compressor, cg::tiled_partition<warpsize>(cta_group));
+    HlifCompressBatch<chunks_per_block>(
+        compression_args, compressor, cg::tiled_partition<warpsize>(cta_group));
   }
 }
 
 /**
  * @brief Decompresses one or more chunks at a time using a given CTA
  *
- * Takes in a DecompressT, which executes a device function to decompress a chunk
+ * Takes in a DecompressT, which executes a device function to decompress a
+ * chunk
  *
- * Can decompress multiple chunks / CTA. In this case, the "X" threads in the block
- * decompress a single chunk. Threadidx.y indicates the chunk index within the CTA.
+ * Can decompress multiple chunks / CTA. In this case, the "X" threads in the
+ * block decompress a single chunk. Threadidx.y indicates the chunk index within
+ * the CTA.
  *
  */
 
-template<typename DecompressT,
-         int chunks_per_block,
-         typename GroupT>
-__device__ inline void HlifDecompressBatch(
-    const uint8_t* comp_buffer,
-    uint8_t* decomp_buffer,
-    const size_t uncomp_chunk_size,
-    uint32_t* ix_chunk,
-    const size_t num_chunks,
-    const size_t* comp_chunk_offsets,
-    const size_t* comp_chunk_sizes,
-    uint8_t* share_buffer,
-    hipcompStatus_t* kernel_output_status,
-    DecompressT& decompressor,
-    GroupT&& cg_group)
-{
+template <typename DecompressT, int chunks_per_block, typename GroupT>
+__device__ inline void
+HlifDecompressBatch(const uint8_t *comp_buffer, uint8_t *decomp_buffer,
+                    const size_t uncomp_chunk_size, uint32_t *ix_chunk,
+                    const size_t num_chunks, const size_t *comp_chunk_offsets,
+                    const size_t *comp_chunk_sizes, uint8_t *share_buffer,
+                    hipcompStatus_t *kernel_output_status,
+                    DecompressT &decompressor, GroupT &&cg_group) {
   // If chunks_per_block is 1, any blockDim is allowed
   // Otherwise, the y index is the chunk index
   assert(chunks_per_block == 1 || chunks_per_block == blockDim.y);
@@ -314,7 +311,7 @@ __device__ inline void HlifDecompressBatch(
 
   int init_chunk_offset = chunks_per_block == 1 ? 0 : threadIdx.y;
 
-  volatile uint32_t& this_ix_chunk = *(ix_chunks + init_chunk_offset);
+  volatile uint32_t &this_ix_chunk = *(ix_chunks + init_chunk_offset);
   if (cg_group.thread_rank() == 0) {
     this_ix_chunk = blockIdx.x * chunks_per_block + init_chunk_offset;
   }
@@ -323,14 +320,14 @@ __device__ inline void HlifDecompressBatch(
 
   int initial_chunks = gridDim.x * chunks_per_block;
   while (this_ix_chunk < num_chunks) {
-    const uint8_t* this_comp_buffer = comp_buffer + comp_chunk_offsets[this_ix_chunk];
-    uint8_t* this_decomp_buffer = decomp_buffer + this_ix_chunk * uncomp_chunk_size;
+    const uint8_t *this_comp_buffer =
+        comp_buffer + comp_chunk_offsets[this_ix_chunk];
+    uint8_t *this_decomp_buffer =
+        decomp_buffer + this_ix_chunk * uncomp_chunk_size;
 
-    decompressor.decompress_chunk(
-        this_decomp_buffer,
-        this_comp_buffer,
-        comp_chunk_sizes[this_ix_chunk],
-        uncomp_chunk_size);
+    decompressor.decompress_chunk(this_decomp_buffer, this_comp_buffer,
+                                  comp_chunk_sizes[this_ix_chunk],
+                                  uncomp_chunk_size);
 
     // Check for errors. Any error should be reported in the global status value
     if (cg_group.thread_rank() == 0) {
@@ -347,112 +344,67 @@ __device__ inline void HlifDecompressBatch(
   }
 }
 
-template<int warpsize,
-         typename DecompressT,
-         int chunks_per_block>
-__device__ void HlifDecompressBatch(
-    const uint8_t* comp_buffer,
-    uint8_t* decomp_buffer,
-    const size_t uncomp_chunk_size,
-    uint32_t* ix_chunk,
-    const size_t num_chunks,
-    const size_t* comp_chunk_offsets,
-    const size_t* comp_chunk_sizes,
-    uint8_t* share_buffer,
-    hipcompStatus_t* kernel_output_status,
-    DecompressT& decompressor)
-{
+template <int warpsize, typename DecompressT, int chunks_per_block>
+__device__ void
+HlifDecompressBatch(const uint8_t *comp_buffer, uint8_t *decomp_buffer,
+                    const size_t uncomp_chunk_size, uint32_t *ix_chunk,
+                    const size_t num_chunks, const size_t *comp_chunk_offsets,
+                    const size_t *comp_chunk_sizes, uint8_t *share_buffer,
+                    hipcompStatus_t *kernel_output_status,
+                    DecompressT &decompressor) {
   // Dispatches to get a cooperative group per-chunk
   auto cta_group = cg::this_thread_block();
   if (chunks_per_block == 1) {
     HlifDecompressBatch<DecompressT, chunks_per_block>(
-        comp_buffer,
-        decomp_buffer,
-        uncomp_chunk_size,
-        ix_chunk,
-        num_chunks,
-        comp_chunk_offsets,
-        comp_chunk_sizes,
-        share_buffer,
-        kernel_output_status,
-        decompressor,
-        cta_group);
+        comp_buffer, decomp_buffer, uncomp_chunk_size, ix_chunk, num_chunks,
+        comp_chunk_offsets, comp_chunk_sizes, share_buffer,
+        kernel_output_status, decompressor, cta_group);
   } else {
     HlifDecompressBatch<DecompressT, chunks_per_block>(
-        comp_buffer,
-        decomp_buffer,
-        uncomp_chunk_size,
-        ix_chunk,
-        num_chunks,
-        comp_chunk_offsets,
-        comp_chunk_sizes,
-        share_buffer,
-        kernel_output_status,
-        decompressor,
+        comp_buffer, decomp_buffer, uncomp_chunk_size, ix_chunk, num_chunks,
+        comp_chunk_offsets, comp_chunk_sizes, share_buffer,
+        kernel_output_status, decompressor,
         cg::tiled_partition<warpsize>(cta_group));
-    }
-    assert(blockDim.x == warpSize);
+  }
+  assert(blockDim.x == warpSize);
 }
 
-template<int warpsize,
-         typename DecompressT,
-         int chunks_per_block = 1,
-         typename DecompArg>
-__global__ std::enable_if_t<std::is_base_of<hlif_decompress_wrapper, DecompressT>::value>
-HlifDecompressBatchKernel(
-    const uint8_t* comp_buffer,
-    uint8_t* decomp_buffer,
-    const size_t uncomp_chunk_size,
-    uint32_t* ix_chunk,
-    const size_t num_chunks,
-    const size_t* comp_chunk_offsets,
-    const size_t* comp_chunk_sizes,
-    hipcompStatus_t* kernel_output_status,
-    DecompArg decompress_arg)
-{
+template <int warpsize, typename DecompressT, int chunks_per_block = 1,
+          typename DecompArg>
+__global__ std::enable_if_t<
+    std::is_base_of<hlif_decompress_wrapper, DecompressT>::value>
+HlifDecompressBatchKernel(const uint8_t *comp_buffer, uint8_t *decomp_buffer,
+                          const size_t uncomp_chunk_size, uint32_t *ix_chunk,
+                          const size_t num_chunks,
+                          const size_t *comp_chunk_offsets,
+                          const size_t *comp_chunk_sizes,
+                          hipcompStatus_t *kernel_output_status,
+                          DecompArg decompress_arg) {
   extern __shared__ uint8_t share_buffer[];
   __shared__ hipcompStatus_t output_status[chunks_per_block];
-  DecompressT decompressor{decompress_arg, share_buffer, &output_status[threadIdx.y]};
+  DecompressT decompressor{decompress_arg, share_buffer,
+                           &output_status[threadIdx.y]};
   HlifDecompressBatch<warpsize, DecompressT, chunks_per_block>(
-        comp_buffer,
-        decomp_buffer,
-        uncomp_chunk_size,
-        ix_chunk,
-        num_chunks,
-        comp_chunk_offsets,
-        comp_chunk_sizes,
-        share_buffer,
-        kernel_output_status,
-        decompressor);
+      comp_buffer, decomp_buffer, uncomp_chunk_size, ix_chunk, num_chunks,
+      comp_chunk_offsets, comp_chunk_sizes, share_buffer, kernel_output_status,
+      decompressor);
 }
 
-template<int warpsize,
-         typename DecompressT,
-         int chunks_per_block = 1>
-__global__ std::enable_if_t<std::is_base_of<hlif_decompress_wrapper, DecompressT>::value>
-HlifDecompressBatchKernel(
-    const uint8_t* comp_buffer,
-    uint8_t* decomp_buffer,
-    const size_t uncomp_chunk_size,
-    uint32_t* ix_chunk,
-    const size_t num_chunks,
-    const size_t* comp_chunk_offsets,
-    const size_t* comp_chunk_sizes,
-    hipcompStatus_t* kernel_output_status)
-{
+template <int warpsize, typename DecompressT, int chunks_per_block = 1>
+__global__ std::enable_if_t<
+    std::is_base_of<hlif_decompress_wrapper, DecompressT>::value>
+HlifDecompressBatchKernel(const uint8_t *comp_buffer, uint8_t *decomp_buffer,
+                          const size_t uncomp_chunk_size, uint32_t *ix_chunk,
+                          const size_t num_chunks,
+                          const size_t *comp_chunk_offsets,
+                          const size_t *comp_chunk_sizes,
+                          hipcompStatus_t *kernel_output_status) {
   extern __shared__ uint8_t share_buffer[];
   __shared__ hipcompStatus_t output_status[chunks_per_block];
   DecompressT decompressor{share_buffer, &output_status[threadIdx.y]};
 
   HlifDecompressBatch<warpsize, DecompressT, chunks_per_block>(
-        comp_buffer,
-        decomp_buffer,
-        uncomp_chunk_size,
-        ix_chunk,
-        num_chunks,
-        comp_chunk_offsets,
-        comp_chunk_sizes,
-        share_buffer,
-        kernel_output_status,
-        decompressor);
+      comp_buffer, decomp_buffer, uncomp_chunk_size, ix_chunk, num_chunks,
+      comp_chunk_offsets, comp_chunk_sizes, share_buffer, kernel_output_status,
+      decompressor);
 }

@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,8 +50,9 @@
 
 #pragma once
 
-#include <stdint.h>
 #include "hipcomp/shared_types.h"
+
+#include <stdint.h>
 
 typedef uint64_t ChunkStartOffset_t;
 typedef uint32_t Checksum_t;
@@ -83,18 +85,17 @@ struct CommonHeader {
 };
 
 struct CompressArgs {
-  CommonHeader* common_header;
-  const uint8_t* decomp_buffer;
+  CommonHeader *common_header;
+  const uint8_t *decomp_buffer;
   size_t decomp_buffer_size;
-  uint8_t* comp_buffer;
-  uint8_t* scratch_buffer;
+  uint8_t *comp_buffer;
+  uint8_t *scratch_buffer;
   size_t uncomp_chunk_size;
-  size_t* ix_output;
-  uint32_t* ix_chunk;
+  size_t *ix_output;
+  uint32_t *ix_chunk;
   size_t num_chunks;
   size_t max_comp_chunk_size;
-  size_t* comp_chunk_offsets;
-  size_t* comp_chunk_sizes;
-  hipcompStatus_t* output_status;
+  size_t *comp_chunk_offsets;
+  size_t *comp_chunk_sizes;
+  hipcompStatus_t *output_status;
 };
-

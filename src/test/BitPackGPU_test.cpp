@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,31 +50,26 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "tests/catch.hpp"
 #include "BitPackGPU.h"
 #include "common.h"
-#include "hipcomp.hpp"
-#include "unpack.h"
-
 #include "hip/hip_runtime.h"
+#include "hipcomp.hpp"
+#include "tests/catch.hpp"
+#include "unpack.h"
 
 #include <cstdlib>
 #include <limits>
 
 #ifndef HIP_CHECK
-#define HIP_CHECK(call)                                                     \
+#define HIP_CHECK(call)                                                        \
   {                                                                            \
-    hipError_t hipStatus = call;                                             \
-    if (hipSuccess != hipStatus) {                                           \
+    hipError_t hipStatus = call;                                               \
+    if (hipSuccess != hipStatus) {                                             \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "    \
           "(%d).\n",                                                           \
-          #call,                                                               \
-          __LINE__,                                                            \
-          __FILE__,                                                            \
-          hipGetErrorString(hipStatus),                                      \
-          hipStatus);                                                         \
+          #call, __LINE__, __FILE__, hipGetErrorString(hipStatus), hipStatus); \
       abort();                                                                 \
     }                                                                          \
   }
@@ -85,50 +81,39 @@ using namespace hipcomp;
  * HELPER FUNCTIONS ***********************************************************
  *****************************************************************************/
 
-namespace
-{
+namespace {
 
 template <typename T>
-void toGPU(T* const output, T const* const input, size_t const num)
-{
-  HIP_CHECK(
-      hipMemcpy(output, input, num * sizeof(T), hipMemcpyHostToDevice));
+void toGPU(T *const output, T const *const input, size_t const num) {
+  HIP_CHECK(hipMemcpy(output, input, num * sizeof(T), hipMemcpyHostToDevice));
 }
 
 template <typename T>
-void fromGPU(T* const output, T const* const input, size_t const num)
-{
-  HIP_CHECK(
-      hipMemcpy(output, input, num * sizeof(T), hipMemcpyDeviceToHost));
+void fromGPU(T *const output, T const *const input, size_t const num) {
+  HIP_CHECK(hipMemcpy(output, input, num * sizeof(T), hipMemcpyDeviceToHost));
 }
 
 template <>
-void
-fromGPU<void>(void* const output, void const* const input, size_t const num)
-{
+void fromGPU<void>(void *const output, void const *const input,
+                   size_t const num) {
   HIP_CHECK(hipMemcpy(output, input, num, hipMemcpyDeviceToHost));
 }
 
 template <typename T>
-void runBitPackingOnGPU(
-    T const* const inputHost,
-    void* const outputHost,
-    size_t const numBitsMax,
-    size_t const n,
-    size_t* const numBitsOut,
-    T* const minValOut)
-{
-  T* input;
+void runBitPackingOnGPU(T const *const inputHost, void *const outputHost,
+                        size_t const numBitsMax, size_t const n,
+                        size_t *const numBitsOut, T *const minValOut) {
+  T *input;
 
-  HIP_CHECK(hipMalloc((void**)&input, n * sizeof(*input)));
+  HIP_CHECK(hipMalloc((void **)&input, n * sizeof(*input)));
   toGPU(input, inputHost, n);
 
-  void* output;
-  void** outputPtr;
+  void *output;
+  void **outputPtr;
   size_t const packedSize = (((numBitsMax * n) / 64U) + 1U) * 8U;
 
-  size_t* numDevice;
-  HIP_CHECK(hipMalloc((void**)&numDevice, sizeof(numDevice)));
+  size_t *numDevice;
+  HIP_CHECK(hipMalloc((void **)&numDevice, sizeof(numDevice)));
   HIP_CHECK(
       hipMemcpy(numDevice, &n, sizeof(*numDevice), hipMemcpyHostToDevice));
 
@@ -138,29 +123,21 @@ void runBitPackingOnGPU(
       hipMemcpy(outputPtr, &output, sizeof(output), hipMemcpyHostToDevice));
   HIP_CHECK(hipMemset(output, 0, packedSize));
 
-  T* minValueDevice;
-  HIP_CHECK(hipMalloc((void**)&minValueDevice, sizeof(*minValueDevice)));
-  unsigned char* numBitsDevice;
-  HIP_CHECK(hipMalloc((void**)&numBitsDevice, sizeof(*numBitsDevice)));
+  T *minValueDevice;
+  HIP_CHECK(hipMalloc((void **)&minValueDevice, sizeof(*minValueDevice)));
+  unsigned char *numBitsDevice;
+  HIP_CHECK(hipMalloc((void **)&numBitsDevice, sizeof(*numBitsDevice)));
 
-  T** minValueDevicePtr;
-  HIP_CHECK(
-      hipMalloc((void**)&minValueDevicePtr, sizeof(*minValueDevicePtr)));
-  HIP_CHECK(hipMemcpy(
-      minValueDevicePtr,
-      &minValueDevice,
-      sizeof(minValueDevice),
-      hipMemcpyHostToDevice));
-  unsigned char** numBitsDevicePtr;
-  HIP_CHECK(
-      hipMalloc((void**)&numBitsDevicePtr, sizeof(*numBitsDevicePtr)));
-  HIP_CHECK(hipMemcpy(
-      numBitsDevicePtr,
-      &numBitsDevice,
-      sizeof(numBitsDevice),
-      hipMemcpyHostToDevice));
+  T **minValueDevicePtr;
+  HIP_CHECK(hipMalloc((void **)&minValueDevicePtr, sizeof(*minValueDevicePtr)));
+  HIP_CHECK(hipMemcpy(minValueDevicePtr, &minValueDevice,
+                      sizeof(minValueDevice), hipMemcpyHostToDevice));
+  unsigned char **numBitsDevicePtr;
+  HIP_CHECK(hipMalloc((void **)&numBitsDevicePtr, sizeof(*numBitsDevicePtr)));
+  HIP_CHECK(hipMemcpy(numBitsDevicePtr, &numBitsDevice, sizeof(numBitsDevice),
+                      hipMemcpyHostToDevice));
 
-  void* workspace;
+  void *workspace;
   size_t workspaceBytes = BitPackGPU::requiredWorkspaceSize(n, TypeOf<T>());
   HIP_CHECK(hipMalloc(&workspace, workspaceBytes));
 
@@ -169,17 +146,9 @@ void runBitPackingOnGPU(
   hipStream_t stream;
   HIP_CHECK(hipStreamCreate(&stream));
 
-  BitPackGPU::compress(
-      workspace,
-      workspaceBytes,
-      inType,
-      outputPtr,
-      input,
-      numDevice,
-      n,
-      (void* const*)minValueDevicePtr,
-      numBitsDevicePtr,
-      stream);
+  BitPackGPU::compress(workspace, workspaceBytes, inType, outputPtr, input,
+                       numDevice, n, (void *const *)minValueDevicePtr,
+                       numBitsDevicePtr, stream);
 
   HIP_CHECK(hipStreamSynchronize(stream));
   HIP_CHECK(hipStreamDestroy(stream));
@@ -202,27 +171,27 @@ void runBitPackingOnGPU(
   HIP_CHECK(hipFree(numBitsDevicePtr));
 }
 
-template<typename T>
-void typeRangeTest()
-{
+template <typename T> void typeRangeTest() {
   const size_t numBits = 8 * sizeof(T);
   size_t const n = 72351;
   std::vector<T> inputHost;
   inputHost.reserve(n);
   for (size_t i = 0; i < n; ++i) {
-    inputHost.emplace_back(static_cast<T>(i^static_cast<size_t>(0xfd956fda637535e7ULL)));
+    inputHost.emplace_back(
+        static_cast<T>(i ^ static_cast<size_t>(0xfd956fda637535e7ULL)));
   }
   inputHost.front() = std::numeric_limits<T>::min();
   inputHost.back() = std::numeric_limits<T>::max();
 
-  void* outputHost;
+  void *outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost.data());
   HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   T minValue;
   size_t numBitsAct;
-  runBitPackingOnGPU(inputHost.data(), outputHost, numBits, n, &numBitsAct, &minValue);
+  runBitPackingOnGPU(inputHost.data(), outputHost, numBits, n, &numBitsAct,
+                     &minValue);
 
   REQUIRE(numBitsAct == numBits);
 
@@ -248,8 +217,7 @@ void typeRangeTest()
  * UNIT TEST ******************************************************************
  *****************************************************************************/
 
-TEST_CASE("compressInt16VarBitTest", "[small]")
-{
+TEST_CASE("compressInt16VarBitTest", "[small]") {
   size_t const n = 10000;
 
   using T = int16_t;
@@ -264,11 +232,11 @@ TEST_CASE("compressInt16VarBitTest", "[small]")
   //    std::numeric_limits<T>::max();
   //  }
 
-  T* inputHost;
-  void* outputHost;
+  T *inputHost;
+  void *outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  HIP_CHECK(hipHostMalloc((void**)&inputHost, numBytes));
+  HIP_CHECK(hipHostMalloc((void **)&inputHost, numBytes));
   HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   for (size_t numBits = 1; numBits < sizeof(T) * 8 - 1; ++numBits) {
@@ -282,8 +250,8 @@ TEST_CASE("compressInt16VarBitTest", "[small]")
 
     T minValueAct;
     size_t numBitsAct;
-    runBitPackingOnGPU(
-        inputHost, outputHost, numBits, n, &numBitsAct, &minValueAct);
+    runBitPackingOnGPU(inputHost, outputHost, numBits, n, &numBitsAct,
+                       &minValueAct);
 
     REQUIRE(numBitsAct <= numBits);
     REQUIRE(minValueAct == minValue);
@@ -306,8 +274,7 @@ TEST_CASE("compressInt16VarBitTest", "[small]")
   HIP_CHECK(hipHostFree(inputHost));
 }
 
-TEST_CASE("compressUint32VarBitTest", "[small]")
-{
+TEST_CASE("compressUint32VarBitTest", "[small]") {
   size_t const n = 10000;
   int const offset = 87231;
 
@@ -316,15 +283,15 @@ TEST_CASE("compressUint32VarBitTest", "[small]")
   // generate a variety of random numbers
   std::vector<T> source(n);
   std::srand(0);
-  for (T& v : source) {
+  for (T &v : source) {
     v = static_cast<T>(std::rand()) % std::numeric_limits<T>::max();
   }
 
-  T* inputHost;
-  void* outputHost;
+  T *inputHost;
+  void *outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  HIP_CHECK(hipHostMalloc((void**)&inputHost, numBytes));
+  HIP_CHECK(hipHostMalloc((void **)&inputHost, numBytes));
   HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   for (size_t numBits = 1; numBits < sizeof(T) * 8 - 1; ++numBits) {
@@ -338,8 +305,8 @@ TEST_CASE("compressUint32VarBitTest", "[small]")
 
     T minValueAct;
     size_t numBitsAct;
-    runBitPackingOnGPU(
-        inputHost, outputHost, numBits, n, &numBitsAct, &minValueAct);
+    runBitPackingOnGPU(inputHost, outputHost, numBits, n, &numBitsAct,
+                       &minValueAct);
 
     REQUIRE(numBitsAct <= numBits);
     REQUIRE(minValueAct == minValue);
@@ -362,8 +329,7 @@ TEST_CASE("compressUint32VarBitTest", "[small]")
   HIP_CHECK(hipHostFree(inputHost));
 }
 
-TEST_CASE("compressInt64VarBitTest", "[small]")
-{
+TEST_CASE("compressInt64VarBitTest", "[small]") {
   size_t const n = 10000;
   int const offset = 87231;
 
@@ -372,15 +338,15 @@ TEST_CASE("compressInt64VarBitTest", "[small]")
   // generate a variety of random numbers
   std::vector<T> source(n);
   std::srand(0);
-  for (T& v : source) {
+  for (T &v : source) {
     v = std::abs(static_cast<T>(std::rand())) % std::numeric_limits<T>::max();
   }
 
-  T* inputHost;
-  void* outputHost;
+  T *inputHost;
+  void *outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  HIP_CHECK(hipHostMalloc((void**)&inputHost, numBytes));
+  HIP_CHECK(hipHostMalloc((void **)&inputHost, numBytes));
   HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   for (size_t numBits = 1; numBits < sizeof(T) * 8 - 1; ++numBits) {
@@ -390,8 +356,8 @@ TEST_CASE("compressInt64VarBitTest", "[small]")
 
     T minValue;
     size_t numBitsAct;
-    runBitPackingOnGPU(
-        inputHost, outputHost, numBits, n, &numBitsAct, &minValue);
+    runBitPackingOnGPU(inputHost, outputHost, numBits, n, &numBitsAct,
+                       &minValue);
 
     REQUIRE(numBitsAct <= numBits);
 
@@ -413,8 +379,7 @@ TEST_CASE("compressInt64VarBitTest", "[small]")
   HIP_CHECK(hipHostFree(inputHost));
 }
 
-TEST_CASE("compressInt32VarSizeTest", "[large]")
-{
+TEST_CASE("compressInt32VarSizeTest", "[large]") {
   int const offset = 87231;
   size_t const numBits = 13;
 
@@ -426,15 +391,15 @@ TEST_CASE("compressInt32VarSizeTest", "[large]")
   // generate a variety of random numbers
   std::vector<T> source(sizes.back());
   std::srand(0);
-  for (T& v : source) {
+  for (T &v : source) {
     v = std::abs(static_cast<T>(std::rand())) % std::numeric_limits<T>::max();
   }
 
-  T* inputHost;
-  void* outputHost;
+  T *inputHost;
+  void *outputHost;
 
   size_t const numBytes = sizes.back() * sizeof(*inputHost);
-  HIP_CHECK(hipHostMalloc((void**)&inputHost, numBytes));
+  HIP_CHECK(hipHostMalloc((void **)&inputHost, numBytes));
   HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   for (size_t const n : sizes) {
@@ -444,8 +409,8 @@ TEST_CASE("compressInt32VarSizeTest", "[large]")
 
     T minValue;
     size_t numBitsAct;
-    runBitPackingOnGPU(
-        inputHost, outputHost, numBits, n, &numBitsAct, &minValue);
+    runBitPackingOnGPU(inputHost, outputHost, numBits, n, &numBitsAct,
+                       &minValue);
 
     REQUIRE(numBitsAct <= numBits);
 
@@ -472,8 +437,7 @@ TEST_CASE("compressInt32VarSizeTest", "[large]")
   HIP_CHECK(hipHostFree(inputHost));
 }
 
-TEST_CASE("compressInt64WideTest", "[small]")
-{
+TEST_CASE("compressInt64WideTest", "[small]") {
   using T = int64_t;
 
   const size_t numBits = 40;
@@ -488,11 +452,11 @@ TEST_CASE("compressInt64WideTest", "[small]")
 
   size_t const n = source.size();
 
-  T* inputHost;
-  void* outputHost;
+  T *inputHost;
+  void *outputHost;
 
   size_t const numBytes = n * sizeof(*inputHost);
-  HIP_CHECK(hipHostMalloc((void**)&inputHost, numBytes));
+  HIP_CHECK(hipHostMalloc((void **)&inputHost, numBytes));
   HIP_CHECK(hipHostMalloc(&outputHost, numBytes));
 
   memcpy(inputHost, source.data(), sizeof(*inputHost) * source.size());
@@ -520,42 +484,24 @@ TEST_CASE("compressInt64WideTest", "[small]")
   HIP_CHECK(hipHostFree(inputHost));
 }
 
-TEST_CASE("compressTypeInt8RangeTest", "[small]")
-{
-  typeRangeTest<int8_t>();
-}
+TEST_CASE("compressTypeInt8RangeTest", "[small]") { typeRangeTest<int8_t>(); }
 
-TEST_CASE("compressTypeInt16RangeTest", "[small]")
-{
-  typeRangeTest<int16_t>();
-}
+TEST_CASE("compressTypeInt16RangeTest", "[small]") { typeRangeTest<int16_t>(); }
 
-TEST_CASE("compressTypeInt32RangeTest", "[small]")
-{
-  typeRangeTest<int32_t>();
-}
+TEST_CASE("compressTypeInt32RangeTest", "[small]") { typeRangeTest<int32_t>(); }
 
-TEST_CASE("compressTypeInt64RangeTest", "[small]")
-{
-  typeRangeTest<int64_t>();
-}
+TEST_CASE("compressTypeInt64RangeTest", "[small]") { typeRangeTest<int64_t>(); }
 
-TEST_CASE("compressTypeUInt8RangeTest", "[small]")
-{
-  typeRangeTest<uint8_t>();
-}
+TEST_CASE("compressTypeUInt8RangeTest", "[small]") { typeRangeTest<uint8_t>(); }
 
-TEST_CASE("compressTypeUInt16RangeTest", "[small]")
-{
+TEST_CASE("compressTypeUInt16RangeTest", "[small]") {
   typeRangeTest<uint16_t>();
 }
 
-TEST_CASE("compressTypeUInt32RangeTest", "[small]")
-{
+TEST_CASE("compressTypeUInt32RangeTest", "[small]") {
   typeRangeTest<uint32_t>();
 }
 
-TEST_CASE("compressTypeUInt64RangeTest", "[small]")
-{
+TEST_CASE("compressTypeUInt64RangeTest", "[small]") {
   typeRangeTest<uint64_t>();
 }

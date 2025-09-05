@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -47,10 +48,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include "HipUtils.h"
 #include "lowlevel/SnappyBatchKernels.h"
 #include "snappy/compression.cuh"
 #include "snappy/decompression.cuh"
-#include "HipUtils.h"
 
 namespace hipcomp {
 
@@ -63,65 +64,68 @@ namespace hipcomp {
  * @param[in] count Number of blocks to compress
  */
 template <int warpsize>
-__global__ void __launch_bounds__(COMP_WARPS_PER_BLOCK*warpsize) snap_kernel(
-  const void* const* __restrict__ device_in_ptr,
-  const uint64_t* __restrict__ device_in_bytes,
-  void* const* __restrict__ device_out_ptr,
-  const uint64_t* __restrict__ device_out_available_bytes,
-  gpu_snappy_status_s * __restrict__ outputs,
-  uint64_t* device_out_bytes)
-{
+__global__ void __launch_bounds__(COMP_WARPS_PER_BLOCK *warpsize)
+    snap_kernel(const void *const *__restrict__ device_in_ptr,
+                const uint64_t *__restrict__ device_in_bytes,
+                void *const *__restrict__ device_out_ptr,
+                const uint64_t *__restrict__ device_out_available_bytes,
+                gpu_snappy_status_s *__restrict__ outputs,
+                uint64_t *device_out_bytes) {
   const int ix_chunk = blockIdx.x;
-  snappy::do_snap<warpsize> (
-    reinterpret_cast<const uint8_t*>(device_in_ptr[ix_chunk]),
-    device_in_bytes[ix_chunk],
-    reinterpret_cast<uint8_t*>(device_out_ptr[ix_chunk]),
-    device_out_available_bytes ? device_out_available_bytes[ix_chunk] : 0,
-    outputs ? &outputs[ix_chunk] : nullptr,
-    &device_out_bytes[ix_chunk]);
+  snappy::do_snap<warpsize>(
+      reinterpret_cast<const uint8_t *>(device_in_ptr[ix_chunk]),
+      device_in_bytes[ix_chunk],
+      reinterpret_cast<uint8_t *>(device_out_ptr[ix_chunk]),
+      device_out_available_bytes ? device_out_available_bytes[ix_chunk] : 0,
+      outputs ? &outputs[ix_chunk] : nullptr, &device_out_bytes[ix_chunk]);
 }
 
 // NOTE: Only a single thread is used by this kernel.
-__global__ void __launch_bounds__(1) get_uncompressed_sizes_kernel(
-  const void* const* __restrict__ device_in_ptr,
-  const uint64_t* __restrict__ device_in_bytes,
-  uint64_t* __restrict__ device_out_bytes)
-{
-  int t             = threadIdx.x;
-  int strm_id       = blockIdx.x;
+__global__ void __launch_bounds__(1)
+    get_uncompressed_sizes_kernel(const void *const *__restrict__ device_in_ptr,
+                                  const uint64_t *__restrict__ device_in_bytes,
+                                  uint64_t *__restrict__ device_out_bytes) {
+  int t = threadIdx.x;
+  int strm_id = blockIdx.x;
 
   if (t == 0) {
     uint32_t uncompressed_size = 0;
-    const uint8_t *cur = reinterpret_cast<const uint8_t *>(device_in_ptr[strm_id]);
+    const uint8_t *cur =
+        reinterpret_cast<const uint8_t *>(device_in_ptr[strm_id]);
     const uint8_t *end = cur + device_in_bytes[strm_id];
     if (cur < end) {
       // Read uncompressed size (varint), limited to 31-bit
-      // The size is stored as little-endian varint, from 1 to 5 bytes (as we allow up to 2^31 sizes only)
-      // The upper bit of each byte indicates if there is another byte to read to compute the size
-      // Please see format details at https://github.com/google/snappy/blob/master/format_description.txt
+      // The size is stored as little-endian varint, from 1 to 5 bytes (as we
+      // allow up to 2^31 sizes only) The upper bit of each byte indicates if
+      // there is another byte to read to compute the size Please see format
+      // details at
+      // https://github.com/google/snappy/blob/master/format_description.txt
       uncompressed_size = *cur++;
       if (uncompressed_size > 0x7f) {
-        uint32_t c        = (cur < end) ? *cur++ : 0;
+        uint32_t c = (cur < end) ? *cur++ : 0;
         uncompressed_size = (uncompressed_size & 0x7f) | (c << 7);
-        // Check if the most significant bit is set, this indicates we need to read the next byte
-        // (maybe even more) to compute the uncompressed size
-        // We do it several time stopping if 1) MSB is cleared or 2) we see that the size is >= 2^31
-        // which we cannot handle
+        // Check if the most significant bit is set, this indicates we need to
+        // read the next byte (maybe even more) to compute the uncompressed size
+        // We do it several time stopping if 1) MSB is cleared or 2) we see that
+        // the size is >= 2^31 which we cannot handle
         if (uncompressed_size >= (0x80 << 7)) {
-          c                 = (cur < end) ? *cur++ : 0;
-          uncompressed_size = (uncompressed_size & ((0x7f << 7) | 0x7f)) | (c << 14);
+          c = (cur < end) ? *cur++ : 0;
+          uncompressed_size =
+              (uncompressed_size & ((0x7f << 7) | 0x7f)) | (c << 14);
           if (uncompressed_size >= (0x80 << 14)) {
             c = (cur < end) ? *cur++ : 0;
             uncompressed_size =
-              (uncompressed_size & ((0x7f << 14) | (0x7f << 7) | 0x7f)) | (c << 21);
+                (uncompressed_size & ((0x7f << 14) | (0x7f << 7) | 0x7f)) |
+                (c << 21);
             if (uncompressed_size >= (0x80 << 21)) {
               c = (cur < end) ? *cur++ : 0;
               // Snappy format alllows uncompressed sizes larger than 2^31
               // We generate an error in this case
               if (c < 0x8)
                 uncompressed_size =
-                  (uncompressed_size & ((0x7f << 21) | (0x7f << 14) | (0x7f << 7) | 0x7f)) |
-                  (c << 28);
+                    (uncompressed_size &
+                     ((0x7f << 21) | (0x7f << 14) | (0x7f << 7) | 0x7f)) |
+                    (c << 28);
               else
                 uncompressed_size = 0;
             }
@@ -143,88 +147,74 @@ __global__ void __launch_bounds__(1) get_uncompressed_sizes_kernel(
  * @param[out] outputs Decompression status per block
  **/
 template <int warpsize>
-__global__ void __launch_bounds__(DECOMP_WARPS_PER_BLOCK*warpsize) unsnap_kernel(
-    const void* const* __restrict__ device_in_ptr,
-    const uint64_t* __restrict__ device_in_bytes,
-    void* const* __restrict__ device_out_ptr,
-    const uint64_t* __restrict__ device_out_available_bytes,
-    hipcompStatus_t* const __restrict__ outputs,
-    uint64_t* __restrict__ device_out_bytes)
-{
+__global__ void __launch_bounds__(DECOMP_WARPS_PER_BLOCK *warpsize)
+    unsnap_kernel(const void *const *__restrict__ device_in_ptr,
+                  const uint64_t *__restrict__ device_in_bytes,
+                  void *const *__restrict__ device_out_ptr,
+                  const uint64_t *__restrict__ device_out_available_bytes,
+                  hipcompStatus_t *const __restrict__ outputs,
+                  uint64_t *__restrict__ device_out_bytes) {
   const int ix_chunk = blockIdx.x;
 
   snappy::do_unsnap<warpsize>(
-    reinterpret_cast<const uint8_t*>(device_in_ptr[ix_chunk]),
-    device_in_bytes[ix_chunk],
-    reinterpret_cast<uint8_t*>(device_out_ptr[ix_chunk]),
-    device_out_available_bytes ? device_out_available_bytes[ix_chunk] : 0,
-    outputs ? &outputs[ix_chunk] : nullptr,
-    device_out_bytes ? &device_out_bytes[ix_chunk] : nullptr);
+      reinterpret_cast<const uint8_t *>(device_in_ptr[ix_chunk]),
+      device_in_bytes[ix_chunk],
+      reinterpret_cast<uint8_t *>(device_out_ptr[ix_chunk]),
+      device_out_available_bytes ? device_out_available_bytes[ix_chunk] : 0,
+      outputs ? &outputs[ix_chunk] : nullptr,
+      device_out_bytes ? &device_out_bytes[ix_chunk] : nullptr);
 }
 
-void gpu_snap(
-  const void* const* device_in_ptr,
-  const size_t* device_in_bytes,
-  void* const* device_out_ptr,
-  const size_t* device_out_available_bytes,
-  gpu_snappy_status_s *outputs,
-  size_t* device_out_bytes,
-  int count,
-  hipStream_t stream)
-{
+void gpu_snap(const void *const *device_in_ptr, const size_t *device_in_bytes,
+              void *const *device_out_ptr,
+              const size_t *device_out_available_bytes,
+              gpu_snappy_status_s *outputs, size_t *device_out_bytes, int count,
+              hipStream_t stream) {
   if (count > 0) {
-HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
-    constexpr int WS = HIPCOMP_WARPSIZE;
+    HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(
+        -1, constexpr int WS = HIPCOMP_WARPSIZE;
 
-    dim3 dim_block(COMP_WARPS_PER_BLOCK * WS, 1);
-    dim3 dim_grid(count);
+        dim3 dim_block(COMP_WARPS_PER_BLOCK * WS, 1); dim3 dim_grid(count);
 
-    snap_kernel<WS><<<dim_grid, dim_block, 0, stream>>>(
-      device_in_ptr, device_in_bytes, device_out_ptr, device_out_available_bytes,
-      outputs, device_out_bytes);
-)
+        snap_kernel<WS><<<dim_grid, dim_block, 0, stream>>>(
+            device_in_ptr, device_in_bytes, device_out_ptr,
+            device_out_available_bytes, outputs, device_out_bytes);)
   }
-  HipUtils::check_last_error("Failed to launch Snappy compression HIP kernel gpu_snap");
+  HipUtils::check_last_error(
+      "Failed to launch Snappy compression HIP kernel gpu_snap");
 }
 
-void gpu_unsnap(
-    const void* const* device_in_ptr,
-    const size_t* device_in_bytes,
-    void* const* device_out_ptr,
-    const size_t* device_out_available_bytes,
-    hipcompStatus_t* outputs,
-    size_t* device_out_bytes,
-    int count,
-    hipStream_t stream)
-{
+void gpu_unsnap(const void *const *device_in_ptr, const size_t *device_in_bytes,
+                void *const *device_out_ptr,
+                const size_t *device_out_available_bytes,
+                hipcompStatus_t *outputs, size_t *device_out_bytes, int count,
+                hipStream_t stream) {
   uint32_t count32 = (count > 0) ? count : 0;
 
-HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
-  constexpr int WS = HIPCOMP_WARPSIZE;
+  HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(
+      -1, constexpr int WS = HIPCOMP_WARPSIZE;
 
-  dim3 dim_block(DECOMP_WARPS_PER_BLOCK * WS, 1);
-  dim3 dim_grid(count32, 1);  // TODO: Check max grid dimensions vs max expected count
+      dim3 dim_block(DECOMP_WARPS_PER_BLOCK * WS, 1); dim3 dim_grid(
+          count32, 1); // TODO: Check max grid dimensions vs max expected count
 
-  unsnap_kernel<WS><<<dim_grid, dim_block, 0, stream>>>(
-    device_in_ptr, device_in_bytes, device_out_ptr, device_out_available_bytes,
-      outputs, device_out_bytes);
-)
-  HipUtils::check_last_error("Failed to launch Snappy decompression HIP kernel gpu_unsnap");
+      unsnap_kernel<WS><<<dim_grid, dim_block, 0, stream>>>(
+          device_in_ptr, device_in_bytes, device_out_ptr,
+          device_out_available_bytes, outputs, device_out_bytes);)
+  HipUtils::check_last_error(
+      "Failed to launch Snappy decompression HIP kernel gpu_unsnap");
 }
 
-void gpu_get_uncompressed_sizes(
-  const void* const* device_in_ptr,
-  const size_t* device_in_bytes,
-  size_t* device_out_bytes,
-  int count,
-  hipStream_t stream)
-{
+void gpu_get_uncompressed_sizes(const void *const *device_in_ptr,
+                                const size_t *device_in_bytes,
+                                size_t *device_out_bytes, int count,
+                                hipStream_t stream) {
   dim3 dim_block(1); // NOTE: only single thread active
   dim3 dim_grid(count, 1);
 
   get_uncompressed_sizes_kernel<<<dim_grid, dim_block, 0, stream>>>(
-    device_in_ptr, device_in_bytes, device_out_bytes);
-  HipUtils::check_last_error("Failed to run Snappy kernel gpu_get_uncompressed_sizes");
+      device_in_ptr, device_in_bytes, device_out_bytes);
+  HipUtils::check_last_error(
+      "Failed to run Snappy kernel gpu_get_uncompressed_sizes");
 }
 
-} // hipcomp namespace
+} // namespace hipcomp

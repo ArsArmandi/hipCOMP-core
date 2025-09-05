@@ -1,17 +1,17 @@
 # MIT License
-# 
+#
 # Copyright (c) 2023-2024 Advanced Micro Devices, Inc.
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -34,13 +34,13 @@ def decode_symbols(comp_stream,uncompressed_len,offset=0):
 
     Returns:
         `list`:
-            A list of tuples of size 4 that each contains 
+            A list of tuples of size 4 that each contains
             (1) symbol cursor position, (2) the number of bytes to encode the symbol, (3) the output put stream destination, (4) and the symbol object.
     """
     symbols = []
     dst_pos = 0
     cursor = offset
-    
+
     bytes_left = uncompressed_len
     _log.warn(f"{bytes_left=},{cursor=}")
     while bytes_left > 0:
@@ -56,7 +56,7 @@ def decode_symbols(comp_stream,uncompressed_len,offset=0):
     return symbols
 
 class LZ77Symbol:
-    
+
     def __init__(self,length,
                       copy_offset,
                       comp_stream,
@@ -70,7 +70,7 @@ class LZ77Symbol:
     @property
     def is_literal(self):
         return self.copy_offset < 0
-    
+
     @property
     def is_copy(self):
         return not self.is_literal
@@ -97,11 +97,11 @@ class LZ77Symbol:
                 pass
 
 def symbol_len(b0):
-    pass    
+    pass
 
 
 def parse_symbol(comp_stream,cursor,bytes_left,dst_pos):
-    orig_cursor = cursor 
+    orig_cursor = cursor
 
     def READ_BYTE(idx):
         nonlocal comp_stream
@@ -117,7 +117,7 @@ def parse_symbol(comp_stream,cursor,bytes_left,dst_pos):
             offset = ((b0 & 0xe0) << 3) | b1
             blen   = ((b0 >> 2) & 7) + 4
             cursor += 2
-        else: 
+        else:
             _log.warn(f"{cursor=}: found copy with 6-bit length, 2-byte or 4-byte offset")
             # xxxxxx1x: copy with 6-bit length, 2-byte or 4-byte offset
             offset = b1 | (READ_BYTE(cursor + 2) << 8)
@@ -131,7 +131,7 @@ def parse_symbol(comp_stream,cursor,bytes_left,dst_pos):
         if (offset - 1 >= dst_pos or bytes_left < blen):
             cursor = old_cursor
             _log.warn(f"{cursor=}: out of range or not enough bytes left, {bytes_left=}, {blen=}")
-            return None 
+            return None
         bytes_left -= blen
     elif (b0 < 4 * 4):
         _log.warn(f"{cursor=}: found short literal")
@@ -143,7 +143,7 @@ def parse_symbol(comp_stream,cursor,bytes_left,dst_pos):
         if (bytes_left < blen):
             cursor = old_cursor
             _log.warn(f"{cursor=}: not enough bytes left to construct literal, {bytes_left=}, {blen=}")
-            return None 
+            return None
         bytes_left -= blen
     else:
         _log.warn(f"{cursor=}: found literal")
@@ -156,7 +156,7 @@ def parse_symbol(comp_stream,cursor,bytes_left,dst_pos):
                 blen |= READ_BYTE(cursor + 2) << 8
                 if (num_bytes > 2):
                     blen |= READ_BYTE(cursor + 3) << 16
-                if (num_bytes > 3): 
+                if (num_bytes > 3):
                     blen |= READ_BYTE(cursor + 4) << 24
             cursor += num_bytes
         cursor += 1
@@ -167,9 +167,9 @@ def parse_symbol(comp_stream,cursor,bytes_left,dst_pos):
         if (bytes_left < blen):
             cursor = old_cursor
             _log.warn(f"{cursor=}: not enough bytes left to construct literal, {bytes_left=}, {blen=}")
-            return None 
+            return None
         bytes_left -= blen
-        
+
     return cursor, bytes_left, dst_pos, LZ77Symbol(
         blen,
         offset,
@@ -179,5 +179,3 @@ def parse_symbol(comp_stream,cursor,bytes_left,dst_pos):
 
 def process_symbols(lz77symbols):
     result = bytearray([])
-    
-

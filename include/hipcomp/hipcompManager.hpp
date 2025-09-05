@@ -29,7 +29,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -38,8 +39,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,10 +50,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include "hipcomp.h"
+
 #include <memory>
 #include <vector>
-
-#include "hipcomp.h"
 
 namespace hipcomp {
 
@@ -63,14 +64,15 @@ namespace hipcomp {
 /**
  * Internal memory pool used for compression / decompression configs
  */
-template<typename T>
-struct PinnedPtrPool;
+template <typename T> struct PinnedPtrPool;
 
 /**
- * @brief Config used to aggregate information about the compression of a particular buffer.
- * 
- * Contains a "PinnedPtrHandle" to an hipcompStatus. After the compression is complete,
- * the user can check the result status which resides in pinned host memory.
+ * @brief Config used to aggregate information about the compression of a
+ * particular buffer.
+ *
+ * Contains a "PinnedPtrHandle" to an hipcompStatus. After the compression is
+ * complete, the user can check the result status which resides in pinned host
+ * memory.
  */
 struct CompressionConfig {
 
@@ -86,26 +88,28 @@ public: // API
   /**
    * @brief Construct the config given an hipcompStatus_t memory pool
    */
-  CompressionConfig(PinnedPtrPool<hipcompStatus_t>& pool, size_t uncompressed_buffer_size);
+  CompressionConfig(PinnedPtrPool<hipcompStatus_t> &pool,
+                    size_t uncompressed_buffer_size);
 
   /**
    * @brief Get the raw hipcompStatus_t*
    */
-  hipcompStatus_t* get_status() const;
-  
-  CompressionConfig(CompressionConfig&& other);
-  CompressionConfig(const CompressionConfig& other);
-  CompressionConfig& operator=(CompressionConfig&& other);
-  CompressionConfig& operator=(const CompressionConfig& other);
+  hipcompStatus_t *get_status() const;
+
+  CompressionConfig(CompressionConfig &&other);
+  CompressionConfig(const CompressionConfig &other);
+  CompressionConfig &operator=(CompressionConfig &&other);
+  CompressionConfig &operator=(const CompressionConfig &other);
 
   ~CompressionConfig();
 };
 
 /**
  * @brief Config used to aggregate information about a particular decompression.
- * 
- * Contains a "PinnedPtrHandle" to an hipcompStatus. After the decompression is complete,
- * the user can check the result status which resides in pinned host memory.
+ *
+ * Contains a "PinnedPtrHandle" to an hipcompStatus. After the decompression is
+ * complete, the user can check the result status which resides in pinned host
+ * memory.
  */
 struct DecompressionConfig {
 
@@ -120,17 +124,17 @@ public: // API
   /**
    * @brief Construct the config given an hipcompStatus_t memory pool
    */
-  DecompressionConfig(PinnedPtrPool<hipcompStatus_t>& pool);
+  DecompressionConfig(PinnedPtrPool<hipcompStatus_t> &pool);
 
   /**
    * @brief Get the hipcompStatus_t*
    */
-  hipcompStatus_t* get_status() const;
+  hipcompStatus_t *get_status() const;
 
-  DecompressionConfig(DecompressionConfig&& other);
-  DecompressionConfig(const DecompressionConfig& other);
-  DecompressionConfig& operator=(DecompressionConfig&& other);
-  DecompressionConfig& operator=(const DecompressionConfig& other);
+  DecompressionConfig(DecompressionConfig &&other);
+  DecompressionConfig(const DecompressionConfig &other);
+  DecompressionConfig &operator=(DecompressionConfig &&other);
+  DecompressionConfig &operator=(const DecompressionConfig &other);
 
   ~DecompressionConfig();
 };
@@ -140,97 +144,105 @@ public: // API
  */
 struct hipcompManagerBase {
   /**
-   * @brief Configure the compression. 
+   * @brief Configure the compression.
    *
-   * This routine computes the size of the required result buffer. The result config also
-   * contains the hipcompStatus* that allows error checking. Synchronizes the device (hipMemcpy)
-   * 
+   * This routine computes the size of the required result buffer. The result
+   * config also contains the hipcompStatus* that allows error checking.
+   * Synchronizes the device (hipMemcpy)
+   *
    * @param decomp_buffer_size The uncompressed input data size.
    * \return comp_config Result
    */
-  virtual CompressionConfig configure_compression(const size_t decomp_buffer_size) = 0;
+  virtual CompressionConfig
+  configure_compression(const size_t decomp_buffer_size) = 0;
 
   /**
    * @brief Perform compression asynchronously.
    *
    * @param decomp_buffer The uncompressed input data (GPU accessible).
-   * @param comp_buffer The location to output the compressed data to (GPU accessible).
-   * @param comp_config Resulted from configure_compression for this decomp_buffer.
+   * @param comp_buffer The location to output the compressed data to (GPU
+   * accessible).
+   * @param comp_config Resulted from configure_compression for this
+   * decomp_buffer.
    */
-  virtual void compress(
-      const uint8_t* decomp_buffer, 
-      uint8_t* comp_buffer,
-      const CompressionConfig& comp_config) = 0;
+  virtual void compress(const uint8_t *decomp_buffer, uint8_t *comp_buffer,
+                        const CompressionConfig &comp_config) = 0;
 
   /**
-   * @brief Configure the decompression using a compressed buffer. 
+   * @brief Configure the decompression using a compressed buffer.
    *
-   * Synchronizes the user stream. 
-   * 
-   * In the base case, this only computes the size of the decompressed buffer from the compressed buffer header. 
-   * 
+   * Synchronizes the user stream.
+   *
+   * In the base case, this only computes the size of the decompressed buffer
+   * from the compressed buffer header.
+   *
    * @param comp_buffer The compressed input data (GPU accessible).
    * \return decomp_config Result
    */
-  virtual DecompressionConfig configure_decompression(const uint8_t* comp_buffer) = 0;
+  virtual DecompressionConfig
+  configure_decompression(const uint8_t *comp_buffer) = 0;
 
   /**
-   * @brief Configure the decompression using a CompressionConfig object. 
+   * @brief Configure the decompression using a CompressionConfig object.
    *
-   * Does not synchronize the user stream. 
-   * 
-   * In the base case, this only computes the size of the decompressed buffer from the compressed buffer header. 
-   * 
+   * Does not synchronize the user stream.
+   *
+   * In the base case, this only computes the size of the decompressed buffer
+   * from the compressed buffer header.
+   *
    * @param comp_config The config used to compress a buffer
    * \return decomp_config Result
    */
-  virtual DecompressionConfig configure_decompression(const CompressionConfig& comp_config) = 0;
+  virtual DecompressionConfig
+  configure_decompression(const CompressionConfig &comp_config) = 0;
 
   /**
    * @brief Perform decompression asynchronously.
    *
-   * @param decomp_buffer The location to output the decompressed data to (GPU accessible).
+   * @param decomp_buffer The location to output the decompressed data to (GPU
+   * accessible).
    * @param comp_buffer The compressed input data (GPU accessible).
-   * @param decomp_config Resulted from configure_decompression given this decomp_buffer_size.
-   * Contains hipcompStatus* in CPU/GPU-accessible memory to allow error checking.
+   * @param decomp_config Resulted from configure_decompression given this
+   * decomp_buffer_size. Contains hipcompStatus* in CPU/GPU-accessible memory to
+   * allow error checking.
    */
-  virtual void decompress(
-      uint8_t* decomp_buffer, 
-      const uint8_t* comp_buffer,
-      const DecompressionConfig& decomp_config) = 0;
-  
+  virtual void decompress(uint8_t *decomp_buffer, const uint8_t *comp_buffer,
+                          const DecompressionConfig &decomp_config) = 0;
+
   /**
    * @brief Allows the user to provide a user-allocated scratch buffer.
-   * 
-   * If this routine is not called before compression / decompression is called, the manager
-   * allocates the required scratch buffer. If this is called after the manager has allocated a 
-   * scratch buffer, the manager frees the scratch buffer it allocated then switches to use 
-   * the new user-provided one.
-   * 
-   * @param new_scratch_buffer The location (GPU accessible) to use for comp/decomp scratch space
-   * 
+   *
+   * If this routine is not called before compression / decompression is called,
+   * the manager allocates the required scratch buffer. If this is called after
+   * the manager has allocated a scratch buffer, the manager frees the scratch
+   * buffer it allocated then switches to use the new user-provided one.
+   *
+   * @param new_scratch_buffer The location (GPU accessible) to use for
+   * comp/decomp scratch space
+   *
    */
-  virtual void set_scratch_buffer(uint8_t* new_scratch_buffer) = 0;
+  virtual void set_scratch_buffer(uint8_t *new_scratch_buffer) = 0;
 
-  /** 
+  /**
    * @brief Computes the size of the required scratch space
-   * 
-   * This scratch space size is constant and based on the configuration of the manager and the 
-   * maximum occupancy on the device.
-   * 
+   *
+   * This scratch space size is constant and based on the configuration of the
+   * manager and the maximum occupancy on the device.
+   *
    * \return The required scratch buffer size
-   */ 
+   */
   virtual size_t get_required_scratch_buffer_size() = 0;
-  
-  /** 
-   * @brief Computes the compressed output size of a given buffer 
-   * 
-   * Synchronously copies the size of the compressed buffer to a stack variable for return.
-   * 
+
+  /**
+   * @brief Computes the compressed output size of a given buffer
+   *
+   * Synchronously copies the size of the compressed buffer to a stack variable
+   * for return.
+   *
    * @param comp_buffer The start pointer of the compressed buffer to assess.
    * \return Size of the compressed buffer
-   */ 
-  virtual size_t get_compressed_output_size(uint8_t* comp_buffer) = 0;
+   */
+  virtual size_t get_compressed_output_size(uint8_t *comp_buffer) = 0;
 
   virtual ~hipcompManagerBase() = default;
 };
@@ -243,59 +255,45 @@ protected:
 public:
   virtual ~PimplManager() {}
 
-  PimplManager() 
-    : impl(nullptr)
-  {}
+  PimplManager() : impl(nullptr) {}
 
-  PimplManager(const PimplManager&) = delete;
-  PimplManager& operator=(const PimplManager&) = delete;
+  PimplManager(const PimplManager &) = delete;
+  PimplManager &operator=(const PimplManager &) = delete;
 
-  virtual CompressionConfig configure_compression(const size_t decomp_buffer_size) 
-  {
+  virtual CompressionConfig
+  configure_compression(const size_t decomp_buffer_size) {
     return impl->configure_compression(decomp_buffer_size);
   }
 
-  virtual void compress(
-      const uint8_t* decomp_buffer, 
-      uint8_t* comp_buffer,
-      const CompressionConfig& comp_config)
-  {
-    return impl->compress(
-        decomp_buffer,
-        comp_buffer,
-        comp_config);
+  virtual void compress(const uint8_t *decomp_buffer, uint8_t *comp_buffer,
+                        const CompressionConfig &comp_config) {
+    return impl->compress(decomp_buffer, comp_buffer, comp_config);
   }
 
-  virtual DecompressionConfig configure_decompression(const uint8_t* comp_buffer) 
-  {
+  virtual DecompressionConfig
+  configure_decompression(const uint8_t *comp_buffer) {
     return impl->configure_decompression(comp_buffer);
   }
 
-  virtual DecompressionConfig configure_decompression(const CompressionConfig& comp_config)
-  {
+  virtual DecompressionConfig
+  configure_decompression(const CompressionConfig &comp_config) {
     return impl->configure_decompression(comp_config);
   }
 
-  virtual void decompress(
-      uint8_t* decomp_buffer, 
-      const uint8_t* comp_buffer,
-      const DecompressionConfig& decomp_config)
-  {
+  virtual void decompress(uint8_t *decomp_buffer, const uint8_t *comp_buffer,
+                          const DecompressionConfig &decomp_config) {
     return impl->decompress(decomp_buffer, comp_buffer, decomp_config);
   }
- 
-  virtual void set_scratch_buffer(uint8_t* new_scratch_buffer)
-  {
+
+  virtual void set_scratch_buffer(uint8_t *new_scratch_buffer) {
     return impl->set_scratch_buffer(new_scratch_buffer);
   }
 
-  virtual size_t get_required_scratch_buffer_size()
-  {
+  virtual size_t get_required_scratch_buffer_size() {
     return impl->get_required_scratch_buffer_size();
   }
 
-  virtual size_t get_compressed_output_size(uint8_t* comp_buffer)
-  {
+  virtual size_t get_compressed_output_size(uint8_t *comp_buffer) {
     return impl->get_compressed_output_size(comp_buffer);
   }
 };

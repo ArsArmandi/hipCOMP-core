@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,36 +50,27 @@
 
 #pragma once
 
-#include "hipcomp.h"
 #include "common.h"
+#include "hipcomp.h"
 #include "hipcomp/cascaded.h"
 #include "hipcomp_common_deps/hlif_shared_types.hpp"
 
-namespace hipcomp
-{
+namespace hipcomp {
 
-void cascadedHlifBatchCompress(
-    const CompressArgs& compress_args,
-    const uint32_t max_ctas,
-    hipStream_t stream,
-    const hipcompBatchedCascadedOpts_t* options);
+void cascadedHlifBatchCompress(const CompressArgs &compress_args,
+                               const uint32_t max_ctas, hipStream_t stream,
+                               const hipcompBatchedCascadedOpts_t *options);
 
 void cascadedHlifBatchDecompress(
-    const uint8_t* comp_buffer,
-    uint8_t* decomp_buffer,
-    const size_t raw_chunk_size,
-    uint32_t* ix_chunk,
-    const size_t num_chunks,
-    const size_t* comp_chunk_offsets,
-    const size_t* comp_chunk_sizes,
-    const uint32_t max_ctas,
-    hipStream_t stream,
-    hipcompStatus_t* output_status,
-    const hipcompBatchedCascadedOpts_t* options);
+    const uint8_t *comp_buffer, uint8_t *decomp_buffer,
+    const size_t raw_chunk_size, uint32_t *ix_chunk, const size_t num_chunks,
+    const size_t *comp_chunk_offsets, const size_t *comp_chunk_sizes,
+    const uint32_t max_ctas, hipStream_t stream, hipcompStatus_t *output_status,
+    const hipcompBatchedCascadedOpts_t *options);
 
-size_t
-cascadedHlifDecompMaxBlockOccupancy(const int device_id, hipcompType_t type);
-size_t
-cascadedHlifCompMaxBlockOccupancy(const int device_id, hipcompType_t type);
+size_t cascadedHlifDecompMaxBlockOccupancy(const int device_id,
+                                           hipcompType_t type);
+size_t cascadedHlifCompMaxBlockOccupancy(const int device_id,
+                                         hipcompType_t type);
 
 } // namespace hipcomp

@@ -15,7 +15,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +25,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -38,90 +39,80 @@
 #pragma once
 
 #include "device_functions.cuh"
-#include "snappy/types.h"
-#include "snappy/symbol.cuh"
 #include "snappy/decompression_state.cuh"
+#include "snappy/symbol.cuh"
+#include "snappy/types.h"
 
-namespace hipcomp
-{
-  namespace snappy
-  {
+namespace hipcomp {
+namespace snappy {
 
-    /**
-     * Prefetch byte stream strategy that needs
-     * to be passed ot the Decompressor class.
-     */
-    template <int warpsize, typename UNSNAP_STATE_S,  int PREFETCH_SECTORS, size_t PREFETCH_SLEEP_NS>
-    class PrefetchByteStream
-    {
-    private:
-      using MaskT = typename Mask<warpsize>::type;
-      static constexpr int BATCH_SIZE = UNSNAP_STATE_S::BATCH_SIZE;
-      static constexpr int PREFETCH_SIZE = UNSNAP_STATE_S::PREFETCH_SIZE;
+/**
+ * Prefetch byte stream strategy that needs
+ * to be passed ot the Decompressor class.
+ */
+template <int warpsize, typename UNSNAP_STATE_S, int PREFETCH_SECTORS,
+          size_t PREFETCH_SLEEP_NS>
+class PrefetchByteStream {
+private:
+  using MaskT = typename Mask<warpsize>::type;
+  static constexpr int BATCH_SIZE = UNSNAP_STATE_S::BATCH_SIZE;
+  static constexpr int PREFETCH_SIZE = UNSNAP_STATE_S::PREFETCH_SIZE;
 
-    public:
-      /**
-       * \brief Applies the strategy.
-       *
-       * \param[inout] s decompression state
-       * \param[in] t warp lane index, i.e. threadIdx.x % warpsize.
-       */
-      __device__ static inline void apply(UNSNAP_STATE_S *s, const int t)
-      {
-        const uint8_t *base = s->base;
-        uint32_t end = (uint32_t)(s->end - base);
-        uint32_t align_bytes = (uint32_t)(warpsize - ((warpsize - 1) & reinterpret_cast<uintptr_t>(base)));
-        int32_t pos = min(align_bytes, end);
-        int32_t blen;
-        // Start by prefetching up to the next a (warpsize)B-aligned location
-        if (t < pos)
-        {
-          s->q.buf[t] = base[t];
+public:
+  /**
+   * \brief Applies the strategy.
+   *
+   * \param[inout] s decompression state
+   * \param[in] t warp lane index, i.e. threadIdx.x % warpsize.
+   */
+  __device__ static inline void apply(UNSNAP_STATE_S *s, const int t) {
+    const uint8_t *base = s->base;
+    uint32_t end = (uint32_t)(s->end - base);
+    uint32_t align_bytes =
+        (uint32_t)(warpsize -
+                   ((warpsize - 1) & reinterpret_cast<uintptr_t>(base)));
+    int32_t pos = min(align_bytes, end);
+    int32_t blen;
+    // Start by prefetching up to the next a (warpsize)B-aligned location
+    if (t < pos) {
+      s->q.buf[t] = base[t];
+    }
+    blen = 0;
+    do {
+      SYNCWARP(); //: only relevant for NVIDIA
+      if (!t) {
+        uint32_t minrdpos;
+        s->q.prefetch_wrpos = pos;
+        minrdpos = pos - min(pos, PREFETCH_SIZE - PREFETCH_SECTORS * warpsize);
+        blen = (int)min(PREFETCH_SECTORS * warpsize, end - pos);
+        for (;;) {
+          uint32_t rdpos = s->q.prefetch_rdpos;
+          if (rdpos >= minrdpos)
+            break;
+          if (s->q.prefetch_end) {
+            blen = 0;
+            break;
+          }
+          NANOSLEEP(PREFETCH_SLEEP_NS);
         }
-        blen = 0;
-        do
-        {
-          SYNCWARP(); //: only relevant for NVIDIA
-          if (!t)
-          {
-            uint32_t minrdpos;
-            s->q.prefetch_wrpos = pos;
-            minrdpos = pos - min(pos, PREFETCH_SIZE - PREFETCH_SECTORS * warpsize);
-            blen = (int)min(PREFETCH_SECTORS * warpsize, end - pos);
-            for (;;)
-            {
-              uint32_t rdpos = s->q.prefetch_rdpos;
-              if (rdpos >= minrdpos)
-                break;
-              if (s->q.prefetch_end)
-              {
-                blen = 0;
-                break;
-              }
-              NANOSLEEP(PREFETCH_SLEEP_NS);
-            }
-          }
-          blen = SHFL10(blen);
-          if (blen == PREFETCH_SECTORS * warpsize)
-          {
-            uint8_t vals[PREFETCH_SECTORS];
-            for (int i = 0; i < PREFETCH_SECTORS; ++i)
-              vals[i] = base[pos + t + i * warpsize];
-            for (int i = 0; i < PREFETCH_SECTORS; ++i)
-              s->q.buf[(pos + t + i * warpsize) & (PREFETCH_SIZE - 1)] = vals[i];
-          }
-          else
-          {
-#pragma unroll 1
-            for (int elem = t; elem < blen; elem += warpsize)
-            {
-              s->q.buf[(pos + elem) & (PREFETCH_SIZE - 1)] = base[pos + elem];
-            }
-          }
-          pos += blen;
-        } while (blen > 0);
       }
-    };
+      blen = SHFL10(blen);
+      if (blen == PREFETCH_SECTORS * warpsize) {
+        uint8_t vals[PREFETCH_SECTORS];
+        for (int i = 0; i < PREFETCH_SECTORS; ++i)
+          vals[i] = base[pos + t + i * warpsize];
+        for (int i = 0; i < PREFETCH_SECTORS; ++i)
+          s->q.buf[(pos + t + i * warpsize) & (PREFETCH_SIZE - 1)] = vals[i];
+      } else {
+#pragma unroll 1
+        for (int elem = t; elem < blen; elem += warpsize) {
+          s->q.buf[(pos + elem) & (PREFETCH_SIZE - 1)] = base[pos + elem];
+        }
+      }
+      pos += blen;
+    } while (blen > 0);
+  }
+};
 
-  } // namespace hipcomp
 } // namespace snappy
+} // namespace hipcomp

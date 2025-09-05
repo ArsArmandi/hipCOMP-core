@@ -15,7 +15,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +25,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -38,10 +39,10 @@
 #pragma once
 
 #include "device_functions.cuh"
-#include "snappy/types.h"
-#include "snappy/symbol.cuh"
-#include "snappy/decompression_state.cuh"
 #include "snappy/decompression_decode_strategies.cuh"
+#include "snappy/decompression_state.cuh"
+#include "snappy/symbol.cuh"
+#include "snappy/types.h"
 
 namespace hipcomp {
 namespace snappy {
@@ -49,12 +50,8 @@ namespace snappy {
 /**
  * \brief Decode symbols and output LZ77 batches (single-warp).
  */
-template <int warpsize,
-          typename UNSNAP_STATE_S,
-          typename STRATEGY_2_TO_3,
-          typename STRATEGY_2_TO_5,
-          int DECODE_SLEEP_NS
-          >
+template <int warpsize, typename UNSNAP_STATE_S, typename STRATEGY_2_TO_3,
+          typename STRATEGY_2_TO_5, int DECODE_SLEEP_NS>
 class DecodeSymbols {
 private:
   static constexpr int BATCH_SIZE = UNSNAP_STATE_S::BATCH_SIZE;
@@ -65,34 +62,39 @@ private:
    * by the previous strategies with a single thread per warp.
    *
    * \param[inout] s the decompression context/state.
-   * \param[inout] cur the current read position of the decoder warp, i.e. thread/lane 0.
+   * \param[inout] cur the current read position of the decoder warp, i.e.
+   * thread/lane 0.
    * \param[inout] bytes_left the number of bytes still left to uncompress.
    * \param[inout] dst_pos the write position in the output buffer.
-   * \param[inout] b pointer to the batch of symbols that will be decoded/are already decoded.
-   *                 This volatile pointer may be modified and is thus passed as reference.
-   * \param[inout] batch_len number of symbols that have been already decoded in the current batch. May not be zero
-   *               if another trategy has become active before.
+   * \param[inout] b pointer to the batch of symbols that will be decoded/are
+   * already decoded. This volatile pointer may be modified and is thus passed
+   * as reference.
+   * \param[inout] batch_len number of symbols that have been already decoded in
+   * the current batch. May not be zero if another trategy has become active
+   * before.
    * \param[in]    end end index of the compressed bytes (inclusive)
    */
-  __device__ static inline void decode_and_fill_batch_using_single_thread(
-    UNSNAP_STATE_S *s,       //: inout
-    uint32_t& cur,           //: inout
-    uint32_t& bytes_left,    //: inout
-    uint32_t& dst_pos,       //: inout
-    volatile LZ77Symbol*& b, //: inout
-    int32_t& batch_len,      //: inout
-    uint32_t end             //: in
+  __device__ static inline void
+  decode_and_fill_batch_using_single_thread(UNSNAP_STATE_S *s,       //: inout
+                                            uint32_t &cur,           //: inout
+                                            uint32_t &bytes_left,    //: inout
+                                            uint32_t &dst_pos,       //: inout
+                                            volatile LZ77Symbol *&b, //: inout
+                                            int32_t &batch_len,      //: inout
+                                            uint32_t end             //: in
   ) {
     uint32_t current_prefetch_wrpos = s->q.prefetch_wrpos;
-    while (bytes_left > 0 && batch_len < BATCH_SIZE && min(cur + 5, end) <= current_prefetch_wrpos) {
+    while (bytes_left > 0 && batch_len < BATCH_SIZE &&
+           min(cur + 5, end) <= current_prefetch_wrpos) {
       uint32_t blen, offset;
-      uint8_t b0 = s->q.read_byte(0,cur);
+      uint8_t b0 = s->q.read_byte(0, cur);
       uint32_t cur_orig = cur;
       if (LZ77Symbol::match_copy(b0)) {
-        uint8_t b1 = s->q.read_byte(0,cur + 1);
+        uint8_t b1 = s->q.read_byte(0, cur + 1);
         if (!LZ77Symbol::match_copy_with_2_or_4_offset_bytes(b0)) {
           // xxxxxx01.oooooooo: copy with 3-bit length, 11-bit offset
-          offset = LZ77Symbol::decode_offset_for_copy_with_1_offset_byte(b0,b1);
+          offset =
+              LZ77Symbol::decode_offset_for_copy_with_1_offset_byte(b0, b1);
           blen = LZ77Symbol::decode_len_for_copy_with_1_offset_byte(b0);
           //: offset = ((b0 & 0xe0) << 3) | b1;
           //: blen   = ((b0 >> 2) & 7) + 4;
@@ -100,41 +102,50 @@ private:
         } else {
           // xxxxxx1x: copy with 6-bit length, 2-byte or 4-byte offset
           //: offset = b1 | (s->q.read_byte(cur + 2) << 8);
-          uint8_t b2 = s->q.read_byte(0,cur + 2);
-          if (b0 & 1)  // 4-byte offset
+          uint8_t b2 = s->q.read_byte(0, cur + 2);
+          if (b0 & 1) // 4-byte offset
           {
-            //: offset |= (s->q.read_byte(cur + 3) << 16) | (s->q.read_byte(cur + 4) << 24);
-            offset = LZ77Symbol::decode_offset_for_copy_with_4_offset_bytes(b1, b2,s->q.read_byte(0,cur + 3), s->q.read_byte(0,cur + 4));
+            //: offset |= (s->q.read_byte(cur + 3) << 16) | (s->q.read_byte(cur
+            //: + 4) << 24);
+            offset = LZ77Symbol::decode_offset_for_copy_with_4_offset_bytes(
+                b1, b2, s->q.read_byte(0, cur + 3), s->q.read_byte(0, cur + 4));
             cur += 5;
           } else {
-            offset = LZ77Symbol::decode_offset_for_copy_with_2_offset_bytes(b1, b2);
+            offset =
+                LZ77Symbol::decode_offset_for_copy_with_2_offset_bytes(b1, b2);
             cur += 3;
           }
-          blen = LZ77Symbol::decode_len_for_short_literal_or_large_offset_copy(b0);
+          blen =
+              LZ77Symbol::decode_len_for_short_literal_or_large_offset_copy(b0);
           //: blen = (b0 >> 2) + 1;
         }
         dst_pos += blen;
-        if (offset - 1u >= dst_pos || bytes_left < blen) break;
+        if (offset - 1u >= dst_pos || bytes_left < blen)
+          break;
         bytes_left -= blen;
       } else if (b0 < 4 * 4) {
         // 0000xx00: short literal
-        blen = LZ77Symbol::decode_len_for_short_literal_or_large_offset_copy(b0);
+        blen =
+            LZ77Symbol::decode_len_for_short_literal_or_large_offset_copy(b0);
         offset = -(int32_t)(cur + 1);
         cur += 1 + blen;
         dst_pos += blen;
-        if (bytes_left < blen) break;
+        if (bytes_left < blen)
+          break;
         bytes_left -= blen;
       } else {
         // xxxxxx00: literal
         blen = b0 >> 2;
         if (blen >= 60) {
           uint32_t num_bytes = blen - 59;
-          blen               = s->q.read_byte(0,cur + 1);
+          blen = s->q.read_byte(0, cur + 1);
           if (num_bytes > 1) {
-            blen |= s->q.read_byte(0,cur + 2) << 8;
+            blen |= s->q.read_byte(0, cur + 2) << 8;
             if (num_bytes > 2) {
-              blen |= s->q.read_byte(0,cur + 3) << 16;
-              if (num_bytes > 3) { blen |= s->q.read_byte(0,cur + 4) << 24; }
+              blen |= s->q.read_byte(0, cur + 3) << 16;
+              if (num_bytes > 3) {
+                blen |= s->q.read_byte(0, cur + 4) << 24;
+              }
             }
           }
           cur += num_bytes;
@@ -144,10 +155,11 @@ private:
         offset = -(int32_t)cur;
         cur += blen;
         dst_pos += blen;
-        if (bytes_left < blen) break;
+        if (bytes_left < blen)
+          break;
         bytes_left -= blen;
       }
-      b[batch_len].set(blen,offset,cur_orig," (single-thread)");
+      b[batch_len].set(blen, offset, cur_orig, " (single-thread)");
       //: b[batch_len].len    = blen;
       //: b[batch_len].offset = offset;
       batch_len++;
@@ -159,63 +171,52 @@ private:
    *
    * \note Such literals consume 4/5 bytes including then tag byte.
    */
-  __device__ static inline int match_literal_with_3_or_4_chars(uint32_t tag_byte) {
+  __device__ static inline int
+  match_literal_with_3_or_4_chars(uint32_t tag_byte) {
     // Original code:
     // (tag_byte & ~4) == 8)
     return (tag_byte & 0b11111011) == 0b00001000;
   }
 
-  __device__ static inline void WAIT_FOR_PREFETCHER(
-      UNSNAP_STATE_S *s,
-      uint32_t cur,
-      uint32_t end
-  ) {
-    #pragma unroll(1)  // We don't want unrolling here
+  __device__ static inline void
+  WAIT_FOR_PREFETCHER(UNSNAP_STATE_S *s, uint32_t cur, uint32_t end) {
+#pragma unroll(1) // We don't want unrolling here
     while (s->q.prefetch_wrpos < min(cur + 5 * BATCH_SIZE, end)) {
       NANOSLEEP(DECODE_SLEEP_NS);
     } //: opt: performance var: 5*BATCH_SIZE
   }
 
-  __device__ static inline void WAIT_FOR_SYMBOL_PROCESSOR(
-      UNSNAP_STATE_S *s,
-      int32_t batch
-  ) {
+  __device__ static inline void WAIT_FOR_SYMBOL_PROCESSOR(UNSNAP_STATE_S *s,
+                                                          int32_t batch) {
     while (s->q.batch_len[batch] != 0) {
       NANOSLEEP(100);
     }
   }
 
-  __device__ static inline void SUBMIT_BATCH_TO_SYMBOL_PROCESSOR(
-    UNSNAP_STATE_S *s,
-    int32_t batch,
-    int32_t batch_len
-  ) {
-      s->q.batch_len[batch] = batch_len;
+  __device__ static inline void
+  SUBMIT_BATCH_TO_SYMBOL_PROCESSOR(UNSNAP_STATE_S *s, int32_t batch,
+                                   int32_t batch_len) {
+    s->q.batch_len[batch] = batch_len;
   }
 
-  __device__ static inline void UPDATE_PREFETCHER(
-    UNSNAP_STATE_S *s,
-    int32_t batch,
-    uint32_t cur
-  ) {
+  __device__ static inline void UPDATE_PREFETCHER(UNSNAP_STATE_S *s,
+                                                  int32_t batch, uint32_t cur) {
     s->q.batch_prefetch_rdpos[batch] = cur;
   }
 
 public:
-
   /**
    * \brief Applies the stategy.
    *
    * \param s decompression state
    * \param t warp lane id
    **/
-  __device__ static inline void apply(UNSNAP_STATE_S *s, const uint32_t t)
-  {
-    uint32_t cur        = 0;
-    uint32_t end        = static_cast<uint32_t>(s->end - s->base);
+  __device__ static inline void apply(UNSNAP_STATE_S *s, const uint32_t t) {
+    uint32_t cur = 0;
+    uint32_t end = static_cast<uint32_t>(s->end - s->base);
     uint32_t bytes_left = s->uncompressed_size;
-    uint32_t dst_pos    = 0;
-    int32_t batch       = 0;
+    uint32_t dst_pos = 0;
+    int32_t batch = 0;
 
     for (;;) {
       int32_t batch_len = 0;
@@ -223,76 +224,81 @@ public:
 
       // Wait for prefetcher
       if (t == 0) {
-        WAIT_FOR_PREFETCHER(s,cur,end);
+        WAIT_FOR_PREFETCHER(s, cur, end);
         b = &s->q.batch[batch * BATCH_SIZE];
       }
 
-      // Process small symbols in parallel: for data that does not get good compression,
-      // the stream will consist of a large number of short literals (1-byte or 2-byte)
-      // followed by short repeat runs. This results in many 2-byte or 3-byte symbols
-      // that can all be decoded in parallel once we know the symbol length.
-      uint32_t next_tag_byte = STRATEGY_2_TO_3::apply(
-        s,          //: inout
-        cur,        //: inout
-        bytes_left, //: inout
-        dst_pos,    //: inout
-        b,          //: inout
-        batch_len,  //: inout
-        t
-      );
-      //: post-condition: symbol handled by thread/lane `batch_len-1` is the last decoded symbol
-      //: post-condition: symbol handled by thread/lane `batch_len` is the next NOT decoded symbol
+      // Process small symbols in parallel: for data that does not get good
+      // compression, the stream will consist of a large number of short
+      // literals (1-byte or 2-byte) followed by short repeat runs. This results
+      // in many 2-byte or 3-byte symbols that can all be decoded in parallel
+      // once we know the symbol length.
+      uint32_t next_tag_byte = STRATEGY_2_TO_3::apply(s,          //: inout
+                                                      cur,        //: inout
+                                                      bytes_left, //: inout
+                                                      dst_pos,    //: inout
+                                                      b,          //: inout
+                                                      batch_len,  //: inout
+                                                      t);
+      //: post-condition: symbol handled by thread/lane `batch_len-1` is the
+      //: last decoded symbol post-condition: symbol handled by thread/lane
+      //: `batch_len` is the next NOT decoded symbol
 
       // Check if the batch was stopped by a 3-byte or 4-byte literal
-      // If so, run a slower version of the above that can also handle 3/4-byte literal sequences
-      if (batch_len < BATCH_SIZE - 2 && match_literal_with_3_or_4_chars(next_tag_byte)) {
-        STRATEGY_2_TO_5::apply(
-          s,          //: inout
-          cur,        //: inout
-          bytes_left, //: inout
-          dst_pos,    //: inout
-          b,          //: inout
-          batch_len,  //: inout
-          t
-        );
+      // If so, run a slower version of the above that can also handle 3/4-byte
+      // literal sequences
+      if (batch_len < BATCH_SIZE - 2 &&
+          match_literal_with_3_or_4_chars(next_tag_byte)) {
+        STRATEGY_2_TO_5::apply(s,          //: inout
+                               cur,        //: inout
+                               bytes_left, //: inout
+                               dst_pos,    //: inout
+                               b,          //: inout
+                               batch_len,  //: inout
+                               t);
       }
-      //: post-condition: symbol handled by thread/lane `batch_len-1` is the last decoded symbol
-      //: post-condition: symbol handled by thread/lane `batch_len` is the next NOT decoded symbol
+      //: post-condition: symbol handled by thread/lane `batch_len-1` is the
+      //: last decoded symbol post-condition: symbol handled by thread/lane
+      //: `batch_len` is the next NOT decoded symbol
 
-      if (t == 0) { //: only thread 0 active
-        decode_and_fill_batch_using_single_thread(
-          s,          //: inout
-          cur,        //: inout
-          bytes_left, //: inout
-          dst_pos,    //: inout
-          b,          //: inout
-          batch_len,  //: inout
-          end         //: in
+      if (t == 0) {                                    //: only thread 0 active
+        decode_and_fill_batch_using_single_thread(s,   //: inout
+                                                  cur, //: inout
+                                                  bytes_left, //: inout
+                                                  dst_pos,    //: inout
+                                                  b,          //: inout
+                                                  batch_len,  //: inout
+                                                  end         //: in
         );
         if (batch_len != 0) {
-          SUBMIT_BATCH_TO_SYMBOL_PROCESSOR(s,batch,batch_len);
-          UPDATE_PREFETCHER(s,batch,cur);
+          SUBMIT_BATCH_TO_SYMBOL_PROCESSOR(s, batch, batch_len);
+          UPDATE_PREFETCHER(s, batch, cur);
           batch = (batch + 1) & (BATCH_COUNT - 1);
         }
       }
-      //: post-condition: symbol handled by thread/lane `0` is the last decoded symbol
-      //: post-condition: batch_len and bytes_left from thread/lane `0` is correct and out of sync with the other threads
+      //: post-condition: symbol handled by thread/lane `0` is the last decoded
+      //: symbol post-condition: batch_len and bytes_left from thread/lane `0`
+      //: is correct and out of sync with the other threads
       batch_len = SHFL10(batch_len);
       bytes_left = SHFL10(bytes_left);
       if (t == 0) {
-        WAIT_FOR_SYMBOL_PROCESSOR(s,batch);
+        WAIT_FOR_SYMBOL_PROCESSOR(s, batch);
       }
-      if (bytes_left <= 0) { break; }
+      if (bytes_left <= 0) {
+        break;
+      }
     }
     // shut down
     if (!t) {
-      s->q.prefetch_end     = 1;
+      s->q.prefetch_end = 1;
       s->q.batch_len[batch] = -1;
-      s->bytes_left         = bytes_left;
-      if (bytes_left != 0) { s->error = -2; }
+      s->bytes_left = bytes_left;
+      if (bytes_left != 0) {
+        s->error = -2;
+      }
     }
   }
 };
 
-} // namespace hipcomp
 } // namespace snappy
+} // namespace hipcomp

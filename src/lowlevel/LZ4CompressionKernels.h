@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -52,10 +53,8 @@
 #include "../common.h"
 #include "LZ4Types.h"
 
-namespace hipcomp
-{
-namespace lowlevel
-{
+namespace hipcomp {
+namespace lowlevel {
 
 extern const int COMP_WARPS_PER_CHUNK;
 extern const int DECOMP_WARPS_PER_CHUNK;
@@ -74,29 +73,22 @@ extern const int DECOMP_CHUNKS_PER_BLOCK;
  * @param data_type The type of the input data to compress.
  * @param stream The stream to operate on.
  */
-void lz4BatchCompress(
-    const uint8_t* const* decomp_data_device,
-    const size_t* decomp_sizes_device,
-    const size_t max_chunk_size,
-    const size_t batch_size,
-    void* temp_data,
-    size_t temp_bytes,
-    uint8_t* const* comp_data_device,
-    size_t* const comp_sizes_device,
-    hipcompType_t data_type,
-    hipStream_t stream);
+void lz4BatchCompress(const uint8_t *const *decomp_data_device,
+                      const size_t *decomp_sizes_device,
+                      const size_t max_chunk_size, const size_t batch_size,
+                      void *temp_data, size_t temp_bytes,
+                      uint8_t *const *comp_data_device,
+                      size_t *const comp_sizes_device, hipcompType_t data_type,
+                      hipStream_t stream);
 
-void lz4BatchDecompress(
-    const uint8_t* const* device_in_ptrs,
-    const size_t* device_in_bytes,
-    const size_t* device_out_bytes,
-    const size_t batch_size,
-    void* temp_ptr,
-    const size_t temp_bytes,
-    uint8_t* const* device_out_ptrs,
-    size_t* device_actual_uncompressed_bytes,
-    hipcompStatus_t* device_status_ptrs,
-    hipStream_t stream);
+void lz4BatchDecompress(const uint8_t *const *device_in_ptrs,
+                        const size_t *device_in_bytes,
+                        const size_t *device_out_bytes, const size_t batch_size,
+                        void *temp_ptr, const size_t temp_bytes,
+                        uint8_t *const *device_out_ptrs,
+                        size_t *device_actual_uncompressed_bytes,
+                        hipcompStatus_t *device_status_ptrs,
+                        hipStream_t stream);
 
 /**
  * @brief Calculate the decompressed sizes of each chunk. This is
@@ -110,23 +102,20 @@ void lz4BatchDecompress(
  * @param batch_size The number of compressed chunks
  * @param stream The hip stream to run on
  */
-void lz4BatchGetDecompressSizes(
-    const uint8_t* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    size_t* device_uncompressed_bytes,
-    size_t batch_size,
-    hipStream_t stream);
+void lz4BatchGetDecompressSizes(const uint8_t *const *device_compressed_ptrs,
+                                const size_t *device_compressed_bytes,
+                                size_t *device_uncompressed_bytes,
+                                size_t batch_size, hipStream_t stream);
 
-size_t lz4ComputeChunksInBatch(
-    const size_t* const decomp_data_size,
-    const size_t batch_size,
-    const size_t chunk_size);
+size_t lz4ComputeChunksInBatch(const size_t *const decomp_data_size,
+                               const size_t batch_size,
+                               const size_t chunk_size);
 
-size_t lz4BatchCompressComputeTempSize(
-    const size_t max_chunk_size, const size_t batch_size);
+size_t lz4BatchCompressComputeTempSize(const size_t max_chunk_size,
+                                       const size_t batch_size);
 
-size_t lz4DecompressComputeTempSize(
-    const size_t max_chunks_in_batch, const size_t chunk_size);
+size_t lz4DecompressComputeTempSize(const size_t max_chunks_in_batch,
+                                    const size_t chunk_size);
 
 size_t lz4ComputeMaxSize(const size_t chunk_size);
 

@@ -15,7 +15,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +25,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -43,17 +44,16 @@ namespace snappy {
 /**
  * \brief snappy compressor state
  **/
-template <int HASH_BITS>
- struct snap_state_s {
-  const uint8_t *src;                 /// Ptr to uncompressed data
-  uint32_t src_len;                   /// Uncompressed data length
-  uint8_t *dst_base;                  /// Base ptr to output compressed data
-  uint8_t *dst;                       /// Current ptr to uncompressed data
-  uint8_t *end;                       /// End of uncompressed data buffer
-  volatile uint32_t literal_length;   /// Number of literal bytes
-  volatile uint32_t copy_length;      /// Number of copy bytes
-  volatile uint32_t copy_distance;    /// Distance for copy bytes
-  uint16_t hash_map[1 << HASH_BITS];  /// Low 16-bit offset from hash
+template <int HASH_BITS> struct snap_state_s {
+  const uint8_t *src;                /// Ptr to uncompressed data
+  uint32_t src_len;                  /// Uncompressed data length
+  uint8_t *dst_base;                 /// Base ptr to output compressed data
+  uint8_t *dst;                      /// Current ptr to uncompressed data
+  uint8_t *end;                      /// End of uncompressed data buffer
+  volatile uint32_t literal_length;  /// Number of literal bytes
+  volatile uint32_t copy_length;     /// Number of copy bytes
+  volatile uint32_t copy_distance;   /// Distance for copy bytes
+  uint16_t hash_map[1 << HASH_BITS]; /// Low 16-bit offset from hash
 };
 
 } // namespace snappy

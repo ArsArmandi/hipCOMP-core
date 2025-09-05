@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -54,15 +55,13 @@
 #include <cassert>
 #include <limits>
 
-namespace hipcomp
-{
+namespace hipcomp {
 
 /******************************************************************************
  * CONSTANTS ******************************************************************
  *****************************************************************************/
 
-namespace
-{
+namespace {
 
 constexpr int const BLOCK_SIZE = 1024;
 
@@ -72,20 +71,16 @@ constexpr int const BLOCK_SIZE = 1024;
  * KERNELS ********************************************************************
  *****************************************************************************/
 
-namespace
-{
+namespace {
 
 template <typename VALUE>
-__global__ void deltaKernel(
-    VALUE** const outputPtr,
-    const VALUE* const input,
-    const size_t* const numDevice,
-    const size_t /* maxNum */)
-{
+__global__ void deltaKernel(VALUE **const outputPtr, const VALUE *const input,
+                            const size_t *const numDevice,
+                            const size_t /* maxNum */) {
   const size_t num = *numDevice;
 
   if (BLOCK_SIZE * blockIdx.x < num) {
-    VALUE* const output = *outputPtr;
+    VALUE *const output = *outputPtr;
 
     const int idx = threadIdx.x + BLOCK_SIZE * blockIdx.x;
 
@@ -118,28 +113,23 @@ __global__ void deltaKernel(
  * HELPER FUNCTIONS ***********************************************************
  *****************************************************************************/
 
-namespace
-{
+namespace {
 
 template <typename VALUE>
-void deltaLaunch(
-    void** const outPtr,
-    void const* const in,
-    const size_t* const numDevice,
-    const size_t maxNum,
-    hipStream_t stream)
-{
-  VALUE** const outTypedPtr = reinterpret_cast<VALUE**>(outPtr);
-  const VALUE* const inTyped = static_cast<const VALUE*>(in);
+void deltaLaunch(void **const outPtr, void const *const in,
+                 const size_t *const numDevice, const size_t maxNum,
+                 hipStream_t stream) {
+  VALUE **const outTypedPtr = reinterpret_cast<VALUE **>(outPtr);
+  const VALUE *const inTyped = static_cast<const VALUE *>(in);
 
   const dim3 block(BLOCK_SIZE);
   const dim3 grid(roundUpDiv(maxNum, BLOCK_SIZE));
-  deltaKernel<<<grid, block, 0, stream>>>(
-      outTypedPtr, inTyped, numDevice, maxNum);
+  deltaKernel<<<grid, block, 0, stream>>>(outTypedPtr, inTyped, numDevice,
+                                          maxNum);
   hipError_t err = hipGetLastError();
   if (err != hipSuccess) {
-    throw std::runtime_error(
-        "Failed to launch deltaKernel kernel: " + std::to_string(err));
+    throw std::runtime_error("Failed to launch deltaKernel kernel: " +
+                             std::to_string(err));
   }
 }
 
@@ -149,23 +139,17 @@ void deltaLaunch(
  * PUBLIC STATIC METHODS ******************************************************
  *****************************************************************************/
 
-void DeltaGPU::compress(
-    void* const /* workspace */,
-    const size_t /* workspaceSize*/,
-    const hipcompType_t inType,
-    void** const outPtr,
-    const void* const in,
-    const size_t* const numDevice,
-    const size_t maxNum,
-    hipStream_t stream)
-{
-  HIPCOMP_TYPE_ONE_SWITCH(
-      inType, deltaLaunch, outPtr, in, numDevice, maxNum, stream);
+void DeltaGPU::compress(void *const /* workspace */,
+                        const size_t /* workspaceSize*/,
+                        const hipcompType_t inType, void **const outPtr,
+                        const void *const in, const size_t *const numDevice,
+                        const size_t maxNum, hipStream_t stream) {
+  HIPCOMP_TYPE_ONE_SWITCH(inType, deltaLaunch, outPtr, in, numDevice, maxNum,
+                          stream);
 }
 
-size_t DeltaGPU::requiredWorkspaceSize(
-    const size_t /*num*/, const hipcompType_t /* type */)
-{
+size_t DeltaGPU::requiredWorkspaceSize(const size_t /*num*/,
+                                       const hipcompType_t /* type */) {
   return 0;
 }
 

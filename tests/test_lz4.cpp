@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,13 +50,13 @@
 
 #define CATCH_CONFIG_MAIN
 
+#include "catch.hpp"
 #include "hipcomp.hpp"
 #include "hipcomp/lz4.hpp"
 
-#include "catch.hpp"
-
 #include <assert.h>
 #include <stdlib.h>
+
 #include <vector>
 
 // Test GPU decompression with cascaded compression API //
@@ -63,22 +64,20 @@
 using namespace std;
 using namespace hipcomp;
 
-#define HIP_CHECK(cond)                                                       \
+#define HIP_CHECK(cond)                                                        \
   do {                                                                         \
-    hipError_t err = cond;                                                    \
-    REQUIRE(err == hipSuccess);                                               \
+    hipError_t err = cond;                                                     \
+    REQUIRE(err == hipSuccess);                                                \
   } while (false)
 
 /******************************************************************************
  * HELPER FUNCTIONS ***********************************************************
  *****************************************************************************/
 
-namespace
-{
+namespace {
 
 template <typename T>
-std::vector<T> buildRuns(const size_t numRuns, const size_t runSize)
-{
+std::vector<T> buildRuns(const size_t numRuns, const size_t runSize) {
   std::vector<T> input;
   for (size_t i = 0; i < numRuns; i++) {
     for (size_t j = 0; j < runSize; j++) {
@@ -90,12 +89,12 @@ std::vector<T> buildRuns(const size_t numRuns, const size_t runSize)
 }
 
 template <typename T>
-void test_lz4(const std::vector<T>& input, hipcompType_t data_type, const size_t chunk_size = 1 << 16)
-{
+void test_lz4(const std::vector<T> &input, hipcompType_t data_type,
+              const size_t chunk_size = 1 << 16) {
   // create GPU only input buffer
-  T* d_in_data;
+  T *d_in_data;
   const size_t in_bytes = sizeof(T) * input.size();
-  HIP_CHECK(hipMalloc((void**)&d_in_data, in_bytes));
+  HIP_CHECK(hipMalloc((void **)&d_in_data, in_bytes));
   HIP_CHECK(
       hipMemcpy(d_in_data, input.data(), in_bytes, hipMemcpyHostToDevice));
 
@@ -106,13 +105,11 @@ void test_lz4(const std::vector<T>& input, hipcompType_t data_type, const size_t
   auto comp_config = manager.configure_compression(in_bytes);
 
   // Allocate output buffer
-  uint8_t* d_comp_out;
+  uint8_t *d_comp_out;
   HIP_CHECK(hipMalloc(&d_comp_out, comp_config.max_compressed_buffer_size));
 
-  manager.compress(
-      reinterpret_cast<const uint8_t*>(d_in_data),
-      d_comp_out,
-      comp_config);
+  manager.compress(reinterpret_cast<const uint8_t *>(d_in_data), d_comp_out,
+                   comp_config);
 
   HIP_CHECK(hipStreamSynchronize(stream));
 
@@ -121,7 +118,7 @@ void test_lz4(const std::vector<T>& input, hipcompType_t data_type, const size_t
   HIP_CHECK(hipFree(d_in_data));
 
   // Test to make sure copying the compressed file is ok
-  uint8_t* copied = 0;
+  uint8_t *copied = 0;
   HIP_CHECK(hipMalloc(&copied, comp_out_bytes));
   HIP_CHECK(
       hipMemcpy(copied, d_comp_out, comp_out_bytes, hipMemcpyDeviceToDevice));
@@ -130,23 +127,21 @@ void test_lz4(const std::vector<T>& input, hipcompType_t data_type, const size_t
 
   auto decomp_config = manager.configure_decompression(d_comp_out);
 
-  T* out_ptr;
+  T *out_ptr;
   HIP_CHECK(hipMalloc(&out_ptr, decomp_config.decomp_data_size));
 
   // make sure the data won't match input if not written to, so we can verify
   // correctness
   HIP_CHECK(hipMemset(out_ptr, 0, decomp_config.decomp_data_size));
 
-  manager.decompress(
-      reinterpret_cast<uint8_t*>(out_ptr),
-      d_comp_out,
-      decomp_config);
+  manager.decompress(reinterpret_cast<uint8_t *>(out_ptr), d_comp_out,
+                     decomp_config);
   HIP_CHECK(hipStreamSynchronize(stream));
 
   // Copy result back to host
   std::vector<T> res(input.size());
-  HIP_CHECK(hipMemcpy(
-      &res[0], out_ptr, input.size() * sizeof(T), hipMemcpyDeviceToHost));
+  HIP_CHECK(hipMemcpy(&res[0], out_ptr, input.size() * sizeof(T),
+                      hipMemcpyDeviceToHost));
 
   // Verify correctness
   REQUIRE(res == input);
@@ -161,8 +156,7 @@ void test_lz4(const std::vector<T>& input, hipcompType_t data_type, const size_t
  * UNIT TESTS *****************************************************************
  *****************************************************************************/
 
-TEST_CASE("comp/decomp LZ4-small", "[hipcomp]")
-{
+TEST_CASE("comp/decomp LZ4-small", "[hipcomp]") {
   using T = int;
 
   std::vector<T> input = {0, 2, 2, 3, 0, 0, 0, 0, 0, 3, 1, 1, 1, 1, 1, 2, 3, 3};
@@ -170,8 +164,7 @@ TEST_CASE("comp/decomp LZ4-small", "[hipcomp]")
   test_lz4(input, HIPCOMP_TYPE_INT);
 }
 
-TEST_CASE("comp/decomp LZ4-1", "[hipcomp]")
-{
+TEST_CASE("comp/decomp LZ4-1", "[hipcomp]") {
   using T = int;
 
   const int num_elems = 500;
@@ -183,8 +176,7 @@ TEST_CASE("comp/decomp LZ4-1", "[hipcomp]")
   test_lz4(input, HIPCOMP_TYPE_INT);
 }
 
-TEST_CASE("comp/decomp LZ4-all-small-sizes", "[hipcomp][small]")
-{
+TEST_CASE("comp/decomp LZ4-all-small-sizes", "[hipcomp][small]") {
   using T = uint8_t;
 
   for (int total = 1; total < 4096; ++total) {
@@ -193,8 +185,7 @@ TEST_CASE("comp/decomp LZ4-all-small-sizes", "[hipcomp][small]")
   }
 }
 
-TEST_CASE("comp/decomp LZ4-multichunk", "[hipcomp][large]")
-{
+TEST_CASE("comp/decomp LZ4-multichunk", "[hipcomp][large]") {
   using T = int;
 
   for (int total = 10; total < (1 << 24); total = total * 2 + 7) {
@@ -203,8 +194,7 @@ TEST_CASE("comp/decomp LZ4-multichunk", "[hipcomp][large]")
   }
 }
 
-TEST_CASE("comp/decomp LZ4-small-uint8", "[hipcomp][small]")
-{
+TEST_CASE("comp/decomp LZ4-small-uint8", "[hipcomp][small]") {
   using T = uint8_t;
 
   for (size_t num = 1; num < 1 << 18; num = num * 2 + 1) {
@@ -213,8 +203,7 @@ TEST_CASE("comp/decomp LZ4-small-uint8", "[hipcomp][small]")
   }
 }
 
-TEST_CASE("comp/decomp LZ4-small-uint16", "[hipcomp][small]")
-{
+TEST_CASE("comp/decomp LZ4-small-uint16", "[hipcomp][small]") {
   using T = uint16_t;
 
   for (size_t num = 1; num < 1 << 18; num = num * 2 + 1) {
@@ -223,8 +212,7 @@ TEST_CASE("comp/decomp LZ4-small-uint16", "[hipcomp][small]")
   }
 }
 
-TEST_CASE("comp/decomp LZ4-small-uint32", "[hipcomp][small]")
-{
+TEST_CASE("comp/decomp LZ4-small-uint32", "[hipcomp][small]") {
   using T = uint32_t;
 
   for (size_t num = 1; num < 1 << 18; num = num * 2 + 1) {
@@ -233,8 +221,7 @@ TEST_CASE("comp/decomp LZ4-small-uint32", "[hipcomp][small]")
   }
 }
 
-TEST_CASE("comp/decomp LZ4-small-uint64", "[hipcomp][small]")
-{
+TEST_CASE("comp/decomp LZ4-small-uint64", "[hipcomp][small]") {
   using T = uint64_t;
 
   for (size_t num = 1; num < 1 << 18; num = num * 2 + 1) {
@@ -244,16 +231,14 @@ TEST_CASE("comp/decomp LZ4-small-uint64", "[hipcomp][small]")
   }
 }
 
-TEST_CASE("comp/decomp LZ4-chunksizes-uint64", "[hipcomp][small]")
-{
+TEST_CASE("comp/decomp LZ4-chunksizes-uint64", "[hipcomp][small]") {
   using T = uint64_t;
 
   const size_t num = 2000000;
 
   // NOTE: the LZ4 scratch space for HLIF scales with the maximum number of
   // CTAs and the chunk size, so very large chunks would result in OOM
-  std::vector<size_t> chunk_sizes{
-      32768, 32769, 50000, 65535, 65536, 90103};
+  std::vector<size_t> chunk_sizes{32768, 32769, 50000, 65535, 65536, 90103};
 
   for (const size_t chunk : chunk_sizes) {
     std::vector<T> input = buildRuns<T>(num, 5);
@@ -261,19 +246,15 @@ TEST_CASE("comp/decomp LZ4-chunksizes-uint64", "[hipcomp][small]")
   }
 }
 
-TEST_CASE("comp/decomp LZ4-none-aligned-sizes", "[hipcomp][small]")
-{
-  std::vector<size_t> input_sizes = { 1, 33, 1021 };
+TEST_CASE("comp/decomp LZ4-none-aligned-sizes", "[hipcomp][small]") {
+  std::vector<size_t> input_sizes = {1, 33, 1021};
 
-  std::vector<hipcompType_t> data_types = {
-    HIPCOMP_TYPE_BITS,
-    HIPCOMP_TYPE_CHAR,
-    HIPCOMP_TYPE_SHORT,
-    HIPCOMP_TYPE_INT
-  };
+  std::vector<hipcompType_t> data_types = {HIPCOMP_TYPE_BITS, HIPCOMP_TYPE_CHAR,
+                                           HIPCOMP_TYPE_SHORT,
+                                           HIPCOMP_TYPE_INT};
   for (auto size : input_sizes) {
     std::vector<uint8_t> input = buildRuns<uint8_t>(1, size);
-    for (auto type : data_types ) {
+    for (auto type : data_types) {
       test_lz4(input, type);
     }
   }

@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -48,243 +49,170 @@
 // SOFTWARE.
 
 #include "CascadedKernels.cuh"
-#include "highlevel/CascadedHlifKernels.h"
-#include "hipcomp_common_deps/hlif_shared.cuh"
-#include "hipcomp/cascaded.h"
 #include "HipUtils.h"
+#include "highlevel/CascadedHlifKernels.h"
+#include "hipcomp/cascaded.h"
+#include "hipcomp_common_deps/hlif_shared.cuh"
 
 namespace hipcomp {
 
-template <
-    typename data_type,
-    typename size_type,
-    int threadblock_size,
-    int chunk_size = default_chunk_size>
-struct cascaded_compress_wrapper : hlif_compress_wrapper
-{
+template <typename data_type, typename size_type, int threadblock_size,
+          int chunk_size = default_chunk_size>
+struct cascaded_compress_wrapper : hlif_compress_wrapper {
 private:
-  hipcompStatus_t* status;
+  hipcompStatus_t *status;
   const hipcompBatchedCascadedOpts_t options;
 
 public:
-  __device__ cascaded_compress_wrapper(
-      const hipcompBatchedCascadedOpts_t options,
-      uint8_t* /*tmp_buffer*/,
-      uint8_t* /*share_buffer*/,
-      hipcompStatus_t* status) :
-      status(status), options(options)
-  {}
-      
-  __device__ void compress_chunk(
-      uint8_t* tmp_output_buffer,
-      const uint8_t* this_decomp_buffer,
-      const size_t decomp_size,
-      const size_t max_comp_chunk_size,
-      size_t* comp_chunk_size)
-  {
-    do_cascaded_compression_kernel<
-        data_type,
-        size_type,
-        threadblock_size,
-        chunk_size>(
-        1,
-        0,
-        1,
-        reinterpret_cast<const data_type* const*>(&this_decomp_buffer),
-        &decomp_size,
-        reinterpret_cast<void* const*>(&tmp_output_buffer),
-        comp_chunk_size,
-        options);
+  __device__
+  cascaded_compress_wrapper(const hipcompBatchedCascadedOpts_t options,
+                            uint8_t * /*tmp_buffer*/,
+                            uint8_t * /*share_buffer*/, hipcompStatus_t *status)
+      : status(status), options(options) {}
+
+  __device__ void compress_chunk(uint8_t *tmp_output_buffer,
+                                 const uint8_t *this_decomp_buffer,
+                                 const size_t decomp_size,
+                                 const size_t max_comp_chunk_size,
+                                 size_t *comp_chunk_size) {
+    do_cascaded_compression_kernel<data_type, size_type, threadblock_size,
+                                   chunk_size>(
+        1, 0, 1,
+        reinterpret_cast<const data_type *const *>(&this_decomp_buffer),
+        &decomp_size, reinterpret_cast<void *const *>(&tmp_output_buffer),
+        comp_chunk_size, options);
   }
 
-  __device__ hipcompStatus_t& get_output_status() {
-    return *status;
-  }
+  __device__ hipcompStatus_t &get_output_status() { return *status; }
 
-  __device__ FormatType get_format_type() {
-    return FormatType::Cascaded;
-  }
+  __device__ FormatType get_format_type() { return FormatType::Cascaded; }
 };
 
-template <
-    typename data_type,
-    typename size_type,
-    int threadblock_size,
-    int chunk_size = default_chunk_size>
-struct cascaded_decompress_wrapper : hlif_decompress_wrapper
-{
+template <typename data_type, typename size_type, int threadblock_size,
+          int chunk_size = default_chunk_size>
+struct cascaded_decompress_wrapper : hlif_decompress_wrapper {
 
 private:
-  hipcompStatus_t* status;
+  hipcompStatus_t *status;
   const hipcompBatchedCascadedOpts_t options;
 
 public:
-  __device__ cascaded_decompress_wrapper(
-      const hipcompBatchedCascadedOpts_t options,
-      uint8_t* /*shared_buffer*/,
-      hipcompStatus_t* status) :
-      status(status), options(options)
-  {}
-      
-  __device__ void decompress_chunk(
-      uint8_t* decomp_buffer,
-      const uint8_t* comp_buffer,
-      const size_t comp_chunk_size,
-      const size_t decomp_buffer_size)
-  {
+  __device__
+  cascaded_decompress_wrapper(const hipcompBatchedCascadedOpts_t options,
+                              uint8_t * /*shared_buffer*/,
+                              hipcompStatus_t *status)
+      : status(status), options(options) {}
+
+  __device__ void decompress_chunk(uint8_t *decomp_buffer,
+                                   const uint8_t *comp_buffer,
+                                   const size_t comp_chunk_size,
+                                   const size_t decomp_buffer_size) {
     size_t actual_decompressed_bytes;
     hipcompStatus_t status;
 
     // allocate shmem and run fcn for data_type
-    constexpr int shmem_size = compute_smem_size<
-        chunk_size,
-        sizeof(data_type),
-        ((sizeof(data_type) <= 4) ? 4 : 8)>();
+    constexpr int shmem_size =
+        compute_smem_size<chunk_size, sizeof(data_type),
+                          ((sizeof(data_type) <= 4) ? 4 : 8)>();
     __shared__ uint8_t shmem[shmem_size];
 
-    cascaded_decompression_fcn<
-        data_type,
-        size_type,
-        threadblock_size,
-        chunk_size>(
-        1,
-        0,
-        1,
-        reinterpret_cast<const void* const*>(&comp_buffer),
-        &comp_chunk_size,
-        reinterpret_cast<void* const*>(&decomp_buffer),
-        &decomp_buffer_size,
-        &actual_decompressed_bytes,
-        shmem,
-        &status);
+    cascaded_decompression_fcn<data_type, size_type, threadblock_size,
+                               chunk_size>(
+        1, 0, 1, reinterpret_cast<const void *const *>(&comp_buffer),
+        &comp_chunk_size, reinterpret_cast<void *const *>(&decomp_buffer),
+        &decomp_buffer_size, &actual_decompressed_bytes, shmem, &status);
   }
 
-  __device__ hipcompStatus_t& get_output_status() {
-    return *status;
-  }
+  __device__ hipcompStatus_t &get_output_status() { return *status; }
 };
 
-void cascadedHlifBatchCompress(
-    const CompressArgs& compress_args,
-    const uint32_t max_ctas,
-    hipStream_t stream,
-    const hipcompBatchedCascadedOpts_t* options)
-{
+void cascadedHlifBatchCompress(const CompressArgs &compress_args,
+                               const uint32_t max_ctas, hipStream_t stream,
+                               const hipcompBatchedCascadedOpts_t *options) {
   const dim3 batch_size(max_ctas);
   constexpr int threadblock_size = cascaded_compress_threadblock_size;
 
   const hipcompType_t type = options->type;
-HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
-  constexpr int WS = HIPCOMP_WARPSIZE;
-  if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
-    HlifCompressBatchKernel<WS,
-        cascaded_compress_wrapper<uint8_t, size_t, threadblock_size>,
-        const hipcompBatchedCascadedOpts_t&>
-        <<<batch_size, threadblock_size, 0, stream>>>(compress_args, *options);
-  } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
-    HlifCompressBatchKernel<WS,
-        cascaded_compress_wrapper<uint16_t, size_t, threadblock_size>,
-        const hipcompBatchedCascadedOpts_t&>
-        <<<batch_size, threadblock_size, 0, stream>>>(compress_args, *options);
-  } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
-    HlifCompressBatchKernel<WS,
-        cascaded_compress_wrapper<uint32_t, size_t, threadblock_size>,
-        const hipcompBatchedCascadedOpts_t&>
-        <<<batch_size, threadblock_size, 0, stream>>>(compress_args, *options);
-  } else if (type == HIPCOMP_TYPE_LONGLONG || type == HIPCOMP_TYPE_ULONGLONG) {
-    HlifCompressBatchKernel<WS,
-        cascaded_compress_wrapper<uint64_t, size_t, threadblock_size>,
-        const hipcompBatchedCascadedOpts_t&>
-        <<<batch_size, threadblock_size, 0, stream>>>(compress_args, *options);
-  }
-)
+  HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(
+      -1, constexpr int WS = HIPCOMP_WARPSIZE;
+      if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
+        HlifCompressBatchKernel<
+            WS, cascaded_compress_wrapper<uint8_t, size_t, threadblock_size>,
+            const hipcompBatchedCascadedOpts_t &>
+            <<<batch_size, threadblock_size, 0, stream>>>(compress_args,
+                                                          *options);
+      } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
+        HlifCompressBatchKernel<
+            WS, cascaded_compress_wrapper<uint16_t, size_t, threadblock_size>,
+            const hipcompBatchedCascadedOpts_t &>
+            <<<batch_size, threadblock_size, 0, stream>>>(compress_args,
+                                                          *options);
+      } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
+        HlifCompressBatchKernel<
+            WS, cascaded_compress_wrapper<uint32_t, size_t, threadblock_size>,
+            const hipcompBatchedCascadedOpts_t &>
+            <<<batch_size, threadblock_size, 0, stream>>>(compress_args,
+                                                          *options);
+      } else if (type == HIPCOMP_TYPE_LONGLONG ||
+                 type == HIPCOMP_TYPE_ULONGLONG) {
+        HlifCompressBatchKernel<
+            WS, cascaded_compress_wrapper<uint64_t, size_t, threadblock_size>,
+            const hipcompBatchedCascadedOpts_t &>
+            <<<batch_size, threadblock_size, 0, stream>>>(compress_args,
+                                                          *options);
+      })
 }
 
 void cascadedHlifBatchDecompress(
-    const uint8_t* comp_buffer, 
-    uint8_t* decomp_buffer, 
-    const size_t raw_chunk_size,
-    uint32_t* ix_chunk,
-    const size_t num_chunks,
-    const size_t* comp_chunk_offsets,
-    const size_t* comp_chunk_sizes,
-    const uint32_t max_ctas,
-    hipStream_t stream,
-    hipcompStatus_t* output_status,
-    const hipcompBatchedCascadedOpts_t* options)
-{
+    const uint8_t *comp_buffer, uint8_t *decomp_buffer,
+    const size_t raw_chunk_size, uint32_t *ix_chunk, const size_t num_chunks,
+    const size_t *comp_chunk_offsets, const size_t *comp_chunk_sizes,
+    const uint32_t max_ctas, hipStream_t stream, hipcompStatus_t *output_status,
+    const hipcompBatchedCascadedOpts_t *options) {
   const dim3 batch_size(max_ctas);
   constexpr int threadblock_size = cascaded_decompress_threadblock_size;
 
   const hipcompType_t type = options->type;
-HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
-  constexpr int WS = HIPCOMP_WARPSIZE;
-  if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
-    HlifDecompressBatchKernel<WS,
-        cascaded_decompress_wrapper<uint8_t, size_t, threadblock_size>,
-        1,
-        const hipcompBatchedCascadedOpts_t&>
-        <<<batch_size, threadblock_size, 0, stream>>>(
-            comp_buffer,
-            decomp_buffer,
-            raw_chunk_size,
-            ix_chunk,
-            num_chunks,
-            comp_chunk_offsets,
-            comp_chunk_sizes,
-            output_status,
-            *options);
-  } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
-    HlifDecompressBatchKernel<WS,
-        cascaded_decompress_wrapper<uint16_t, size_t, threadblock_size>,
-        1,
-        const hipcompBatchedCascadedOpts_t&>
-        <<<batch_size, threadblock_size, 0, stream>>>(
-            comp_buffer,
-            decomp_buffer,
-            raw_chunk_size,
-            ix_chunk,
-            num_chunks,
-            comp_chunk_offsets,
-            comp_chunk_sizes,
-            output_status,
-            *options);
-  } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
-    HlifDecompressBatchKernel<WS,
-        cascaded_decompress_wrapper<uint32_t, size_t, threadblock_size>,
-        1,
-        const hipcompBatchedCascadedOpts_t&>
-        <<<batch_size, threadblock_size, 0, stream>>>(
-            comp_buffer,
-            decomp_buffer,
-            raw_chunk_size,
-            ix_chunk,
-            num_chunks,
-            comp_chunk_offsets,
-            comp_chunk_sizes,
-            output_status,
-            *options);
-  } else if (type == HIPCOMP_TYPE_LONGLONG || type == HIPCOMP_TYPE_ULONGLONG) {
-    HlifDecompressBatchKernel<WS,
-        cascaded_decompress_wrapper<uint64_t, size_t, threadblock_size>,
-        1,
-        const hipcompBatchedCascadedOpts_t&>
-        <<<batch_size, threadblock_size, 0, stream>>>(
-            comp_buffer,
-            decomp_buffer,
-            raw_chunk_size,
-            ix_chunk,
-            num_chunks,
-            comp_chunk_offsets,
-            comp_chunk_sizes,
-            output_status,
-            *options);
-  }
-)
+  HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(
+      -1, constexpr int WS = HIPCOMP_WARPSIZE;
+      if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
+        HlifDecompressBatchKernel<
+            WS, cascaded_decompress_wrapper<uint8_t, size_t, threadblock_size>,
+            1, const hipcompBatchedCascadedOpts_t &>
+            <<<batch_size, threadblock_size, 0, stream>>>(
+                comp_buffer, decomp_buffer, raw_chunk_size, ix_chunk,
+                num_chunks, comp_chunk_offsets, comp_chunk_sizes, output_status,
+                *options);
+      } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
+        HlifDecompressBatchKernel<
+            WS, cascaded_decompress_wrapper<uint16_t, size_t, threadblock_size>,
+            1, const hipcompBatchedCascadedOpts_t &>
+            <<<batch_size, threadblock_size, 0, stream>>>(
+                comp_buffer, decomp_buffer, raw_chunk_size, ix_chunk,
+                num_chunks, comp_chunk_offsets, comp_chunk_sizes, output_status,
+                *options);
+      } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
+        HlifDecompressBatchKernel<
+            WS, cascaded_decompress_wrapper<uint32_t, size_t, threadblock_size>,
+            1, const hipcompBatchedCascadedOpts_t &>
+            <<<batch_size, threadblock_size, 0, stream>>>(
+                comp_buffer, decomp_buffer, raw_chunk_size, ix_chunk,
+                num_chunks, comp_chunk_offsets, comp_chunk_sizes, output_status,
+                *options);
+      } else if (type == HIPCOMP_TYPE_LONGLONG ||
+                 type == HIPCOMP_TYPE_ULONGLONG) {
+        HlifDecompressBatchKernel<
+            WS, cascaded_decompress_wrapper<uint64_t, size_t, threadblock_size>,
+            1, const hipcompBatchedCascadedOpts_t &>
+            <<<batch_size, threadblock_size, 0, stream>>>(
+                comp_buffer, decomp_buffer, raw_chunk_size, ix_chunk,
+                num_chunks, comp_chunk_offsets, comp_chunk_sizes, output_status,
+                *options);
+      })
 }
 
-size_t cascadedHlifCompMaxBlockOccupancy(const int device_id, hipcompType_t type)
-{
+size_t cascadedHlifCompMaxBlockOccupancy(const int device_id,
+                                         hipcompType_t type) {
   const auto device_prop = HipUtils::device_properties(device_id);
 
   int numBlocksPerSM = 1;
@@ -295,57 +223,64 @@ size_t cascadedHlifCompMaxBlockOccupancy(const int device_id, hipcompType_t type
   // The values will almost certainly be identical for all data types,
   // but just in case, handle types separately.
 
-HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(device_id,
-  constexpr int WS = HIPCOMP_WARPSIZE;
-  if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
-    HipUtils::check(
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSM,
-        HlifCompressBatchKernel<WS,
-            cascaded_compress_wrapper<uint8_t, size_t, threadblock_size>,
-            const hipcompBatchedCascadedOpts_t&>,
-        threadblock_size,
-        runtime_shmem_size),
-      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
-  } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
-    HipUtils::check(
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSM,
-        HlifCompressBatchKernel<WS,
-            cascaded_compress_wrapper<uint16_t, size_t, threadblock_size>,
-            const hipcompBatchedCascadedOpts_t&>,
-        threadblock_size,
-        runtime_shmem_size),
-      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
-  } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
-    HipUtils::check(
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSM,
-        HlifCompressBatchKernel<WS,
-            cascaded_compress_wrapper<uint32_t, size_t, threadblock_size>,
-            const hipcompBatchedCascadedOpts_t&>,
-        threadblock_size,
-        runtime_shmem_size),
-      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
-  } else if (type == HIPCOMP_TYPE_LONGLONG || type == HIPCOMP_TYPE_ULONGLONG) {
-    HipUtils::check(
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSM,
-        HlifCompressBatchKernel<WS,
-            cascaded_compress_wrapper<uint64_t, size_t, threadblock_size>,
-            const hipcompBatchedCascadedOpts_t&>,
-        threadblock_size,
-        runtime_shmem_size),
-      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
-  }
-)
+  HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(
+      device_id, constexpr int WS = HIPCOMP_WARPSIZE;
+      if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
+        HipUtils::check(
+            hipOccupancyMaxActiveBlocksPerMultiprocessor(
+                &numBlocksPerSM,
+                HlifCompressBatchKernel<WS,
+                                        cascaded_compress_wrapper<
+                                            uint8_t, size_t, threadblock_size>,
+                                        const hipcompBatchedCascadedOpts_t &>,
+                threadblock_size, runtime_shmem_size),
+            "failed to to obtain max active blocks per multi-processor for "
+            "device " +
+                std::to_string(device_id));
+      } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
+        HipUtils::check(
+            hipOccupancyMaxActiveBlocksPerMultiprocessor(
+                &numBlocksPerSM,
+                HlifCompressBatchKernel<WS,
+                                        cascaded_compress_wrapper<
+                                            uint16_t, size_t, threadblock_size>,
+                                        const hipcompBatchedCascadedOpts_t &>,
+                threadblock_size, runtime_shmem_size),
+            "failed to to obtain max active blocks per multi-processor for "
+            "device " +
+                std::to_string(device_id));
+      } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
+        HipUtils::check(
+            hipOccupancyMaxActiveBlocksPerMultiprocessor(
+                &numBlocksPerSM,
+                HlifCompressBatchKernel<WS,
+                                        cascaded_compress_wrapper<
+                                            uint32_t, size_t, threadblock_size>,
+                                        const hipcompBatchedCascadedOpts_t &>,
+                threadblock_size, runtime_shmem_size),
+            "failed to to obtain max active blocks per multi-processor for "
+            "device " +
+                std::to_string(device_id));
+      } else if (type == HIPCOMP_TYPE_LONGLONG ||
+                 type == HIPCOMP_TYPE_ULONGLONG) {
+        HipUtils::check(
+            hipOccupancyMaxActiveBlocksPerMultiprocessor(
+                &numBlocksPerSM,
+                HlifCompressBatchKernel<WS,
+                                        cascaded_compress_wrapper<
+                                            uint64_t, size_t, threadblock_size>,
+                                        const hipcompBatchedCascadedOpts_t &>,
+                threadblock_size, runtime_shmem_size),
+            "failed to to obtain max active blocks per multi-processor for "
+            "device " +
+                std::to_string(device_id));
+      })
 
   return device_prop.multiProcessorCount * numBlocksPerSM;
 }
 
-size_t cascadedHlifDecompMaxBlockOccupancy(
-    const int device_id, hipcompType_t type)
-{
+size_t cascadedHlifDecompMaxBlockOccupancy(const int device_id,
+                                           hipcompType_t type) {
   const auto device_prop = HipUtils::device_properties(device_id);
   const int warpsize = device_prop.warpSize;
 
@@ -357,56 +292,60 @@ size_t cascadedHlifDecompMaxBlockOccupancy(
   // The values will almost certainly be identical for all data types,
   // but just in case, handle types separately.
 
-HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(device_id,
-  constexpr int WS = HIPCOMP_WARPSIZE;
-  if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
-    HipUtils::check(
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSM,
-        HlifDecompressBatchKernel<WS,
-            cascaded_decompress_wrapper<uint8_t, size_t, threadblock_size>,
-            1,
-            const hipcompBatchedCascadedOpts_t&>,
-        threadblock_size,
-        runtime_shmem_size),
-      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
-  } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
-    HipUtils::check(
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSM,
-        HlifDecompressBatchKernel<WS,
-            cascaded_decompress_wrapper<uint16_t, size_t, threadblock_size>,
-            1,
-            const hipcompBatchedCascadedOpts_t&>,
-        threadblock_size,
-        runtime_shmem_size),
-      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
-  } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
-    HipUtils::check(
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSM,
-        HlifDecompressBatchKernel<WS,
-            cascaded_decompress_wrapper<uint32_t, size_t, threadblock_size>,
-            1,
-            const hipcompBatchedCascadedOpts_t&>,
-        threadblock_size,
-        runtime_shmem_size),
-        "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
-  } else if (type == HIPCOMP_TYPE_LONGLONG || type == HIPCOMP_TYPE_ULONGLONG) {
-    HipUtils::check(
-      hipOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSM,
-        HlifDecompressBatchKernel<WS,
-            cascaded_decompress_wrapper<uint64_t, size_t, threadblock_size>,
-            1,
-            const hipcompBatchedCascadedOpts_t&>,
-        threadblock_size,
-        runtime_shmem_size),
-      "failed to to obtain max active blocks per multi-processor for device " + std::to_string(device_id));
-  }
-)
+  HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(
+      device_id, constexpr int WS = HIPCOMP_WARPSIZE;
+      if (type == HIPCOMP_TYPE_CHAR || type == HIPCOMP_TYPE_UCHAR) {
+        HipUtils::check(hipOccupancyMaxActiveBlocksPerMultiprocessor(
+                            &numBlocksPerSM,
+                            HlifDecompressBatchKernel<
+                                WS,
+                                cascaded_decompress_wrapper<uint8_t, size_t,
+                                                            threadblock_size>,
+                                1, const hipcompBatchedCascadedOpts_t &>,
+                            threadblock_size, runtime_shmem_size),
+                        "failed to to obtain max active blocks per "
+                        "multi-processor for device " +
+                            std::to_string(device_id));
+      } else if (type == HIPCOMP_TYPE_SHORT || type == HIPCOMP_TYPE_USHORT) {
+        HipUtils::check(hipOccupancyMaxActiveBlocksPerMultiprocessor(
+                            &numBlocksPerSM,
+                            HlifDecompressBatchKernel<
+                                WS,
+                                cascaded_decompress_wrapper<uint16_t, size_t,
+                                                            threadblock_size>,
+                                1, const hipcompBatchedCascadedOpts_t &>,
+                            threadblock_size, runtime_shmem_size),
+                        "failed to to obtain max active blocks per "
+                        "multi-processor for device " +
+                            std::to_string(device_id));
+      } else if (type == HIPCOMP_TYPE_INT || type == HIPCOMP_TYPE_UINT) {
+        HipUtils::check(hipOccupancyMaxActiveBlocksPerMultiprocessor(
+                            &numBlocksPerSM,
+                            HlifDecompressBatchKernel<
+                                WS,
+                                cascaded_decompress_wrapper<uint32_t, size_t,
+                                                            threadblock_size>,
+                                1, const hipcompBatchedCascadedOpts_t &>,
+                            threadblock_size, runtime_shmem_size),
+                        "failed to to obtain max active blocks per "
+                        "multi-processor for device " +
+                            std::to_string(device_id));
+      } else if (type == HIPCOMP_TYPE_LONGLONG ||
+                 type == HIPCOMP_TYPE_ULONGLONG) {
+        HipUtils::check(hipOccupancyMaxActiveBlocksPerMultiprocessor(
+                            &numBlocksPerSM,
+                            HlifDecompressBatchKernel<
+                                WS,
+                                cascaded_decompress_wrapper<uint64_t, size_t,
+                                                            threadblock_size>,
+                                1, const hipcompBatchedCascadedOpts_t &>,
+                            threadblock_size, runtime_shmem_size),
+                        "failed to to obtain max active blocks per "
+                        "multi-processor for device " +
+                            std::to_string(device_id));
+      })
 
   return device_prop.multiProcessorCount * numBlocksPerSM;
 }
 
-} // hipcomp namespace
+} // namespace hipcomp

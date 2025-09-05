@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,25 +50,20 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "tests/catch.hpp"
 #include "HipUtils.h"
-
 #include "hip/hip_runtime.h"
+#include "tests/catch.hpp"
 
 #ifndef HIP_CHECK
-#define HIP_CHECK(call)                                                     \
+#define HIP_CHECK(call)                                                        \
   {                                                                            \
-    hipError_t hipStatus = call;                                             \
-    if (hipSuccess != hipStatus) {                                           \
+    hipError_t hipStatus = call;                                               \
+    if (hipSuccess != hipStatus) {                                             \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "    \
           "(%d).\n",                                                           \
-          #call,                                                               \
-          __LINE__,                                                            \
-          __FILE__,                                                            \
-          hipGetErrorString(hipStatus),                                      \
-          hipStatus);                                                         \
+          #call, __LINE__, __FILE__, hipGetErrorString(hipStatus), hipStatus); \
       abort();                                                                 \
     }                                                                          \
   }
@@ -79,23 +75,22 @@ using namespace hipcomp;
  * UNIT TEST ******************************************************************
  *****************************************************************************/
 
-TEST_CASE("IsDevicePointerTest", "[small]")
-{
+TEST_CASE("IsDevicePointerTest", "[small]") {
   // check a device pointer - true
-  size_t* dev_ptr;
-  HIP_CHECK(hipMalloc((void**)&dev_ptr, sizeof(*dev_ptr)));
+  size_t *dev_ptr;
+  HIP_CHECK(hipMalloc((void **)&dev_ptr, sizeof(*dev_ptr)));
   REQUIRE(HipUtils::is_device_pointer(dev_ptr));
   HIP_CHECK(hipFree(dev_ptr));
 
   // check a uvm pointer - false
-  size_t* managed_ptr;
-  HIP_CHECK(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
+  size_t *managed_ptr;
+  HIP_CHECK(hipMallocManaged((void **)&managed_ptr, sizeof(*managed_ptr)));
   REQUIRE(!HipUtils::is_device_pointer(managed_ptr));
   HIP_CHECK(hipFree(managed_ptr));
 
   // check a pinned pointer - false
-  size_t* pinned_ptr;
-  HIP_CHECK(hipHostMalloc((void**)&pinned_ptr, sizeof(*pinned_ptr)));
+  size_t *pinned_ptr;
+  HIP_CHECK(hipHostMalloc((void **)&pinned_ptr, sizeof(*pinned_ptr)));
   REQUIRE(!HipUtils::is_device_pointer(pinned_ptr));
   HIP_CHECK(hipHostFree(pinned_ptr));
 
@@ -107,25 +102,24 @@ TEST_CASE("IsDevicePointerTest", "[small]")
   REQUIRE(!HipUtils::is_device_pointer(nullptr));
 }
 
-TEST_CASE("DevicePointerTest", "[small]")
-{
+TEST_CASE("DevicePointerTest", "[small]") {
   // check a device pointer - should be equal
-  size_t* dev_ptr;
-  HIP_CHECK(hipMalloc((void**)&dev_ptr, sizeof(*dev_ptr)));
+  size_t *dev_ptr;
+  HIP_CHECK(hipMalloc((void **)&dev_ptr, sizeof(*dev_ptr)));
   REQUIRE(HipUtils::device_pointer(dev_ptr) == dev_ptr);
   HIP_CHECK(hipFree(dev_ptr));
 
   // check a uvm pointer - should succeed and return a device pointer
-  size_t* managed_ptr;
-  HIP_CHECK(hipMallocManaged((void**)&managed_ptr, sizeof(*managed_ptr)));
-  size_t* managed_dev_ptr = HipUtils::device_pointer(managed_ptr);
+  size_t *managed_ptr;
+  HIP_CHECK(hipMallocManaged((void **)&managed_ptr, sizeof(*managed_ptr)));
+  size_t *managed_dev_ptr = HipUtils::device_pointer(managed_ptr);
   HIP_CHECK(hipMemset(managed_dev_ptr, 0, sizeof(*managed_dev_ptr)));
   HIP_CHECK(hipFree(managed_ptr));
 
   // check a pinned pointer - should succeed and return a device pointer
-  size_t* pinned_ptr;
-  HIP_CHECK(hipHostMalloc((void**)&pinned_ptr, sizeof(*pinned_ptr)));
-  size_t* pinned_dev_ptr = HipUtils::device_pointer(pinned_ptr);
+  size_t *pinned_ptr;
+  HIP_CHECK(hipHostMalloc((void **)&pinned_ptr, sizeof(*pinned_ptr)));
+  size_t *pinned_dev_ptr = HipUtils::device_pointer(pinned_ptr);
   HIP_CHECK(hipMemset(pinned_dev_ptr, 0, sizeof(*pinned_dev_ptr)));
   HIP_CHECK(hipHostFree(pinned_ptr));
 
@@ -134,14 +128,14 @@ TEST_CASE("DevicePointerTest", "[small]")
     size_t unregistered;
     HipUtils::device_pointer(&unregistered);
     REQUIRE(false); // unreachable
-  } catch (const std::exception&) {
+  } catch (const std::exception &) {
     // pass
   }
 
   // check a null pointer - should throw an exception
   try {
-    HipUtils::device_pointer(static_cast<void*>(nullptr));
-  } catch (const std::exception&) {
+    HipUtils::device_pointer(static_cast<void *>(nullptr));
+  } catch (const std::exception &) {
     // pass
   }
 }

@@ -1,6 +1,6 @@
 # ~~~
 # Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -12,7 +12,7 @@
 #  * Neither the name of NVIDIA CORPORATION nor the names of its
 #    contributors may be used to endorse or promote products derived
 #    from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AS IS'' AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -24,7 +24,7 @@
 # OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-###############################################################################
+# ##############################################################################
 # MIT License
 #
 # Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
@@ -48,7 +48,7 @@
 # SOFTWARE.
 # ~~~
 
-macro (setup_cuda_devices)
+macro(setup_cuda_devices)
   # build real and virtual, so as to run on 6x cards.
   set(GPU_ARCHS "60")
 
@@ -63,36 +63,30 @@ macro (setup_cuda_devices)
   endif()
 endmacro(setup_cuda_devices)
 
-macro (set_cuda_compilation_options)
+macro(set_cuda_compilation_options)
   set_property(TARGET hipcomp PROPERTY POSITION_INDEPENDENT_CODE ON)
   set_property(TARGET hipcomp PROPERTY CUDA_ARCHITECTURES ${GPU_ARCHS})
-  target_compile_options(hipcomp PRIVATE
-      $<$<COMPILE_LANGUAGE:HIP>:--expt-extended-lambda>)
+  target_compile_options(
+    hipcomp PRIVATE $<$<COMPILE_LANGUAGE:HIP>:--expt-extended-lambda>)
   if(DEFINED CUB_DIR)
     target_include_directories(hipcomp PRIVATE "${CUB_DIR}")
   endif()
   target_include_directories(hipcomp PRIVATE "${CUDAToolkit_INCLUDE_DIRS}")
-endmacro (set_cuda_compilation_options)
+endmacro(set_cuda_compilation_options)
 
-file(GLOB CUDA_SOURCES
-  ./*.cu
-  ./lowlevel/*.cu
-  ./highlevel/*.cu)
-file(GLOB CPP_SOURCES
-  ./*.cpp
-  ./lowlevel/*.cpp
-  ./highlevel/*.cpp)
+file(GLOB CUDA_SOURCES ./*.cu ./lowlevel/*.cu ./highlevel/*.cu)
+file(GLOB CPP_SOURCES ./*.cpp ./lowlevel/*.cpp ./highlevel/*.cpp)
 
-if (CUDA_BACKEND)
+if(CUDA_BACKEND)
   setup_cuda_devices()
 else()
   set_source_files_properties(${CUDA_SOURCES} PROPERTIES LANGUAGE HIP)
 endif()
 
-if (BUILD_STATIC)
+if(BUILD_STATIC)
   add_library(hipcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
 else()
-  if (MSVC_VERSION)
+  if(MSVC_VERSION)
     # we have to export all symbols on windows for a dll
     add_library(hipcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
   else()
@@ -100,36 +94,38 @@ else()
   endif()
 endif()
 
-target_include_directories(hipcomp PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>")
-target_include_directories(hipcomp PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>")
+target_include_directories(
+  hipcomp PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>")
+target_include_directories(
+  hipcomp PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>")
 
-if (CUDA_BACKEND)
+if(CUDA_BACKEND)
   set_cuda_compilation_options()
 endif()
 
 if(UNIX)
-target_include_directories(hipcomp PUBLIC
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+  target_include_directories(
+    hipcomp PUBLIC "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 endif()
 
 include_directories("${hipcomp_SOURCE_DIR}/src")
 
-if (bitcomp_FOUND)
+if(bitcomp_FOUND)
   target_include_directories(hipcomp INTERFACE ${BITCOMP_INCLUDE_DIRS})
   target_link_libraries(hipcomp PRIVATE bitcomp)
 endif()
 
-if (gdeflate_FOUND)
+if(gdeflate_FOUND)
   target_include_directories(hipcomp PRIVATE ${GDEFLATE_INCLUDE_DIRS})
   target_link_libraries(hipcomp PRIVATE gdeflate)
 endif()
 
-if (ans_FOUND)
+if(ans_FOUND)
   target_include_directories(hipcomp PRIVATE ${ANS_INCLUDE_DIRS})
   target_link_libraries(hipcomp PRIVATE ans)
 endif()
 
-if (BUILD_TESTS)
+if(BUILD_TESTS)
   add_subdirectory("test")
   add_subdirectory("highlevel/test")
   add_subdirectory("lowlevel/test")

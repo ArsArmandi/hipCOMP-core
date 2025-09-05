@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -52,37 +53,35 @@
 #include "TempSpaceBroker.h"
 #include "common.h"
 #include "hipcomp.hpp"
-#include "type_macros.h"
-
 #include "hipcomp_hipcub.cuh"
+#include "type_macros.h"
 
 #include <cassert>
 #include <stdexcept>
 #include <string>
 
-namespace hipcomp
-{
+namespace hipcomp {
 
 /******************************************************************************
  * CONSTANTS ******************************************************************
  *****************************************************************************/
 
-namespace
-{
+namespace {
 
 constexpr const size_t ALIGN_OFFSET = 256;
 #if __CUDACC_VER_MAJOR__ >= 9
-#  define INDEPENDENT_THREAD_SCHEDULING
+#define INDEPENDENT_THREAD_SCHEDULING
 #endif
-constexpr const int GLOBAL_TILE_SIZE = 1024; // TODO: tile size no good choice for byte-sized data types, see warning
+constexpr const int GLOBAL_TILE_SIZE =
+    1024; // TODO: tile size no good choice for byte-sized data types, see
+          // warning
 } // namespace
 
 /******************************************************************************
  * KENRELS ********************************************************************
  *****************************************************************************/
 
-namespace
-{
+namespace {
 
 /** \brief Compute a sum across the threads in a warp.
  *
@@ -91,25 +90,26 @@ namespace
  *
  * \param[in] initVal initial value of the current thread.
  * \note __shfl_down_sync implementation not available on AMD GPUs (ROCm 5.6.0).
- *       Hence the AMD GPU implementation, always assumes that NUM_THREADS == warpsize.
- * \return the result of this operation per thread. All threads of a warp carry the correct result.
+ *       Hence the AMD GPU implementation, always assumes that NUM_THREADS ==
+ * warpsize.
+ * \return the result of this operation per thread. All threads of a warp carry
+ * the correct result.
  */
 template <int warpsize, typename T, int NUM_THREADS>
-__device__ T warpSum(T const initVal)
-{
+__device__ T warpSum(T const initVal) {
   T val = initVal;
-  #ifndef INDEPENDENT_THREAD_SCHEDULING
+#ifndef INDEPENDENT_THREAD_SCHEDULING
   assert(NUM_THREADS == warpsize);
-  #else
-  constexpr const uint32_t mask
-      = NUM_THREADS < warpsize ? (1u << NUM_THREADS) - 1 : 0xffffffff;
-  #endif
+#else
+  constexpr const uint32_t mask =
+      NUM_THREADS < warpsize ? (1u << NUM_THREADS) - 1 : 0xffffffff;
+#endif
   for (int d = NUM_THREADS / 2; d > 0; d /= 2) {
-    #ifndef INDEPENDENT_THREAD_SCHEDULING
+#ifndef INDEPENDENT_THREAD_SCHEDULING
     val += __shfl_down(val, d, warpsize);
-    #else
-    val += __shfl_down_sync(mask,val, d, NUM_THREADS);
-    #endif
+#else
+    val += __shfl_down_sync(mask, val, d, NUM_THREADS);
+#endif
   }
 
   return val;
@@ -120,14 +120,14 @@ __device__ T warpSum(T const initVal)
  * \param[in] initVal initial value of the current thread.
  * \param[in] buffer for storing intermediate results per warp.
  * \see ::warpSum
- * \note As AMD GPUs do not support masking with shfl instructions on ROCm 5.6.0, we run an reduction
- *       across the full warp but supply 0 as initVal for masked out threads if
- *       _​_HIP_​PLATFORM_​AMD_​_ is defined.
- * \return the result of this operation per thread. Threads 0 ... warpsize of a block carry the correct result.
+ * \note As AMD GPUs do not support masking with shfl instructions on
+ * ROCm 5.6.0, we run an reduction across the full warp but supply 0 as initVal
+ * for masked out threads if _​_HIP_​PLATFORM_​AMD_​_ is defined.
+ * \return the result of this operation per thread. Threads 0 ... warpsize of a
+ * block carry the correct result.
  */
 template <int warpsize, typename T, int BLOCK_SIZE>
-__device__ T cooperativeSum(T const initVal, T* const buffer)
-{
+__device__ T cooperativeSum(T const initVal, T *const buffer) {
   // first all warps reduce to single value
   assert(BLOCK_SIZE % warpsize == 0);
   assert(BLOCK_SIZE <= warpsize * warpsize);
@@ -138,13 +138,14 @@ __device__ T cooperativeSum(T const initVal, T* const buffer)
   }
   __syncthreads();
 
-  #ifndef INDEPENDENT_THREAD_SCHEDULING
-  val = warpSum<warpsize, T, warpsize>( ( threadIdx.x < (BLOCK_SIZE / warpsize) ) ? buffer[threadIdx.x] : 0 );
-  #else
+#ifndef INDEPENDENT_THREAD_SCHEDULING
+  val = warpSum<warpsize, T, warpsize>(
+      (threadIdx.x < (BLOCK_SIZE / warpsize)) ? buffer[threadIdx.x] : 0);
+#else
   if (threadIdx.x < (BLOCK_SIZE / warpsize)) {
     val = warpSum<warpsize, T, BLOCK_SIZE / warpsize>(buffer[threadIdx.x]);
   }
-  #endif
+#endif
 
   return val;
 }
@@ -159,13 +160,13 @@ __device__ T cooperativeSum(T const initVal, T* const buffer)
  * @param[in] numInDevice The size of the input data.
  * @param[out] blockSizes The location to write the block sizes (output).
  */
-template <int warpsize, typename VALUE, typename RUN, int BLOCK_SIZE, int TILE_SIZE>
-__global__ void rleInitKernel(
-    const VALUE* const in,
-    const size_t* const numInDevice,
-    RUN* const  blockSizes)
-{
-  static_assert(BLOCK_SIZE <= 1024, "BLOCK_SIZE must be less than or equal to 1024");
+template <int warpsize, typename VALUE, typename RUN, int BLOCK_SIZE,
+          int TILE_SIZE>
+__global__ void rleInitKernel(const VALUE *const in,
+                              const size_t *const numInDevice,
+                              RUN *const blockSizes) {
+  static_assert(BLOCK_SIZE <= 1024,
+                "BLOCK_SIZE must be less than or equal to 1024");
 
   constexpr const int ITEMS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
   // the algorithm here is to keep reducing "chunks" to a start and end marker
@@ -178,8 +179,8 @@ __global__ void rleInitKernel(
     __shared__ RUN buffer[BLOCK_SIZE / warpsize];
 
     if (threadIdx.x == 0) {
-      valBuffer[0]
-          = blockIdx.x > 0 ? in[blockIdx.x * TILE_SIZE - 1] : (in[0] + 1);
+      valBuffer[0] =
+          blockIdx.x > 0 ? in[blockIdx.x * TILE_SIZE - 1] : (in[0] + 1);
     }
     for (int tid = threadIdx.x; tid < TILE_SIZE; tid += BLOCK_SIZE) {
       const int gTid = tid + blockIdx.x * TILE_SIZE;
@@ -205,36 +206,33 @@ __global__ void rleInitKernel(
 
     sum = cooperativeSum<warpsize, RUN, BLOCK_SIZE>(sum, buffer);
     if (threadIdx.x == 0) {
-       blockSizes[blockIdx.x] = sum;
+      blockSizes[blockIdx.x] = sum;
     }
   } else if (threadIdx.x == 0) {
-     blockSizes[blockIdx.x] = 0;
+    blockSizes[blockIdx.x] = 0;
   }
 
   if (blockIdx.x == gridDim.x - 1 && threadIdx.x == 0) {
-     blockSizes[gridDim.x] = 0;
+    blockSizes[gridDim.x] = 0;
   }
 }
 
 template <typename VALUE, typename RUN, int BLOCK_SIZE, int TILE_SIZE>
-__global__ void rleReduceKernel(
-    const VALUE* const in,
-    const size_t* const numInDevice,
-    const RUN* const blockPrefix,
-    RUN* const blockStart,
-    VALUE** const valsPtr,
-    RUN** const runsPtr,
-    size_t* const numOutDevice)
-{
-  static_assert(BLOCK_SIZE <= 1024, "BLOCK_SIZE must be less than or equal to 1024");
+__global__ void
+rleReduceKernel(const VALUE *const in, const size_t *const numInDevice,
+                const RUN *const blockPrefix, RUN *const blockStart,
+                VALUE **const valsPtr, RUN **const runsPtr,
+                size_t *const numOutDevice) {
+  static_assert(BLOCK_SIZE <= 1024,
+                "BLOCK_SIZE must be less than or equal to 1024");
 
   constexpr const int ITEMS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
   // the algorithm here is to keep reducing "chunks" to a start and end marker
   const int num = static_cast<int>(*numInDevice);
 
   if (blockIdx.x * TILE_SIZE < num) {
-    VALUE* const vals = *valsPtr;
-    RUN* const runs = *runsPtr;
+    VALUE *const vals = *valsPtr;
+    RUN *const runs = *runsPtr;
 
     // we load the preceding value in the first spot
     __shared__ VALUE valBuffer[TILE_SIZE + 1];
@@ -243,8 +241,8 @@ __global__ void rleReduceKernel(
     __shared__ RUN prefix[BLOCK_SIZE + 1];
 
     if (threadIdx.x == 0) {
-      valBuffer[0]
-          = blockIdx.x > 0 ? in[blockIdx.x * TILE_SIZE - 1] : (in[0] + 1);
+      valBuffer[0] =
+          blockIdx.x > 0 ? in[blockIdx.x * TILE_SIZE - 1] : (in[0] + 1);
     }
     for (int tid = threadIdx.x; tid < TILE_SIZE; tid += BLOCK_SIZE) {
       const int gTid = tid + blockIdx.x * TILE_SIZE;
@@ -281,8 +279,8 @@ __global__ void rleReduceKernel(
 
       prefix[threadIdx.x] = sum;
       if (threadIdx.x == 0) {
-        prefix[BLOCK_SIZE]
-            = blockPrefix[blockIdx.x + 1] - blockPrefix[blockIdx.x];
+        prefix[BLOCK_SIZE] =
+            blockPrefix[blockIdx.x + 1] - blockPrefix[blockIdx.x];
       }
     }
 
@@ -309,8 +307,8 @@ __global__ void rleReduceKernel(
     const RUN numCompacted = prefix[BLOCK_SIZE];
     if (threadIdx.x == 0) {
       runBuffer[numCompacted] = ((blockIdx.x + 1) * TILE_SIZE >= num)
-                                      ? ((num - 1) % TILE_SIZE) + 1
-                                      : TILE_SIZE;
+                                    ? ((num - 1) % TILE_SIZE) + 1
+                                    : TILE_SIZE;
     }
 
     __syncthreads();
@@ -344,18 +342,16 @@ __global__ void rleReduceKernel(
  * @param[in] num The number of entries.
  */
 template <typename RUN, int BLOCK_SIZE, int TILE_SIZE>
-__global__ void rleFinalizeKernel(
-    RUN** const runsPtr,
-    const RUN* const blockStart,
-    const RUN* const blockPrefix,
-    const size_t* const numInDevice)
-{
+__global__ void rleFinalizeKernel(RUN **const runsPtr,
+                                  const RUN *const blockStart,
+                                  const RUN *const blockPrefix,
+                                  const size_t *const numInDevice) {
   static_assert(BLOCK_SIZE <= 1024, "BLOCK_SIZE must be less than 1024");
 
   const int num = roundUpDiv(static_cast<int>(*numInDevice), TILE_SIZE);
 
   if (blockIdx.x * BLOCK_SIZE < num) {
-    RUN* const runs = *runsPtr;
+    RUN *const runs = *runsPtr;
 
     // we load the blocks runs plus 1 extra
     __shared__ RUN prefixBuffer[BLOCK_SIZE + 1];
@@ -400,37 +396,27 @@ __global__ void rleFinalizeKernel(
  * HELPER FUNCTIONS ***********************************************************
  *****************************************************************************/
 
-namespace
-{
+namespace {
 
-template <typename T>
-size_t downstreamWorkspaceSize(const size_t num)
-{
-  return sizeof(T) * std::max(1024ULL, 3ULL * roundUpDiv(num, GLOBAL_TILE_SIZE))
-         + sizeof(int);
+template <typename T> size_t downstreamWorkspaceSize(const size_t num) {
+  return sizeof(T) *
+             std::max(1024ULL, 3ULL * roundUpDiv(num, GLOBAL_TILE_SIZE)) +
+         sizeof(int);
 }
 
 template <typename T, typename U>
-size_t requiredWorkspaceSizeTyped(const size_t num)
-{
+size_t requiredWorkspaceSizeTyped(const size_t num) {
   // TODO: this assume large datatype
-  T* inPtr = nullptr;
-  T* valsPtr = nullptr;
-  U* runsPtr = nullptr;
-  size_t* numPtr = nullptr;
+  T *inPtr = nullptr;
+  T *valsPtr = nullptr;
+  U *runsPtr = nullptr;
+  size_t *numPtr = nullptr;
 
   size_t workspaceSize = 0;
-  HipUtils::check(
-      hipcub::DeviceRunLengthEncode::Encode(
-          nullptr,
-          workspaceSize,
-          inPtr,
-          valsPtr,
-          runsPtr,
-          numPtr,
-          static_cast<int>(num),
-          0),
-      "hipcub::DeviceRunLengthEncode::Encode() failed");
+  HipUtils::check(hipcub::DeviceRunLengthEncode::Encode(
+                      nullptr, workspaceSize, inPtr, valsPtr, runsPtr, numPtr,
+                      static_cast<int>(num), 0),
+                  "hipcub::DeviceRunLengthEncode::Encode() failed");
 
   workspaceSize = std::max(workspaceSize, downstreamWorkspaceSize<U>(num));
 
@@ -438,66 +424,49 @@ size_t requiredWorkspaceSizeTyped(const size_t num)
 }
 
 template <typename VALUE, typename COUNT>
-void compressInternal(
-    void* const workspace,
-    const size_t workspaceSize,
-    void* const outValues,
-    void* const outCounts,
-    size_t* numOutDevice,
-    void const* const in,
-    size_t const num,
-    hipStream_t stream)
-{
-  VALUE* const outValuesTyped = static_cast<VALUE*>(outValues);
-  COUNT* const outCountsTyped = static_cast<COUNT*>(outCounts);
-  const VALUE* const inTyped = static_cast<const VALUE*>(in);
+void compressInternal(void *const workspace, const size_t workspaceSize,
+                      void *const outValues, void *const outCounts,
+                      size_t *numOutDevice, void const *const in,
+                      size_t const num, hipStream_t stream) {
+  VALUE *const outValuesTyped = static_cast<VALUE *>(outValues);
+  COUNT *const outCountsTyped = static_cast<COUNT *>(outCounts);
+  const VALUE *const inTyped = static_cast<const VALUE *>(in);
 
   const size_t reqWorkspaceSize = RunLengthEncodeGPU::requiredWorkspaceSize(
       num, TypeOf<VALUE>(), TypeOf<COUNT>());
   if (workspaceSize < reqWorkspaceSize) {
     throw std::runtime_error(
-        "Invalid workspace size: " + std::to_string(workspaceSize)
-        + ", need at least " + std::to_string(reqWorkspaceSize));
+        "Invalid workspace size: " + std::to_string(workspaceSize) +
+        ", need at least " + std::to_string(reqWorkspaceSize));
   }
 
-  void* const alignedWorkspace = align(workspace, ALIGN_OFFSET);
-  size_t alignedWorkspaceSize
-      = workspaceSize - relativeEndOffset(workspace, alignedWorkspace);
+  void *const alignedWorkspace = align(workspace, ALIGN_OFFSET);
+  size_t alignedWorkspaceSize =
+      workspaceSize - relativeEndOffset(workspace, alignedWorkspace);
 
-  HipUtils::check(
-      hipcub::DeviceRunLengthEncode::Encode(
-          alignedWorkspace,
-          alignedWorkspaceSize,
-          inTyped,
-          outValuesTyped,
-          outCountsTyped,
-          numOutDevice,
-          static_cast<int>(num),
-          stream),
-      "hipcub::DeviceRunLengthEncode::Encode() failed");
+  HipUtils::check(hipcub::DeviceRunLengthEncode::Encode(
+                      alignedWorkspace, alignedWorkspaceSize, inTyped,
+                      outValuesTyped, outCountsTyped, numOutDevice,
+                      static_cast<int>(num), stream),
+                  "hipcub::DeviceRunLengthEncode::Encode() failed");
 }
 
 template <typename VALUE, typename COUNT>
-void compressDownstreamInternal(
-    void* const workspace,
-    const size_t workspaceSize,
-    void** const outValuesPtr,
-    void** const outCountsPtr,
-    size_t* numOutDevice,
-    void const* const in,
-    size_t const* numInDevice,
-    const size_t maxNum,
-    hipStream_t stream)
-{
-  VALUE** const outValuesTypedPtr = reinterpret_cast<VALUE**>(outValuesPtr);
-  COUNT** const outCountsTypedPtr = reinterpret_cast<COUNT**>(outCountsPtr);
-  const VALUE* const inTyped = static_cast<const VALUE*>(in);
+void compressDownstreamInternal(void *const workspace,
+                                const size_t workspaceSize,
+                                void **const outValuesPtr,
+                                void **const outCountsPtr, size_t *numOutDevice,
+                                void const *const in, size_t const *numInDevice,
+                                const size_t maxNum, hipStream_t stream) {
+  VALUE **const outValuesTypedPtr = reinterpret_cast<VALUE **>(outValuesPtr);
+  COUNT **const outCountsTypedPtr = reinterpret_cast<COUNT **>(outCountsPtr);
+  const VALUE *const inTyped = static_cast<const VALUE *>(in);
 
   const size_t reqWorkspaceSize = downstreamWorkspaceSize<COUNT>(maxNum);
   if (workspaceSize < reqWorkspaceSize) {
     throw std::runtime_error(
-        "Invalid workspace size: " + std::to_string(workspaceSize)
-        + ", need at least " + std::to_string(reqWorkspaceSize));
+        "Invalid workspace size: " + std::to_string(workspaceSize) +
+        ", need at least " + std::to_string(reqWorkspaceSize));
   }
 
   constexpr const int BLOCK_SIZE = 128;
@@ -507,62 +476,51 @@ void compressDownstreamInternal(
 
   TempSpaceBroker tempSpace(workspace, workspaceSize);
 
-  COUNT* blockSizes;
-  COUNT* blockPrefix;
-  COUNT* blockStart;
+  COUNT *blockSizes;
+  COUNT *blockPrefix;
+  COUNT *blockStart;
   tempSpace.reserve(&blockSizes, grid.x);
   tempSpace.reserve(&blockPrefix, grid.x + 1);
   tempSpace.reserve(&blockStart, grid.x);
 
-  void* const scanWorkspace = tempSpace.next();
+  void *const scanWorkspace = tempSpace.next();
 
   // TODO: expand such that the mask calculation is done across the entire
   // array, and the the prefixsum, and then reduction
 
   // get blocks sizes
-HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
-  constexpr int WS = HIPCOMP_WARPSIZE;
-  // NOTE: Code below is exactly the same as warp size 64 branch code.
-  rleInitKernel<WS, VALUE, COUNT, BLOCK_SIZE, GLOBAL_TILE_SIZE>
-    <<<grid, block, 0, stream>>>(inTyped, numInDevice, blockSizes);
-)
+  HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(
+      -1, constexpr int WS = HIPCOMP_WARPSIZE;
+      // NOTE: Code below is exactly the same as warp size 64 branch code.
+      rleInitKernel<WS, VALUE, COUNT, BLOCK_SIZE, GLOBAL_TILE_SIZE>
+      <<<grid, block, 0, stream>>>(inTyped, numInDevice, blockSizes);)
 
   HipUtils::check_last_error("Failed to launch rleInitKernel");
 
   // get output locations
   size_t requiredSpace;
-  HipUtils::check(
-      hipcub::DeviceScan::ExclusiveSum(
-          nullptr, requiredSpace, blockSizes, blockPrefix, grid.x + 1, stream),
-      "hipcub::DeviceScan::Exclusive() failed");
+  HipUtils::check(hipcub::DeviceScan::ExclusiveSum(nullptr, requiredSpace,
+                                                   blockSizes, blockPrefix,
+                                                   grid.x + 1, stream),
+                  "hipcub::DeviceScan::Exclusive() failed");
 
-  size_t scanWorkspaceSize
-      = std::max(1024 * sizeof(COUNT), maxNum * sizeof(COUNT));
+  size_t scanWorkspaceSize =
+      std::max(1024 * sizeof(COUNT), maxNum * sizeof(COUNT));
   if (requiredSpace > scanWorkspaceSize) {
     throw std::runtime_error(
-        "Too little workspace: " + std::to_string(scanWorkspaceSize) + ", need "
-        + std::to_string(requiredSpace));
+        "Too little workspace: " + std::to_string(scanWorkspaceSize) +
+        ", need " + std::to_string(requiredSpace));
   }
-  HipUtils::check(
-      hipcub::DeviceScan::ExclusiveSum(
-          scanWorkspace,
-          scanWorkspaceSize,
-          blockSizes,
-          blockPrefix,
-          grid.x + 1,
-          stream),
-      "hipcub::DeviceScanExclusiveSum() failed");
+  HipUtils::check(hipcub::DeviceScan::ExclusiveSum(
+                      scanWorkspace, scanWorkspaceSize, blockSizes, blockPrefix,
+                      grid.x + 1, stream),
+                  "hipcub::DeviceScanExclusiveSum() failed");
 
   // do actual compaction
   rleReduceKernel<VALUE, COUNT, BLOCK_SIZE, GLOBAL_TILE_SIZE>
-      <<<grid, block, 0, stream>>>(
-          inTyped,
-          numInDevice,
-          blockPrefix,
-          blockStart,
-          outValuesTypedPtr,
-          outCountsTypedPtr,
-          numOutDevice);
+      <<<grid, block, 0, stream>>>(inTyped, numInDevice, blockPrefix,
+                                   blockStart, outValuesTypedPtr,
+                                   outCountsTypedPtr, numOutDevice);
   HipUtils::check_last_error("Failed to launch rleReduceKernel");
 
   // fix gaps
@@ -579,64 +537,30 @@ HIPCOMP_EXECUTE_WARPSIZE_DEPENDENT_CODE(-1,
  *****************************************************************************/
 
 void RunLengthEncodeGPU::compress(
-    void* workspace,
-    size_t workspaceSize,
-    hipcompType_t valueType,
-    void* const outValues,
-    hipcompType_t countType,
-    void* const outCounts,
-    size_t* const numOutDevice,
-    const void* const in,
-    const size_t num,
-    hipStream_t stream)
-{
-  HIPCOMP_TYPE_TWO_SWITCH(
-      valueType,
-      countType,
-      compressInternal,
-      workspace,
-      workspaceSize,
-      outValues,
-      outCounts,
-      numOutDevice,
-      in,
-      num,
-      stream);
+    void *workspace, size_t workspaceSize, hipcompType_t valueType,
+    void *const outValues, hipcompType_t countType, void *const outCounts,
+    size_t *const numOutDevice, const void *const in, const size_t num,
+    hipStream_t stream) {
+  HIPCOMP_TYPE_TWO_SWITCH(valueType, countType, compressInternal, workspace,
+                          workspaceSize, outValues, outCounts, numOutDevice, in,
+                          num, stream);
 }
 
 void RunLengthEncodeGPU::compressDownstream(
-    void* workspace,
-    size_t workspaceSize,
-    hipcompType_t valueType,
-    void** const outValuesPtr,
-    hipcompType_t countType,
-    void** const outCountsPtr,
-    size_t* const numOutDevice,
-    const void* const in,
-    const size_t* numInDevice,
-    const size_t maxNum,
-    hipStream_t stream)
-{
-  HIPCOMP_TYPE_TWO_SWITCH(
-      valueType,
-      countType,
-      compressDownstreamInternal,
-      workspace,
-      workspaceSize,
-      outValuesPtr,
-      outCountsPtr,
-      numOutDevice,
-      in,
-      numInDevice,
-      maxNum,
-      stream);
+    void *workspace, size_t workspaceSize, hipcompType_t valueType,
+    void **const outValuesPtr, hipcompType_t countType,
+    void **const outCountsPtr, size_t *const numOutDevice, const void *const in,
+    const size_t *numInDevice, const size_t maxNum, hipStream_t stream) {
+  HIPCOMP_TYPE_TWO_SWITCH(valueType, countType, compressDownstreamInternal,
+                          workspace, workspaceSize, outValuesPtr, outCountsPtr,
+                          numOutDevice, in, numInDevice, maxNum, stream);
 }
 
-size_t RunLengthEncodeGPU::requiredWorkspaceSize(
-    const size_t num, const hipcompType_t valueType, const hipcompType_t runType)
-{
-  HIPCOMP_TYPE_TWO_SWITCH_RETURN(
-      valueType, runType, requiredWorkspaceSizeTyped, num);
+size_t RunLengthEncodeGPU::requiredWorkspaceSize(const size_t num,
+                                                 const hipcompType_t valueType,
+                                                 const hipcompType_t runType) {
+  HIPCOMP_TYPE_TWO_SWITCH_RETURN(valueType, runType, requiredWorkspaceSizeTyped,
+                                 num);
 }
 
 } // namespace hipcomp

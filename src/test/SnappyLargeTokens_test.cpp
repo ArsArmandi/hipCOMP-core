@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,24 +50,20 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include <random>
-
+#include "HipUtils.h"
 #include "hip/hip_runtime.h"
-
+#include "lowlevel/SnappyBatchKernels.h"
 #include "tests/catch.hpp"
 
-#include "HipUtils.h"
-#include "lowlevel/SnappyBatchKernels.h"
+#include <random>
 
-#define HIP_CHECK(func)                                                       \
+#define HIP_CHECK(func)                                                        \
   {                                                                            \
-    hipError_t rt = (func);                                                   \
-    if (rt != hipSuccess) {                                                   \
-      printf(                                                                  \
-          "API call failure \"" #func "\" with %d at " __FILE__ ":%d\n",       \
-          (int)rt,                                                             \
-          __LINE__);                                                           \
-      REQUIRE(rt == hipSuccess);                                              \
+    hipError_t rt = (func);                                                    \
+    if (rt != hipSuccess) {                                                    \
+      printf("API call failure \"" #func "\" with %d at " __FILE__ ":%d\n",    \
+             (int)rt, __LINE__);                                               \
+      REQUIRE(rt == hipSuccess);                                               \
     }                                                                          \
   }
 
@@ -74,9 +71,8 @@ using namespace std;
 
 const unsigned MAX_SINGLE_BYTE_LITERALS = 60;
 
-void write_num_literals(
-    uint32_t num_literals, uint8_t* output, size_t& ix_output)
-{
+void write_num_literals(uint32_t num_literals, uint8_t *output,
+                        size_t &ix_output) {
   --num_literals; // recorded as (num - 1)
   // Single byte case
   if (num_literals < MAX_SINGLE_BYTE_LITERALS) {
@@ -97,9 +93,8 @@ void write_num_literals(
   output[prev_output_ix] = (MAX_SINGLE_BYTE_LITERALS + num_bytes - 1) << 2;
 }
 
-void translate_uncompressed_size(
-    uint32_t src_len, uint8_t* output, size_t& ix_output)
-{
+void translate_uncompressed_size(uint32_t src_len, uint8_t *output,
+                                 size_t &ix_output) {
   while (src_len > 0x7f) {
     output[ix_output++] = src_len | 0x80;
     src_len = src_len >> 7;
@@ -112,19 +107,19 @@ const unsigned SNAPPY_SINGLE_BYTE_MIN_MATCH_LENGTH = 4;
 const unsigned SNAPPY_SINGLE_BYTE_MAX_MATCH_LENGTH = 11;
 const unsigned SNAPPY_SINGLE_BYTE_MAX_OFFSET = 2047;
 
-void encode_copy(
-    uint32_t offset, uint8_t match_length, uint8_t* output, size_t& ix_output)
-{
-  if (match_length >= SNAPPY_SINGLE_BYTE_MIN_MATCH_LENGTH
-      and match_length <= SNAPPY_SINGLE_BYTE_MAX_MATCH_LENGTH
-      and offset <= SNAPPY_SINGLE_BYTE_MAX_OFFSET) {
+void encode_copy(uint32_t offset, uint8_t match_length, uint8_t *output,
+                 size_t &ix_output) {
+  if (match_length >= SNAPPY_SINGLE_BYTE_MIN_MATCH_LENGTH and
+      match_length <= SNAPPY_SINGLE_BYTE_MAX_MATCH_LENGTH and
+      offset <= SNAPPY_SINGLE_BYTE_MAX_OFFSET) {
     // 1 byte offset encoding. the tag byte is:
-    // [5..7: upper 3 bits of offset],[2..4: (match_length - 4)],[0..1: 01, indicates 1 byte offset]
+    // [5..7: upper 3 bits of offset],[2..4: (match_length - 4)],[0..1: 01,
+    // indicates 1 byte offset]
     uint8_t lower_bits = offset & 0xff;
     offset = (offset >> 8) << 5;
-    output[ix_output++]
-        = ((match_length - SNAPPY_SINGLE_BYTE_MIN_MATCH_LENGTH) << 2) | 0x01
-          | offset;
+    output[ix_output++] =
+        ((match_length - SNAPPY_SINGLE_BYTE_MIN_MATCH_LENGTH) << 2) | 0x01 |
+        offset;
     output[ix_output++] = lower_bits;
   } else {
     // 2 or 4 byte offset encoding
@@ -146,12 +141,8 @@ void encode_copy(
   }
 }
 
-void generate_random_vals(
-    std::vector<uint8_t>& res,
-    const uint8_t max_val,
-    const size_t num_vals,
-    int seed)
-{
+void generate_random_vals(std::vector<uint8_t> &res, const uint8_t max_val,
+                          const size_t num_vals, int seed) {
   std::mt19937 eng(seed);
   std::uniform_int_distribution<> distr(0, max_val);
 
@@ -160,57 +151,42 @@ void generate_random_vals(
   }
 }
 
-void compress_single_batch_snappy(
-    uint8_t* h_uncomp_data,
-    uint8_t* h_comp_data,
-    size_t uncomp_data_size,
-    size_t avail_comp_size)
-{
+void compress_single_batch_snappy(uint8_t *h_uncomp_data, uint8_t *h_comp_data,
+                                  size_t uncomp_data_size,
+                                  size_t avail_comp_size) {
   // prepare gpu buffers
-  void* device_chunk_input_data;
+  void *device_chunk_input_data;
   HIP_CHECK(hipMalloc(&device_chunk_input_data, uncomp_data_size));
-  HIP_CHECK(hipMemcpy(
-      device_chunk_input_data,
-      h_uncomp_data,
-      uncomp_data_size,
-      hipMemcpyHostToDevice));
+  HIP_CHECK(hipMemcpy(device_chunk_input_data, h_uncomp_data, uncomp_data_size,
+                      hipMemcpyHostToDevice));
 
-  void* device_chunk_comp_data;
+  void *device_chunk_comp_data;
   HIP_CHECK(hipMalloc(&device_chunk_comp_data, avail_comp_size));
 
-  void** d_in_data;
-  HIP_CHECK(hipMalloc((void**)(&d_in_data), sizeof(size_t)));
-  HIP_CHECK(hipMemcpy(
-      d_in_data,
-      &device_chunk_input_data,
-      sizeof(size_t),
-      hipMemcpyHostToDevice));
+  void **d_in_data;
+  HIP_CHECK(hipMalloc((void **)(&d_in_data), sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(d_in_data, &device_chunk_input_data, sizeof(size_t),
+                      hipMemcpyHostToDevice));
 
-  void** d_out_data;
-  HIP_CHECK(hipMalloc((void**)(&d_out_data), sizeof(size_t)));
-  HIP_CHECK(hipMemcpy(
-      d_out_data,
-      &device_chunk_comp_data,
-      sizeof(size_t),
-      hipMemcpyHostToDevice));
+  void **d_out_data;
+  HIP_CHECK(hipMalloc((void **)(&d_out_data), sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(d_out_data, &device_chunk_comp_data, sizeof(size_t),
+                      hipMemcpyHostToDevice));
 
-  size_t* d_in_bytes;
+  size_t *d_in_bytes;
   HIP_CHECK(hipMalloc(&d_in_bytes, sizeof(size_t)));
-  HIP_CHECK(hipMemcpy(
-      d_in_bytes, &uncomp_data_size, sizeof(size_t), hipMemcpyHostToDevice));
+  HIP_CHECK(hipMemcpy(d_in_bytes, &uncomp_data_size, sizeof(size_t),
+                      hipMemcpyHostToDevice));
 
-  size_t* d_out_bytes;
+  size_t *d_out_bytes;
   HIP_CHECK(hipMalloc(&d_out_bytes, sizeof(size_t)));
 
-  size_t* d_out_avail_bytes;
+  size_t *d_out_avail_bytes;
   HIP_CHECK(hipMalloc(&d_out_avail_bytes, sizeof(size_t)));
-  HIP_CHECK(hipMemcpy(
-      d_out_avail_bytes,
-      &avail_comp_size,
-      sizeof(size_t),
-      hipMemcpyHostToDevice));
+  HIP_CHECK(hipMemcpy(d_out_avail_bytes, &avail_comp_size, sizeof(size_t),
+                      hipMemcpyHostToDevice));
 
-  hipcomp::gpu_snappy_status_s* d_out_status;
+  hipcomp::gpu_snappy_status_s *d_out_status;
   HIP_CHECK(hipMalloc(&d_out_status, sizeof(hipcomp::gpu_snappy_status_s)));
 
   const int num_chunks = 1;
@@ -218,38 +194,23 @@ void compress_single_batch_snappy(
   hipStream_t stream;
   HIP_CHECK(hipStreamCreate(&stream));
 
-  hipcomp::gpu_snap(
-      d_in_data,
-      d_in_bytes,
-      d_out_data,
-      d_out_avail_bytes,
-      d_out_status,
-      d_out_bytes,
-      num_chunks,
-      stream);
+  hipcomp::gpu_snap(d_in_data, d_in_bytes, d_out_data, d_out_avail_bytes,
+                    d_out_status, d_out_bytes, num_chunks, stream);
 
   HIP_CHECK(hipStreamSynchronize(stream));
 
   hipcomp::gpu_snappy_status_s final_status;
-  HIP_CHECK(hipMemcpy(
-      &final_status,
-      d_out_status,
-      sizeof(hipcomp::gpu_snappy_status_s),
-      hipMemcpyDeviceToHost));
+  HIP_CHECK(hipMemcpy(&final_status, d_out_status,
+                      sizeof(hipcomp::gpu_snappy_status_s),
+                      hipMemcpyDeviceToHost));
   REQUIRE(final_status.status == 0);
 
   size_t gpu_compressed_size;
-  HIP_CHECK(hipMemcpy(
-      &gpu_compressed_size,
-      d_out_bytes,
-      sizeof(size_t),
-      hipMemcpyDeviceToHost));
+  HIP_CHECK(hipMemcpy(&gpu_compressed_size, d_out_bytes, sizeof(size_t),
+                      hipMemcpyDeviceToHost));
 
-  HIP_CHECK(hipMemcpy(
-      h_comp_data,
-      device_chunk_comp_data,
-      gpu_compressed_size,
-      hipMemcpyDeviceToHost));
+  HIP_CHECK(hipMemcpy(h_comp_data, device_chunk_comp_data, gpu_compressed_size,
+                      hipMemcpyDeviceToHost));
 
   HIP_CHECK(hipFree(device_chunk_comp_data));
   HIP_CHECK(hipFree(device_chunk_input_data));
@@ -261,57 +222,43 @@ void compress_single_batch_snappy(
   HIP_CHECK(hipFree(d_out_status));
 }
 
-void decompress_single_batch_snappy(
-    uint8_t* h_comp_data,
-    uint8_t* h_decomp_data,
-    size_t comp_data_size,
-    size_t decomp_data_size)
-{
+void decompress_single_batch_snappy(uint8_t *h_comp_data,
+                                    uint8_t *h_decomp_data,
+                                    size_t comp_data_size,
+                                    size_t decomp_data_size) {
   // prepare gpu buffers
-  void* device_chunk_comp_data;
+  void *device_chunk_comp_data;
   HIP_CHECK(hipMalloc(&device_chunk_comp_data, comp_data_size));
-  HIP_CHECK(hipMemcpy(
-      device_chunk_comp_data,
-      h_comp_data,
-      comp_data_size,
-      hipMemcpyHostToDevice));
+  HIP_CHECK(hipMemcpy(device_chunk_comp_data, h_comp_data, comp_data_size,
+                      hipMemcpyHostToDevice));
 
-  void* device_chunk_decomp_data;
+  void *device_chunk_decomp_data;
   HIP_CHECK(hipMalloc(&device_chunk_decomp_data, decomp_data_size));
 
-  void** d_in_data;
-  HIP_CHECK(hipMalloc((void**)(&d_in_data), sizeof(size_t)));
-  HIP_CHECK(hipMemcpy(
-      d_in_data,
-      &device_chunk_comp_data,
-      sizeof(size_t),
-      hipMemcpyHostToDevice));
+  void **d_in_data;
+  HIP_CHECK(hipMalloc((void **)(&d_in_data), sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(d_in_data, &device_chunk_comp_data, sizeof(size_t),
+                      hipMemcpyHostToDevice));
 
-  void** d_out_data;
-  HIP_CHECK(hipMalloc((void**)(&d_out_data), sizeof(size_t)));
-  HIP_CHECK(hipMemcpy(
-      d_out_data,
-      &device_chunk_decomp_data,
-      sizeof(size_t),
-      hipMemcpyHostToDevice));
+  void **d_out_data;
+  HIP_CHECK(hipMalloc((void **)(&d_out_data), sizeof(size_t)));
+  HIP_CHECK(hipMemcpy(d_out_data, &device_chunk_decomp_data, sizeof(size_t),
+                      hipMemcpyHostToDevice));
 
-  size_t* d_in_bytes;
+  size_t *d_in_bytes;
   HIP_CHECK(hipMalloc(&d_in_bytes, sizeof(size_t)));
-  HIP_CHECK(hipMemcpy(
-      d_in_bytes, &comp_data_size, sizeof(size_t), hipMemcpyHostToDevice));
+  HIP_CHECK(hipMemcpy(d_in_bytes, &comp_data_size, sizeof(size_t),
+                      hipMemcpyHostToDevice));
 
-  size_t* d_out_bytes;
+  size_t *d_out_bytes;
   HIP_CHECK(hipMalloc(&d_out_bytes, sizeof(size_t)));
 
-  size_t* d_out_avail_bytes;
+  size_t *d_out_avail_bytes;
   HIP_CHECK(hipMalloc(&d_out_avail_bytes, sizeof(size_t)));
-  HIP_CHECK(hipMemcpy(
-      d_out_avail_bytes,
-      &decomp_data_size,
-      sizeof(size_t),
-      hipMemcpyHostToDevice));
+  HIP_CHECK(hipMemcpy(d_out_avail_bytes, &decomp_data_size, sizeof(size_t),
+                      hipMemcpyHostToDevice));
 
-  hipcompStatus_t* d_out_status;
+  hipcompStatus_t *d_out_status;
   HIP_CHECK(hipMalloc(&d_out_status, sizeof(hipcompStatus_t)));
 
   const int num_chunks = 1;
@@ -319,41 +266,25 @@ void decompress_single_batch_snappy(
   hipStream_t stream;
   HIP_CHECK(hipStreamCreate(&stream));
 
-  hipcomp::gpu_unsnap(
-      d_in_data,
-      d_in_bytes,
-      d_out_data,
-      d_out_avail_bytes,
-      d_out_status,
-      d_out_bytes,
-      num_chunks,
-      stream);
+  hipcomp::gpu_unsnap(d_in_data, d_in_bytes, d_out_data, d_out_avail_bytes,
+                      d_out_status, d_out_bytes, num_chunks, stream);
 
   HIP_CHECK(hipStreamSynchronize(stream));
 
   hipcompStatus_t final_status;
-  HIP_CHECK(hipMemcpy(
-      &final_status,
-      d_out_status,
-      sizeof(hipcompStatus_t),
-      hipMemcpyDeviceToHost));
+  HIP_CHECK(hipMemcpy(&final_status, d_out_status, sizeof(hipcompStatus_t),
+                      hipMemcpyDeviceToHost));
   REQUIRE(final_status == hipcompSuccess);
 
   size_t gpu_decompressed_size;
-  HIP_CHECK(hipMemcpy(
-      &gpu_decompressed_size,
-      d_out_bytes,
-      sizeof(size_t),
-      hipMemcpyDeviceToHost));
+  HIP_CHECK(hipMemcpy(&gpu_decompressed_size, d_out_bytes, sizeof(size_t),
+                      hipMemcpyDeviceToHost));
   REQUIRE(gpu_decompressed_size == decomp_data_size);
 
   // Get the number of bytes back
-  uint8_t* h_decomp_check_buffer = (uint8_t*)malloc(decomp_data_size);
-  HIP_CHECK(hipMemcpy(
-      h_decomp_check_buffer,
-      device_chunk_decomp_data,
-      decomp_data_size,
-      hipMemcpyDeviceToHost));
+  uint8_t *h_decomp_check_buffer = (uint8_t *)malloc(decomp_data_size);
+  HIP_CHECK(hipMemcpy(h_decomp_check_buffer, device_chunk_decomp_data,
+                      decomp_data_size, hipMemcpyDeviceToHost));
 
   for (size_t ix = 0; ix < decomp_data_size; ++ix) {
     if (h_decomp_check_buffer[ix] != h_decomp_data[ix]) {
@@ -378,8 +309,7 @@ void decompress_single_batch_snappy(
 // Just testing that the compressed data generator works.
 // Just a stream of literals that don't repeat and are <= 256, so can
 // check that the literal compression matches.
-TEST_CASE("test_mock_literal_compressor", "[small]")
-{
+TEST_CASE("test_mock_literal_compressor", "[small]") {
   const unsigned LITERAL_SIZE = 256;
   uint8_t true_uncomp_data[LITERAL_SIZE];
 
@@ -397,8 +327,8 @@ TEST_CASE("test_mock_literal_compressor", "[small]")
   }
 
   uint8_t gpu_comp_data[COMP_DATA_SIZE];
-  compress_single_batch_snappy(
-      true_uncomp_data, gpu_comp_data, LITERAL_SIZE, COMP_DATA_SIZE);
+  compress_single_batch_snappy(true_uncomp_data, gpu_comp_data, LITERAL_SIZE,
+                               COMP_DATA_SIZE);
 
   for (size_t ix_comp = 0; ix_comp < ix_output; ++ix_comp) {
     REQUIRE(comp_data[ix_comp] == gpu_comp_data[ix_comp]);
@@ -408,8 +338,7 @@ TEST_CASE("test_mock_literal_compressor", "[small]")
 // Testing that the mock copy function works. Use small matches that either can
 // accomodate. Choose the copies in the same way that the snappy compressor
 // does; just sanity checking the formatting here.
-TEST_CASE("test_mock_match_compressor", "[small]")
-{
+TEST_CASE("test_mock_match_compressor", "[small]") {
   // Make a large literal collection of bytes.
   const unsigned INPUT_SIZE = 256 + 64;
   uint8_t true_uncomp_data[INPUT_SIZE];
@@ -438,8 +367,8 @@ TEST_CASE("test_mock_match_compressor", "[small]")
   encode_copy(256, 64, comp_data, ix_output);
 
   uint8_t gpu_comp_data[COMP_DATA_SIZE];
-  compress_single_batch_snappy(
-      true_uncomp_data, gpu_comp_data, INPUT_SIZE, COMP_DATA_SIZE);
+  compress_single_batch_snappy(true_uncomp_data, gpu_comp_data, INPUT_SIZE,
+                               COMP_DATA_SIZE);
 
   for (size_t ix_comp = 0; ix_comp < ix_output; ++ix_comp) {
     REQUIRE(comp_data[ix_comp] == gpu_comp_data[ix_comp]);
@@ -449,8 +378,7 @@ TEST_CASE("test_mock_match_compressor", "[small]")
 // Test decompressing a single collection of > 256 literals. This can't be
 // produced by the GPU compressor, so test that the decompressor can accomodate
 // this here.
-TEST_CASE("decompress_large_literal", "[small]")
-{
+TEST_CASE("decompress_large_literal", "[small]") {
   // Make a large literal collection of bytes.
   const unsigned LITERAL_SIZE = 512;
   uint8_t true_uncomp_data[LITERAL_SIZE];
@@ -468,18 +396,15 @@ TEST_CASE("decompress_large_literal", "[small]")
     comp_data[ix_output++] = input_val;
   }
 
-  decompress_single_batch_snappy(
-      comp_data,
-      true_uncomp_data,
-      ix_output, // comp_data_size
-      LITERAL_SIZE);
+  decompress_single_batch_snappy(comp_data, true_uncomp_data,
+                                 ix_output, // comp_data_size
+                                 LITERAL_SIZE);
 }
 
 // Performs a series of tests based on the mock compressor writing out a long
 // stream of literals, followed by an explicit match that looks back at the
 // first 35 bytes of the literal stream.
-void test_long_match_case(size_t num_initial_ints)
-{
+void test_long_match_case(size_t num_initial_ints) {
   // Produce a long stream of literals. The test compressor will just encode
   // these as literals without looking for matches
   vector<uint8_t> decomp_vals;
@@ -490,14 +415,12 @@ void test_long_match_case(size_t num_initial_ints)
 
   decomp_vals.reserve(num_initial_ints + match_length);
 
-  generate_random_vals(
-      decomp_vals, 255 /* max random val */, num_initial_ints, 42 /*seed*/);
+  generate_random_vals(decomp_vals, 255 /* max random val */, num_initial_ints,
+                       42 /*seed*/);
 
   // Then copy the first match_length values from the randomly generated set
-  decomp_vals.insert(
-      decomp_vals.end(),
-      decomp_vals.begin(),
-      decomp_vals.begin() + match_length);
+  decomp_vals.insert(decomp_vals.end(), decomp_vals.begin(),
+                     decomp_vals.begin() + match_length);
 
   // Execute the mock compressor
   size_t ix_output = 0;
@@ -510,19 +433,16 @@ void test_long_match_case(size_t num_initial_ints)
 
   encode_copy(num_initial_ints, match_length, comp_vals.data(), ix_output);
 
-  decompress_single_batch_snappy(
-      comp_vals.data(),
-      decomp_vals.data(),
-      ix_output, // comp_data_size
-      decomp_vals.size());
+  decompress_single_batch_snappy(comp_vals.data(), decomp_vals.data(),
+                                 ix_output, // comp_data_size
+                                 decomp_vals.size());
 }
 
 // Test decompressing a match with an offset that exceeds 32 kB. Again, can't be
 // produced by the GPU compressor. Also note that this won't be produced by
 // Google's snappy implementation, but they indicate that the decompressor
 // should not rely on this, so test this here.
-TEST_CASE("decompress_long_2B_match_case", "[small]")
-{
+TEST_CASE("decompress_long_2B_match_case", "[small]") {
   const size_t num_ints = (1 << 15) + 100;
   test_long_match_case(num_ints);
 }
@@ -531,8 +451,7 @@ TEST_CASE("decompress_long_2B_match_case", "[small]")
 // 4-byte offset. Again, can't be produced by the GPU compressor. Also note that
 // this won't be produced by Google's snappy implementation, but they indicate
 // that the decompressor should not rely on this, so test this here.
-TEST_CASE("decompress_long_4B_match_case", "[small]")
-{
+TEST_CASE("decompress_long_4B_match_case", "[small]") {
   const size_t num_ints = (1 << 16) + 100;
   test_long_match_case(num_ints);
 }

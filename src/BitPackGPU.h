@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -54,11 +55,9 @@
 
 #include <cstddef>
 
-namespace hipcomp
-{
+namespace hipcomp {
 
-class BitPackGPU
-{
+class BitPackGPU {
 public:
   /**
    * @brief Pack a series of values into uniform width bits. That is, reduce
@@ -81,17 +80,12 @@ public:
    * (OUTPUT). The value must reside in device memory
    * @param stream The stream to execute the kernel on.
    */
-  static void compress(
-      void* workspace,
-      size_t workspaceSize,
-      hipcompType_t inType,
-      void* const* outPtr,
-      const void* in,
-      const size_t* numDevice,
-      size_t maxNum,
-      void* const* const minValueDevicePtr,
-      unsigned char* const* const numBitsDevicePtr,
-      hipStream_t stream);
+  static void compress(void *workspace, size_t workspaceSize,
+                       hipcompType_t inType, void *const *outPtr,
+                       const void *in, const size_t *numDevice, size_t maxNum,
+                       void *const *const minValueDevicePtr,
+                       unsigned char *const *const numBitsDevicePtr,
+                       hipStream_t stream);
 
   /**
    * @brief Get the required size of the workspace in bytes.

@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -53,15 +54,14 @@
 #define VERBOSE 0
 #endif
 
-#include "test_common.h"
 #include "hipcomp/lz4.hpp"
+#include "test_common.h"
 
 // Test method that takes an input data, compresses it (on the CPU),
 // decompresses it on the GPU, and verifies it is correct.
 // Uses LZ4 Compression
 template <typename T>
-void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
-{
+void test_lz4(const std::vector<T> &data, size_t /*chunk_size*/) {
   const hipcompType_t type = hipcomp::TypeOf<T>();
 
   size_t chunk_size = 1 << 16;
@@ -76,7 +76,7 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
 
   // these two items will be the only forms of communication between
   // compression and decompression
-  uint8_t* d_comp_out = nullptr;
+  uint8_t *d_comp_out = nullptr;
   size_t comp_out_bytes = 0;
 
   hipStream_t stream;
@@ -90,28 +90,25 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
     std::cout << "uncompressed (B): " << data.size() * sizeof(T) << std::endl;
 
     // create GPU only input buffer
-    uint8_t* d_in_data;
+    uint8_t *d_in_data;
     const size_t in_bytes = sizeof(T) * data.size();
     HIP_CHECK(hipMalloc(&d_in_data, in_bytes));
     HIP_CHECK(
         hipMemcpy(d_in_data, data.data(), in_bytes, hipMemcpyHostToDevice));
 
     LZ4Manager lz4_manager(chunk_size, HIPCOMP_TYPE_CHAR, stream);
-    
+
     auto comp_config = lz4_manager.configure_compression(in_bytes);
     HIP_CHECK(hipMalloc(&d_comp_out, comp_config.max_compressed_buffer_size));
 
-    size_t* comp_out_bytes_ptr;
-    HIP_CHECK(hipHostMalloc(
-        (void**)&comp_out_bytes_ptr, sizeof(*comp_out_bytes_ptr)));
+    size_t *comp_out_bytes_ptr;
+    HIP_CHECK(hipHostMalloc((void **)&comp_out_bytes_ptr,
+                            sizeof(*comp_out_bytes_ptr)));
 
-    lz4_manager.compress(
-        d_in_data,
-        d_comp_out,
-        comp_config);
+    lz4_manager.compress(d_in_data, d_comp_out, comp_config);
 
     HIP_CHECK(hipStreamSynchronize(stream));
-    
+
     size_t comp_out_bytes = lz4_manager.get_compressed_output_size(d_comp_out);
 
     HIP_CHECK(hipFree(d_in_data));
@@ -126,22 +123,19 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
     // between compression and decompression
 
     LZ4Manager lz4_manager(chunk_size, HIPCOMP_TYPE_CHAR, stream);
-    
+
     auto decomp_config = lz4_manager.configure_decompression(d_comp_out);
 
     const auto temp_bytes = lz4_manager.get_required_scratch_buffer_size();
 
-    uint8_t* temp_ptr;
+    uint8_t *temp_ptr;
     HIP_CHECK(hipMalloc(&temp_ptr, temp_bytes));
     lz4_manager.set_scratch_buffer(temp_ptr);
 
-    uint8_t* out_ptr = NULL;
+    uint8_t *out_ptr = NULL;
     HIP_CHECK(hipMalloc(&out_ptr, decomp_config.decomp_data_size));
 
-    lz4_manager.decompress(
-        out_ptr,
-        d_comp_out,
-        decomp_config);
+    lz4_manager.decompress(out_ptr, d_comp_out, decomp_config);
 
     HIP_CHECK(hipStreamSynchronize(stream));
 
@@ -149,13 +143,14 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
     HIP_CHECK(hipFree(temp_ptr));
 
     std::vector<T> res(decomp_config.decomp_data_size / sizeof(T));
-    HIP_CHECK(hipMemcpy(&res[0], out_ptr, decomp_config.decomp_data_size, hipMemcpyDeviceToHost));
+    HIP_CHECK(hipMemcpy(&res[0], out_ptr, decomp_config.decomp_data_size,
+                        hipMemcpyDeviceToHost));
 
 #if VERBOSE > 1
     // dump output data
     std::cout << "Output" << std::endl;
     for (size_t i = 0; i < data.size(); i++)
-      std::cout << ((T*)out_ptr)[i] << " ";
+      std::cout << ((T *)out_ptr)[i] << " ";
     std::cout << std::endl;
 #endif
 
@@ -165,11 +160,7 @@ void test_lz4(const std::vector<T>& data, size_t /*chunk_size*/)
 }
 
 template <typename T>
-void test_random_lz4(
-    int max_val,
-    int max_run,
-    size_t chunk_size)
-{
+void test_random_lz4(int max_val, int max_run, size_t chunk_size) {
   // generate random data
   std::vector<T> data;
   int seed = (max_val ^ max_run ^ static_cast<int>(chunk_size));
@@ -179,28 +170,17 @@ void test_random_lz4(
 }
 
 // int
-TEST_CASE("small-LZ4", "[small]")
-{
-  test_random_lz4<int>(10, 10, 10000);
-}
-TEST_CASE("medium-LZ4", "[small]")
-{
-  test_random_lz4<int>(10000, 10, 100000);
-}
+TEST_CASE("small-LZ4", "[small]") { test_random_lz4<int>(10, 10, 10000); }
+TEST_CASE("medium-LZ4", "[small]") { test_random_lz4<int>(10000, 10, 100000); }
 
-TEST_CASE("large-LZ4", "[large][bp]")
-{
+TEST_CASE("large-LZ4", "[large][bp]") {
   test_random_lz4<int>(10000, 1000, 10000000);
 }
 
-
-
 // long long
-TEST_CASE("small-LZ4-ll", "[small]")
-{
+TEST_CASE("small-LZ4-ll", "[small]") {
   test_random_lz4<int64_t>(10, 10, 10000);
 }
-TEST_CASE("large-LZ4-ll", "[large]")
-{
+TEST_CASE("large-LZ4-ll", "[large]") {
   test_random_lz4<int64_t>(10000, 1000, 10000000);
 }

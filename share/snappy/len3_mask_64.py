@@ -158,7 +158,7 @@ if __name__ == "__main__":
             f"""\
 len3_mask = get_len3_mask(v0,v1,v2);
 std::cout << len3_mask << std::endl;
- 
+
 if ( len3_mask != len3_mask_expected ) {{
   std::cout << "random values test {i}: FAIL" << std::endl;
 }}

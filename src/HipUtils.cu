@@ -25,7 +25,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -34,8 +35,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -48,28 +49,23 @@
 #include "HipUtils.h"
 
 #include <sstream>
-#include <string>
 #include <stdexcept>
+#include <string>
 
-namespace hipcomp
-{
+namespace hipcomp {
 
-namespace
-{
-std::string to_string(const void* const ptr)
-{
+namespace {
+std::string to_string(const void *const ptr) {
   std::ostringstream oss;
   oss << ptr;
   return oss.str();
 }
 } // namespace
 
-void HipUtils::check(const hipError_t err, const std::string& msg)
-{
+void HipUtils::check(const hipError_t err, const std::string &msg) {
   if (err != hipSuccess) {
-    std::string errorStr(
-        "Encountered Hip Error: " + std::to_string(err) + ": '"
-        + std::string(hipGetErrorString(err)) + "'");
+    std::string errorStr("Encountered Hip Error: " + std::to_string(err) +
+                         ": '" + std::string(hipGetErrorString(err)) + "'");
     if (!msg.empty()) {
       errorStr += ": " + msg;
     }
@@ -79,48 +75,39 @@ void HipUtils::check(const hipError_t err, const std::string& msg)
   }
 }
 
-void HipUtils::sync(hipStream_t stream)
-{
+void HipUtils::sync(hipStream_t stream) {
   check(hipStreamSynchronize(stream), "Failed to sync with stream");
 }
 
-void HipUtils::check_last_error(const std::string& msg)
-{
+void HipUtils::check_last_error(const std::string &msg) {
   check(hipGetLastError(), msg);
 }
 
-const void* HipUtils::void_device_pointer(const void* const ptr)
-{
+const void *HipUtils::void_device_pointer(const void *const ptr) {
   hipPointerAttribute_t attr;
-  check(
-      hipPointerGetAttributes(&attr, ptr),
-      "Failed to get pointer "
-      "attributes for pointer: "
-          + to_string(ptr));
+  check(hipPointerGetAttributes(&attr, ptr), "Failed to get pointer "
+                                             "attributes for pointer: " +
+                                                 to_string(ptr));
 
   if (!attr.devicePointer) {
-    throw std::runtime_error(
-        "Memory location is not accessible by the "
-        "current GPU: "
-        + to_string(ptr));
+    throw std::runtime_error("Memory location is not accessible by the "
+                             "current GPU: " +
+                             to_string(ptr));
   }
 
   return attr.devicePointer;
 }
 
-bool HipUtils::is_device_pointer(const void* const ptr)
-{
+bool HipUtils::is_device_pointer(const void *const ptr) {
   hipPointerAttribute_t attr;
 
   hipError_t err = hipPointerGetAttributes(&attr, ptr);
 
-  #if defined(__HIP_PLATFORM_NVIDIA__) || defined(__HIP_PLATFORM_NVCC__)
+#if defined(__HIP_PLATFORM_NVIDIA__) || defined(__HIP_PLATFORM_NVCC__)
   if (err == hipErrorInvalidValue) {
     int cuda_version;
-    check(
-        hipRuntimeGetVersion(&cuda_version),
-        "Failed to get runtime "
-        "version.");
+    check(hipRuntimeGetVersion(&cuda_version), "Failed to get runtime "
+                                               "version.");
 
     if (cuda_version < 11000) {
       // error is normal for non-device memory -- clear the error and return
@@ -129,42 +116,36 @@ bool HipUtils::is_device_pointer(const void* const ptr)
       return false;
     }
   }
-  #else
+#else
   if (err == hipErrorInvalidValue) {
     // error is normal for non-device memory -- clear the error and return
     // false
     static_cast<void>(hipGetLastError());
     return false;
   }
-  #endif
+#endif
 
   // if we continue, make sure we successfully got pointer information
-  check(
-      err,
-      "Failed to get pointer "
-      "attributes for pointer: "
-          + to_string(ptr));
+  check(err, "Failed to get pointer "
+             "attributes for pointer: " +
+                 to_string(ptr));
 
   return attr.type == hipMemoryTypeDevice;
 }
 
-void* HipUtils::void_device_pointer(void* const ptr)
-{
+void *HipUtils::void_device_pointer(void *const ptr) {
   hipPointerAttribute_t attr;
   // we don't need to worry about the difference between cuda 10 and cuda 11
   // here, as if it's not a device pointer, we want throw an exception either
   // way.
-  check(
-      hipPointerGetAttributes(&attr, ptr),
-      "Failed to get pointer "
-      "attributes for pointer: "
-          + to_string(ptr));
+  check(hipPointerGetAttributes(&attr, ptr), "Failed to get pointer "
+                                             "attributes for pointer: " +
+                                                 to_string(ptr));
 
   if (!attr.devicePointer) {
-    throw std::runtime_error(
-        "Memory location is not accessible by the "
-        "current GPU: "
-        + to_string(ptr));
+    throw std::runtime_error("Memory location is not accessible by the "
+                             "current GPU: " +
+                             to_string(ptr));
   }
 
   return attr.devicePointer;
@@ -173,9 +154,9 @@ void* HipUtils::void_device_pointer(void* const ptr)
 hipDeviceProp_t HipUtils::device_properties(int device_id) {
   hipDeviceProp_t device_prop;
 
-  check(
-    hipGetDeviceProperties(&device_prop, device_id),
-    "failed to get device properties for device " + std::to_string(device_id));
+  check(hipGetDeviceProperties(&device_prop, device_id),
+        "failed to get device properties for device " +
+            std::to_string(device_id));
   return device_prop;
 }
 

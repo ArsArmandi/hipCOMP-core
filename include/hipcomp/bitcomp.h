@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -61,8 +62,7 @@ extern "C" {
 /**
  * @brief Structure for configuring Bitcomp compression.
  */
-typedef struct
-{
+typedef struct {
   /**
    * @brief Bitcomp algorithm options.
    *  algorithm_type: The type of Bitcomp algorithm used.
@@ -89,13 +89,11 @@ static const hipcompBitcompFormatOpts hipcompBitcompDefaultOpts = {0};
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
-hipcompStatus_t hipcompBitcompCompressConfigure(
-    const hipcompBitcompFormatOpts* opts,
-    hipcompType_t in_type,
-    size_t in_bytes,
-    size_t* metadata_bytes,
-    size_t* temp_bytes,
-    size_t* max_compressed_bytes);
+hipcompStatus_t
+hipcompBitcompCompressConfigure(const hipcompBitcompFormatOpts *opts,
+                                hipcompType_t in_type, size_t in_bytes,
+                                size_t *metadata_bytes, size_t *temp_bytes,
+                                size_t *max_compressed_bytes);
 
 /**
  * @brief Perform asynchronous compression.
@@ -115,16 +113,12 @@ hipcompStatus_t hipcompBitcompCompressConfigure(
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
-hipcompStatus_t hipcompBitcompCompressAsync(
-    const hipcompBitcompFormatOpts* format_opts,
-    hipcompType_t in_type,
-    const void* uncompressed_ptr,
-    size_t uncompressed_bytes,
-    void* temp_ptr,
-    size_t temp_bytes,
-    void* compressed_ptr,
-    size_t* compressed_bytes,
-    hipStream_t stream);
+hipcompStatus_t
+hipcompBitcompCompressAsync(const hipcompBitcompFormatOpts *format_opts,
+                            hipcompType_t in_type, const void *uncompressed_ptr,
+                            size_t uncompressed_bytes, void *temp_ptr,
+                            size_t temp_bytes, void *compressed_ptr,
+                            size_t *compressed_bytes, hipStream_t stream);
 
 /**
  * @brief Extracts the metadata from the input in_ptr on the device and copies
@@ -143,12 +137,8 @@ hipcompStatus_t hipcompBitcompCompressAsync(
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBitcompDecompressConfigure(
-    const void* compressed_ptr,
-    size_t compressed_bytes,
-    void** metadata_ptr,
-    size_t* metadata_bytes,
-    size_t* temp_bytes,
-    size_t* uncompressed_bytes,
+    const void *compressed_ptr, size_t compressed_bytes, void **metadata_ptr,
+    size_t *metadata_bytes, size_t *temp_bytes, size_t *uncompressed_bytes,
     hipStream_t stream);
 
 /**
@@ -156,7 +146,7 @@ hipcompStatus_t hipcompBitcompDecompressConfigure(
  *
  * @param metadata_ptr The pointer to destroy.
  */
-void hipcompBitcompDestroyMetadata(void* metadata_ptr);
+void hipcompBitcompDestroyMetadata(void *metadata_ptr);
 
 /**
  * @brief Perform the asynchronous decompression.
@@ -175,15 +165,9 @@ void hipcompBitcompDestroyMetadata(void* metadata_ptr);
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBitcompDecompressAsync(
-    const void* compressed_ptr,
-    size_t compressed_bytes,
-    void* metadata_ptr,
-    size_t metadata_bytes,
-    void* temp_ptr,
-    size_t temp_bytes,
-    void* uncompressed_ptr,
-    size_t uncompressed_bytes,
-    hipStream_t stream);
+    const void *compressed_ptr, size_t compressed_bytes, void *metadata_ptr,
+    size_t metadata_bytes, void *temp_ptr, size_t temp_bytes,
+    void *uncompressed_ptr, size_t uncompressed_bytes, hipStream_t stream);
 
 /**
  * @brief Checks if the compressed data was compressed with bitcomp.
@@ -193,7 +177,7 @@ hipcompStatus_t hipcompBitcompDecompressAsync(
  *
  * @return 1 if the data was compressed with bitcomp, 0 otherwise
  */
-int hipcompIsBitcompData(const void* const in_ptr, size_t in_bytes);
+int hipcompIsBitcompData(const void *const in_ptr, size_t in_bytes);
 
 /******************************************************************************
  * Batched compression/decompression interface
@@ -202,8 +186,7 @@ int hipcompIsBitcompData(const void* const in_ptr, size_t in_bytes);
 /**
  * @brief Structure for configuring Bitcomp compression.
  */
-typedef struct
-{
+typedef struct {
   /**
    * @brief Bitcomp algorithm options.
    *  algorithm_type: The type of Bitcomp algorithm used.
@@ -216,8 +199,8 @@ typedef struct
   hipcompType_t data_type;
 } hipcompBatchedBitcompFormatOpts;
 
-static const hipcompBatchedBitcompFormatOpts hipcompBatchedBitcompDefaultOpts
-    = {0, HIPCOMP_TYPE_UCHAR};
+static const hipcompBatchedBitcompFormatOpts hipcompBatchedBitcompDefaultOpts =
+    {0, HIPCOMP_TYPE_UCHAR};
 
 /**
  * @brief Get the maximum size any chunk could compress to in the batch. That
@@ -232,14 +215,13 @@ static const hipcompBatchedBitcompFormatOpts hipcompBatchedBitcompDefaultOpts
  * @return The hipcompSuccess unless there is an error.
  */
 hipcompStatus_t hipcompBatchedBitcompCompressGetMaxOutputChunkSize(
-    size_t max_chunk_size,
-    hipcompBatchedBitcompFormatOpts format_opts,
-    size_t* max_compressed_size);
+    size_t max_chunk_size, hipcompBatchedBitcompFormatOpts format_opts,
+    size_t *max_compressed_size);
 /**
  * @brief Perform batched asynchronous compression.
  *
  * NOTE: The maximum number of batch partitions is 2^31.
- * 
+ *
  * NOTE: Unlike `hipcompBitcompCompressAsync`, a valid compression format must
  * be supplied to `format_opts`.
  *
@@ -267,24 +249,23 @@ hipcompStatus_t hipcompBatchedBitcompCompressGetMaxOutputChunkSize(
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedBitcompCompressAsync(
-    const void* const* device_uncompressed_ptrs,
-    const size_t* device_uncompressed_bytes,
+    const void *const *device_uncompressed_ptrs,
+    const size_t *device_uncompressed_bytes,
     size_t max_uncompressed_chunk_bytes, // not used
     size_t batch_size,
-    void* device_temp_ptr, // not used
+    void *device_temp_ptr, // not used
     size_t temp_bytes,     // not used
-    void* const* device_compressed_ptrs,
-    size_t* device_compressed_bytes,
-    const hipcompBatchedBitcompFormatOpts format_opts,
-    hipStream_t stream);
+    void *const *device_compressed_ptrs, size_t *device_compressed_bytes,
+    const hipcompBatchedBitcompFormatOpts format_opts, hipStream_t stream);
 
 /**
  * @brief Perform batched asynchronous decompression.
  *
  * NOTE: This function is used to decompress compressed buffers produced by
  * `hipcompBatchedBitcompCompressAsync`. It can also decompress buffers
- * compressed with `hipcompBitcompCompressAsync` or the standalone Bitcomp library.
- * 
+ * compressed with `hipcompBitcompCompressAsync` or the standalone Bitcomp
+ * library.
+ *
  * NOTE: The function is not completely asynchronous, as it needs to look
  * at the compressed data in order to create the proper bitcomp handle.
  * The stream is synchronized, the data is examined, then the asynchronous
@@ -316,15 +297,13 @@ hipcompStatus_t hipcompBatchedBitcompCompressAsync(
  * @param[in] stream The hip stream to operate on.
  */
 hipcompStatus_t hipcompBatchedBitcompDecompressAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes, // not used
-    const size_t* device_uncompressed_bytes,
-    size_t* device_actual_uncompressed_bytes,
-    size_t batch_size,
-    void* const device_temp_ptr, // not used
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes, // not used
+    const size_t *device_uncompressed_bytes,
+    size_t *device_actual_uncompressed_bytes, size_t batch_size,
+    void *const device_temp_ptr, // not used
     size_t temp_bytes,           // not used
-    void* const* device_uncompressed_ptrs,
-    hipcompStatus_t* device_statuses,
+    void *const *device_uncompressed_ptrs, hipcompStatus_t *device_statuses,
     hipStream_t stream);
 
 /**
@@ -342,40 +321,34 @@ hipcompStatus_t hipcompBatchedBitcompDecompressAsync(
  * @param[in] stream The hip stream to operate on.
  */
 hipcompStatus_t hipcompBatchedBitcompGetDecompressSizeAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    size_t* device_uncompressed_bytes,
-    size_t batch_size,
-    hipStream_t stream);
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes, size_t *device_uncompressed_bytes,
+    size_t batch_size, hipStream_t stream);
 
 /**
  * @brief Return the temp size needed for Bitcomp compression.
  * Bitcomp currently doesn't use any temp memory.
- * 
+ *
  * @param[in] batch_size  Number of chunks
  * @param[in] max_chunk_bytes Size in bytes of the largest chunk
  * @param[in] format_opts Bitcomp options
  * @param[out] temp_bytes The temp size
  */
 hipcompStatus_t hipcompBatchedBitcompCompressGetTempSize(
-    size_t batch_size,
-    size_t max_chunk_bytes,
-    hipcompBatchedBitcompFormatOpts format_opts,
-    size_t * temp_bytes);
+    size_t batch_size, size_t max_chunk_bytes,
+    hipcompBatchedBitcompFormatOpts format_opts, size_t *temp_bytes);
 
 /**
  * @brief Return the temp size needed for Bitcomp decompression.
  * Bitcomp currently doesn't use any temp memory.
- * 
+ *
  * @param[in] batch_size  Number of chunks
  * @param[in] max_chunk_bytes Size in bytes of the largest chunk
  * @param[in] format_opts Bitcomp options
  * @param[out] temp_bytes The temp size
  */
 hipcompStatus_t hipcompBatchedBitcompDecompressGetTempSize(
-    size_t batch_size,
-    size_t max_chunk_bytes,
-    size_t * temp_bytes);
+    size_t batch_size, size_t max_chunk_bytes, size_t *temp_bytes);
 
 #ifdef __cplusplus
 }

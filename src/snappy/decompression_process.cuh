@@ -15,7 +15,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +25,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -38,230 +39,201 @@
 #pragma once
 
 #include "device_functions.cuh"
-#include "snappy/types.h"
-#include "snappy/symbol.cuh"
 #include "snappy/decompression_state.cuh"
+#include "snappy/symbol.cuh"
+#include "snappy/types.h"
 
 #define READ_BYTE(pos) s->q.buf[(pos) & (PREFETCH_SIZE - 1)]
 
-namespace hipcomp
-{
-  namespace snappy
-  {
+namespace hipcomp {
+namespace snappy {
 
-    /**
-     * \brief Process LZ77 symbols and output uncompressed stream
-     *
-     * \note No error checks at this stage (WARP0 responsible for not sending offsets and lengths that
-     * would result in out-of-bounds accesses)
-     */
-    template <int warpsize,
-              typename UNSNAP_STATE_S,
-              int LITERAL_SECTORS,
-              int PROCESS_SLEEP_NS
-              >
-    class ProcessSymbols
-    {
-    private:
-      using MaskT = typename Mask<warpsize>::type;
-      static constexpr int BATCH_SIZE = UNSNAP_STATE_S::BATCH_SIZE;
-      static constexpr int BATCH_COUNT = UNSNAP_STATE_S::BATCH_COUNT;
-      static constexpr int PREFETCH_SIZE = UNSNAP_STATE_S::PREFETCH_SIZE;
+/**
+ * \brief Process LZ77 symbols and output uncompressed stream
+ *
+ * \note No error checks at this stage (WARP0 responsible for not sending
+ * offsets and lengths that would result in out-of-bounds accesses)
+ */
+template <int warpsize, typename UNSNAP_STATE_S, int LITERAL_SECTORS,
+          int PROCESS_SLEEP_NS>
+class ProcessSymbols {
+private:
+  using MaskT = typename Mask<warpsize>::type;
+  static constexpr int BATCH_SIZE = UNSNAP_STATE_S::BATCH_SIZE;
+  static constexpr int BATCH_COUNT = UNSNAP_STATE_S::BATCH_COUNT;
+  static constexpr int PREFETCH_SIZE = UNSNAP_STATE_S::PREFETCH_SIZE;
 
-    public:
-      /**
-       *  \brief Applies the strategy.
-       *
-       * \param[inout] s decompression state
-       * \param[ino] t thread id within participating group (lane id)
-       * \todo Currently only works for GROUP_MASK_T == MaskT
-       */
-      __device__ static inline void apply(UNSNAP_STATE_S *s, int t)
-      {
-        const uint8_t *literal_base = s->base;
-        uint8_t *out = reinterpret_cast<uint8_t *>(s->in.dstDevice);
-        int batch = 0;
+public:
+  /**
+   *  \brief Applies the strategy.
+   *
+   * \param[inout] s decompression state
+   * \param[ino] t thread id within participating group (lane id)
+   * \todo Currently only works for GROUP_MASK_T == MaskT
+   */
+  __device__ static inline void apply(UNSNAP_STATE_S *s, int t) {
+    const uint8_t *literal_base = s->base;
+    uint8_t *out = reinterpret_cast<uint8_t *>(s->in.dstDevice);
+    int batch = 0;
 
-        do
-        {
-          volatile LZ77Symbol *b = &s->q.batch[batch * BATCH_SIZE];
-          int32_t batch_len, blen_t, dist_t;
+    do {
+      volatile LZ77Symbol *b = &s->q.batch[batch * BATCH_SIZE];
+      int32_t batch_len, blen_t, dist_t;
 
-          if (t == 0)
-          {
-            while ((batch_len = s->q.batch_len[batch]) == 0)
-            {
-              NANOSLEEP(PROCESS_SLEEP_NS);
+      if (t == 0) {
+        while ((batch_len = s->q.batch_len[batch]) == 0) {
+          NANOSLEEP(PROCESS_SLEEP_NS);
+        }
+      } else {
+        batch_len = 0;
+      }
+      batch_len = SHFL10(batch_len);
+      if (batch_len <= 0) {
+        break;
+      }
+      if (t < batch_len) { //: batch_len is bounded by warpsize of decoder
+        b[t].get(blen_t, dist_t);
+        //: blen_t = b[t].len;
+        //: dist_t = b[t].offset;
+      } else {
+        blen_t = dist_t = 0;
+      }
+      // Try to combine as many small entries as possible, but try to avoid
+      // doing that if we see a small repeat distance 8 bytes or less
+      if (SHFL10(min((uint32_t)dist_t, (uint32_t)SHFL1_XOR(dist_t, 1))) >
+          8) { //: thread 0 broadcasts its result
+        uint32_t n;
+        do {
+          uint32_t bofs = WarpReduce<warpsize>::prefix_sum(t, blen_t);
+          //: uint32_t bofs          = WarpReducePos(blen_t, t);
+          MaskT stop_mask = BALLOT1<MaskT>(
+              (uint32_t)dist_t <
+              bofs); //: copies: dist_t < bofs implies that this/another lane of
+                     //: this warp currently decodes the input data literals:
+                     //: Always have negative dist_t, so this is always a stop
+          MaskT start_mask = WarpReduce<warpsize>::sum(
+              t,
+              (bofs < warpsize && t < batch_len) ? MaskT{1} << bofs : MaskT{0});
+          //: MaskT start_mask = WarpReduceSum((bofs < warpsize && t <
+          //: batch_len) ? MaskT{1} << bofs : MaskT{0});
+          n = min(min((uint32_t)num_set_bits(start_mask),
+                      (uint32_t)(find_first_set_bit(stop_mask) - 1u)),
+                  (uint32_t)batch_len); //: n is bounded by warpsize
+          if (n != 0) {
+            uint32_t it = num_set_bits(start_mask & ((MaskT{2} << t) - 1));
+            uint32_t tr = t - SHFL1(bofs - blen_t, it);
+            int32_t dist = SHFL1(dist_t, it);
+            if (it < n) {
+              const uint8_t *src =
+                  (dist > 0) ? (out + t - dist) : (literal_base + tr - dist);
+              out[t] = *src;
             }
+            out += SHFL1(bofs, n - 1);
+            blen_t = SHFL1(blen_t, (n + t) & (warpsize - 1));
+            dist_t = SHFL1(dist_t, (n + t) & (warpsize - 1));
+            batch_len -= n;
           }
-          else
-          {
-            batch_len = 0;
-          }
-          batch_len = SHFL10(batch_len);
-          if (batch_len <= 0)
-          {
-            break;
-          }
-          if (t < batch_len)
-          { //: batch_len is bounded by warpsize of decoder
-            b[t].get(blen_t, dist_t);
-            //: blen_t = b[t].len;
-            //: dist_t = b[t].offset;
-          }
-          else
-          {
-            blen_t = dist_t = 0;
-          }
-          // Try to combine as many small entries as possible, but try to avoid doing that
-          // if we see a small repeat distance 8 bytes or less
-          if (SHFL10(min((uint32_t)dist_t, (uint32_t)SHFL1_XOR(dist_t, 1))) > 8)
-          { //: thread 0 broadcasts its result
-            uint32_t n;
-            do
-            {
-              uint32_t bofs = WarpReduce<warpsize>::prefix_sum(t, blen_t);
-              //: uint32_t bofs          = WarpReducePos(blen_t, t);
-              MaskT stop_mask = BALLOT1<MaskT>((uint32_t)dist_t < bofs); //: copies: dist_t < bofs implies that this/another lane of this warp currently decodes the input data
-                                                                                                  //: literals: Always have negative dist_t, so this is always a stop
-              MaskT start_mask = WarpReduce<warpsize>::sum(t, (bofs < warpsize && t < batch_len) ? MaskT{1} << bofs : MaskT{0});
-              //: MaskT start_mask = WarpReduceSum((bofs < warpsize && t < batch_len) ? MaskT{1} << bofs : MaskT{0});
-              n = min(min((uint32_t)num_set_bits(start_mask), (uint32_t)(find_first_set_bit(stop_mask) - 1u)),
-                      (uint32_t)batch_len); //: n is bounded by warpsize
-              if (n != 0)
-              {
-                uint32_t it = num_set_bits(start_mask & ((MaskT{2} << t) - 1));
-                uint32_t tr = t - SHFL1(bofs - blen_t, it);
-                int32_t dist = SHFL1(dist_t, it);
-                if (it < n)
-                {
-                  const uint8_t *src = (dist > 0) ? (out + t - dist) : (literal_base + tr - dist);
-                  out[t] = *src;
-                }
-                out += SHFL1(bofs, n - 1);
-                blen_t = SHFL1(blen_t, (n + t) & (warpsize - 1));
-                dist_t = SHFL1(dist_t, (n + t) & (warpsize - 1));
-                batch_len -= n;
-              }
-            } while (n >= 4);
-          }
-          uint32_t current_prefetch_wrpos = s->q.prefetch_wrpos;
-          for (int i = 0; i < batch_len; i++)
-          { //: batch_len is bounded by warpsize of decoder
-            int32_t blen = SHFL1(blen_t, i);
-            int32_t dist = SHFL1(dist_t, i);
-            int32_t blen2 = (i + 1 < batch_len) ? SHFL1(blen_t, i + 1) : warpsize;
-            // Try to combine consecutive small entries if they are independent
-            if ((uint32_t)dist >= (uint32_t)blen && blen + blen2 <= warpsize)
-            {
-              int32_t dist2 = SHFL1(dist_t, i + 1);
-              if ((uint32_t)dist2 >= (uint32_t)(blen + blen2))
-              {
-                int32_t d;
-                if (t < blen)
-                {
-                  d = dist;
-                }
-                else
-                {
-                  dist = dist2;
-                  d = (dist2 <= 0) ? dist2 + blen : dist2;
-                }
-                blen += blen2;
-                if (t < blen)
-                {
-                  const uint8_t *src = (dist > 0) ? (out - d) : (literal_base - d);
-                  out[t] = src[t];
-                }
-                out += blen;
-                i++;
-                continue;
-              }
+        } while (n >= 4);
+      }
+      uint32_t current_prefetch_wrpos = s->q.prefetch_wrpos;
+      for (int i = 0; i < batch_len;
+           i++) { //: batch_len is bounded by warpsize of decoder
+        int32_t blen = SHFL1(blen_t, i);
+        int32_t dist = SHFL1(dist_t, i);
+        int32_t blen2 = (i + 1 < batch_len) ? SHFL1(blen_t, i + 1) : warpsize;
+        // Try to combine consecutive small entries if they are independent
+        if ((uint32_t)dist >= (uint32_t)blen && blen + blen2 <= warpsize) {
+          int32_t dist2 = SHFL1(dist_t, i + 1);
+          if ((uint32_t)dist2 >= (uint32_t)(blen + blen2)) {
+            int32_t d;
+            if (t < blen) {
+              d = dist;
+            } else {
+              dist = dist2;
+              d = (dist2 <= 0) ? dist2 + blen : dist2;
             }
-            if (dist > 0)
-            {
-              // Copy
-              uint8_t b0, b1;
-              if (t < blen)
-              {
-                uint32_t pos = t;
-                const uint8_t *src = out + ((pos >= dist) ? (pos % dist) : pos) - dist;
-                b0 = *src;
-              }
-              if (warpsize + t < blen)
-              {
-                uint32_t pos = warpsize + t;
-                const uint8_t *src = out + ((pos >= dist) ? (pos % dist) : pos) - dist;
-                b1 = *src;
-              }
-              if (t < blen)
-              {
-                out[t] = b0;
-              }
-              if (warpsize + t < blen)
-              {
-                out[warpsize + t] = b1;
-              }
-            }
-            else
-            {
-              // Literal
-              uint8_t b[LITERAL_SECTORS];
-              dist = -dist;
-#pragma unroll 1
-              for (int k = 0; k < blen / (LITERAL_SECTORS * warpsize); ++k)
-              {
-                if (dist + LITERAL_SECTORS * warpsize < current_prefetch_wrpos)
-                {
-                  //: i hides higher-scope i
-                  for (int i = 0; i < LITERAL_SECTORS; ++i)
-                    b[i] = READ_BYTE(dist + i * warpsize + t);
-                }
-                else
-                {
-                  //: i hides higher-scope i
-                  for (int i = 0; i < LITERAL_SECTORS; ++i)
-                    b[i] = literal_base[dist + i * warpsize + t];
-                }
-                for (int i = 0; i < LITERAL_SECTORS; ++i)
-                  //: i hides higher-scope i
-                  out[i * warpsize + t] = b[i];
-                dist += LITERAL_SECTORS * warpsize;
-                out += LITERAL_SECTORS * warpsize;
-              }
-              blen %= LITERAL_SECTORS * warpsize;
-              //: similar as above body, but with check `if (i * warpsize + t < blen)`
-              if (dist + blen < current_prefetch_wrpos)
-              {
-                for (int i = 0; i < LITERAL_SECTORS; ++i)
-                  //: i hides higher-scope i
-                  if (i * warpsize + t < blen)
-                    b[i] = READ_BYTE(dist + i * warpsize + t);
-              }
-              else
-              {
-                for (int i = 0; i < LITERAL_SECTORS; ++i)
-                  //: i hides higher-scope i
-                  if (i * warpsize + t < blen)
-                    b[i] = literal_base[dist + i * warpsize + t];
-              }
-              for (int i = 0; i < LITERAL_SECTORS; ++i)
-                if (i * warpsize + t < blen)
-                  out[i * warpsize + t] = b[i];
-              //: end similar as above
+            blen += blen2;
+            if (t < blen) {
+              const uint8_t *src = (dist > 0) ? (out - d) : (literal_base - d);
+              out[t] = src[t];
             }
             out += blen;
+            i++;
+            continue;
           }
-          SYNCWARP();
-          if (t == 0)
-          {
-            s->q.prefetch_rdpos = s->q.batch_prefetch_rdpos[batch];
-            s->q.batch_len[batch] = 0;
+        }
+        if (dist > 0) {
+          // Copy
+          uint8_t b0, b1;
+          if (t < blen) {
+            uint32_t pos = t;
+            const uint8_t *src =
+                out + ((pos >= dist) ? (pos % dist) : pos) - dist;
+            b0 = *src;
           }
-          batch = (batch + 1) & (BATCH_COUNT - 1);
-        } while (1);
+          if (warpsize + t < blen) {
+            uint32_t pos = warpsize + t;
+            const uint8_t *src =
+                out + ((pos >= dist) ? (pos % dist) : pos) - dist;
+            b1 = *src;
+          }
+          if (t < blen) {
+            out[t] = b0;
+          }
+          if (warpsize + t < blen) {
+            out[warpsize + t] = b1;
+          }
+        } else {
+          // Literal
+          uint8_t b[LITERAL_SECTORS];
+          dist = -dist;
+#pragma unroll 1
+          for (int k = 0; k < blen / (LITERAL_SECTORS * warpsize); ++k) {
+            if (dist + LITERAL_SECTORS * warpsize < current_prefetch_wrpos) {
+              //: i hides higher-scope i
+              for (int i = 0; i < LITERAL_SECTORS; ++i)
+                b[i] = READ_BYTE(dist + i * warpsize + t);
+            } else {
+              //: i hides higher-scope i
+              for (int i = 0; i < LITERAL_SECTORS; ++i)
+                b[i] = literal_base[dist + i * warpsize + t];
+            }
+            for (int i = 0; i < LITERAL_SECTORS; ++i)
+              //: i hides higher-scope i
+              out[i * warpsize + t] = b[i];
+            dist += LITERAL_SECTORS * warpsize;
+            out += LITERAL_SECTORS * warpsize;
+          }
+          blen %= LITERAL_SECTORS * warpsize;
+          //: similar as above body, but with check `if (i * warpsize + t <
+          //: blen)`
+          if (dist + blen < current_prefetch_wrpos) {
+            for (int i = 0; i < LITERAL_SECTORS; ++i)
+              //: i hides higher-scope i
+              if (i * warpsize + t < blen)
+                b[i] = READ_BYTE(dist + i * warpsize + t);
+          } else {
+            for (int i = 0; i < LITERAL_SECTORS; ++i)
+              //: i hides higher-scope i
+              if (i * warpsize + t < blen)
+                b[i] = literal_base[dist + i * warpsize + t];
+          }
+          for (int i = 0; i < LITERAL_SECTORS; ++i)
+            if (i * warpsize + t < blen)
+              out[i * warpsize + t] = b[i];
+          //: end similar as above
+        }
+        out += blen;
       }
-    };
+      SYNCWARP();
+      if (t == 0) {
+        s->q.prefetch_rdpos = s->q.batch_prefetch_rdpos[batch];
+        s->q.batch_len[batch] = 0;
+      }
+      batch = (batch + 1) & (BATCH_COUNT - 1);
+    } while (1);
+  }
+};
 
-  } // namespace snappy
+} // namespace snappy
 } // namespace hipcomp

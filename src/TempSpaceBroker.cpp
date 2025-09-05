@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -54,18 +55,14 @@
 #include <stdexcept>
 #include <string>
 
-namespace hipcomp
-{
+namespace hipcomp {
 
 /******************************************************************************
  * CONSTRUCTORS / DESTRUCTOR **************************************************
  *****************************************************************************/
 
-TempSpaceBroker::TempSpaceBroker(void* const space, const size_t bytes) :
-    m_base(space),
-    m_size(bytes),
-    m_offset(0)
-{
+TempSpaceBroker::TempSpaceBroker(void *const space, const size_t bytes)
+    : m_base(space), m_size(bytes), m_offset(0) {
   assert(space);
 }
 
@@ -73,29 +70,25 @@ TempSpaceBroker::TempSpaceBroker(void* const space, const size_t bytes) :
  * PUBLIC METHODS *************************************************************
  *****************************************************************************/
 
-size_t TempSpaceBroker::spaceLeft() const
-{
-  return m_size - m_offset;
-}
+size_t TempSpaceBroker::spaceLeft() const { return m_size - m_offset; }
 
 /******************************************************************************
  * PRIVATE METHODS ************************************************************
  *****************************************************************************/
 
-void* TempSpaceBroker::reserve(
-    const size_t alignment, const size_t num, const size_t size)
-{
+void *TempSpaceBroker::reserve(const size_t alignment, const size_t num,
+                               const size_t size) {
   const size_t requiredSize = num * size;
 
-  void* destPtr = next();
+  void *destPtr = next();
 
   size_t remaining = spaceLeft();
   if (!std::align(alignment, requiredSize, destPtr, remaining)) {
-    throw std::runtime_error(
-        "Not enough temp space left for " + std::to_string(num)
-        + " values aligned to " + std::to_string(alignment) + ". Only "
-        + std::to_string(remaining) + " bytes of " + std::to_string(m_size)
-        + " bytes remain.");
+    throw std::runtime_error("Not enough temp space left for " +
+                             std::to_string(num) + " values aligned to " +
+                             std::to_string(alignment) + ". Only " +
+                             std::to_string(remaining) + " bytes of " +
+                             std::to_string(m_size) + " bytes remain.");
   }
 
   const size_t totalSize = spaceLeft() - remaining + requiredSize;
@@ -104,9 +97,8 @@ void* TempSpaceBroker::reserve(
   return destPtr;
 }
 
-void* TempSpaceBroker::next() const
-{
-  return static_cast<char*>(m_base) + m_offset;
+void *TempSpaceBroker::next() const {
+  return static_cast<char *>(m_base) + m_offset;
 }
 
 } // namespace hipcomp

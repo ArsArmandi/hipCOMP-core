@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -47,13 +48,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "hipcomp/ans.h"
-
 #include "Check.h"
 #include "HipUtils.h"
 #include "common.h"
 #include "hipcomp.h"
 #include "hipcomp.hpp"
+#include "hipcomp/ans.h"
 #include "type_macros.h"
 
 #include <cassert>
@@ -72,50 +72,49 @@ using namespace hipcomp;
 
 #define MAYBE_UNUSED(x) (void)(x)
 
-hipcompStatus_t hipcompBatchedANSDecompressGetTempSize(
-    const size_t num_chunks,
-    const size_t max_uncompressed_chunk_size,
-    size_t* const temp_bytes)
-{
+hipcompStatus_t
+hipcompBatchedANSDecompressGetTempSize(const size_t num_chunks,
+                                       const size_t max_uncompressed_chunk_size,
+                                       size_t *const temp_bytes) {
 #ifdef ENABLE_ANS
   CHECK_NOT_NULL(temp_bytes);
-  ans::decompressGetTempSize(num_chunks, max_uncompressed_chunk_size, temp_bytes);
+  ans::decompressGetTempSize(num_chunks, max_uncompressed_chunk_size,
+                             temp_bytes);
   return hipcompSuccess;
 #else
   (void)num_chunks;
   (void)max_uncompressed_chunk_size;
   (void)temp_bytes;
   std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }
 
 hipcompStatus_t hipcompBatchedANSDecompressAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    const size_t* device_uncompressed_bytes,
-    size_t* device_actual_uncompressed_bytes,
-    size_t batch_size,
-    void* const device_temp_ptr,
-    const size_t temp_bytes,
-    void* const* device_uncompressed_ptr,
-    hipcompStatus_t* device_statuses,
-    hipStream_t stream)
-{
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes,
+    const size_t *device_uncompressed_bytes,
+    size_t *device_actual_uncompressed_bytes, size_t batch_size,
+    void *const device_temp_ptr, const size_t temp_bytes,
+    void *const *device_uncompressed_ptr, hipcompStatus_t *device_statuses,
+    hipStream_t stream) {
 #ifdef ENABLE_ANS
   try {
     ans::decompressAsync(
-      HipUtils::device_pointer(device_compressed_ptrs),
-      HipUtils::device_pointer(device_compressed_bytes),
-      HipUtils::device_pointer(device_uncompressed_bytes),
-      device_actual_uncompressed_bytes ? HipUtils::device_pointer(device_actual_uncompressed_bytes) : nullptr,
-      0, batch_size, device_temp_ptr, temp_bytes,
-      HipUtils::device_pointer(device_uncompressed_ptr),
-      device_statuses ? HipUtils::device_pointer(device_statuses) : nullptr,
-      stream);
-  } catch (const std::exception& e) {
-     return Check::exception_to_error(e, "hipcompBatchedANSDecompressAsync()");
+        HipUtils::device_pointer(device_compressed_ptrs),
+        HipUtils::device_pointer(device_compressed_bytes),
+        HipUtils::device_pointer(device_uncompressed_bytes),
+        device_actual_uncompressed_bytes
+            ? HipUtils::device_pointer(device_actual_uncompressed_bytes)
+            : nullptr,
+        0, batch_size, device_temp_ptr, temp_bytes,
+        HipUtils::device_pointer(device_uncompressed_ptr),
+        device_statuses ? HipUtils::device_pointer(device_statuses) : nullptr,
+        stream);
+  } catch (const std::exception &e) {
+    return Check::exception_to_error(e, "hipcompBatchedANSDecompressAsync()");
   }
   return hipcompSuccess;
 #else
@@ -130,17 +129,16 @@ hipcompStatus_t hipcompBatchedANSDecompressAsync(
   (void)device_statuses;
   (void)stream;
   std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }
 
-hipcompStatus_t hipcompBatchedANSCompressGetTempSize(
-    size_t batch_size,
-    size_t max_chunk_size,
-    hipcompBatchedANSOpts_t /* format_opts */,
-    size_t* temp_bytes)
-{
+hipcompStatus_t
+hipcompBatchedANSCompressGetTempSize(size_t batch_size, size_t max_chunk_size,
+                                     hipcompBatchedANSOpts_t /* format_opts */,
+                                     size_t *temp_bytes) {
 #ifdef ENABLE_ANS
   CHECK_NOT_NULL(temp_bytes);
   ans::compressGetTempSize(batch_size, max_chunk_size, temp_bytes);
@@ -150,16 +148,15 @@ hipcompStatus_t hipcompBatchedANSCompressGetTempSize(
   (void)max_chunk_size;
   (void)temp_bytes;
   std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }
 
 hipcompStatus_t hipcompBatchedANSCompressGetMaxOutputChunkSize(
-    size_t max_chunk_size,
-    hipcompBatchedANSOpts_t /* format_opts */,
-    size_t* max_compressed_size)
-{
+    size_t max_chunk_size, hipcompBatchedANSOpts_t /* format_opts */,
+    size_t *max_compressed_size) {
 #ifdef ENABLE_ANS
   CHECK_NOT_NULL(max_compressed_size);
   ans::compressGetMaxOutputChunkSize(max_chunk_size, max_compressed_size);
@@ -168,23 +165,19 @@ hipcompStatus_t hipcompBatchedANSCompressGetMaxOutputChunkSize(
   (void)max_chunk_size;
   (void)max_compressed_size;
   std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }
 
 hipcompStatus_t hipcompBatchedANSCompressAsync(
-    const void* const* device_uncompressed_ptr,
-    const size_t* device_uncompressed_bytes,
-    size_t max_uncompressed_chunk_bytes,
-    size_t batch_size,
-    void* device_temp_ptr,
-    size_t temp_bytes,
-    void* const* device_compressed_ptr,
-    size_t* device_compressed_bytes,
-    hipcompBatchedANSOpts_t format_opts,
-    hipStream_t stream)
-{
+    const void *const *device_uncompressed_ptr,
+    const size_t *device_uncompressed_bytes,
+    size_t max_uncompressed_chunk_bytes, size_t batch_size,
+    void *device_temp_ptr, size_t temp_bytes,
+    void *const *device_compressed_ptr, size_t *device_compressed_bytes,
+    hipcompBatchedANSOpts_t format_opts, hipStream_t stream) {
 #ifdef ENABLE_ANS
   assert(format_opts.type == hipcompANSType_t::hipcomp_rANS);
   MAYBE_UNUSED(format_opts);
@@ -192,17 +185,12 @@ hipcompStatus_t hipcompBatchedANSCompressAsync(
 
   try {
     ans::compressAsync(
-        ans_type,
-        HipUtils::device_pointer(device_uncompressed_ptr),
+        ans_type, HipUtils::device_pointer(device_uncompressed_ptr),
         HipUtils::device_pointer(device_uncompressed_bytes),
-        max_uncompressed_chunk_bytes,
-        batch_size,
-        device_temp_ptr,
-        temp_bytes,
+        max_uncompressed_chunk_bytes, batch_size, device_temp_ptr, temp_bytes,
         HipUtils::device_pointer(device_compressed_ptr),
-        HipUtils::device_pointer(device_compressed_bytes),
-        stream);
-  } catch (const std::exception& e) {
+        HipUtils::device_pointer(device_compressed_bytes), stream);
+  } catch (const std::exception &e) {
     return Check::exception_to_error(e, "hipcompBatchedANSCompressAsync()");
   }
   return hipcompSuccess;
@@ -218,23 +206,19 @@ hipcompStatus_t hipcompBatchedANSCompressAsync(
   (void)format_opts;
   (void)stream;
   std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }
 
 hipcompStatus_t hipcompBatchedANSGetDecompressSizeAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* /* device_compressed_bytes */,
-    size_t* device_uncompressed_bytes,
-    size_t batch_size,
-    hipStream_t stream) {
+    const void *const *device_compressed_ptrs,
+    const size_t * /* device_compressed_bytes */,
+    size_t *device_uncompressed_bytes, size_t batch_size, hipStream_t stream) {
 #ifdef ENABLE_ANS
-  ans::getDecompressSizeAsync(
-      device_compressed_ptrs,
-      device_uncompressed_bytes,
-      batch_size,
-      stream);
+  ans::getDecompressSizeAsync(device_compressed_ptrs, device_uncompressed_bytes,
+                              batch_size, stream);
   return hipcompSuccess;
 #else
   (void)device_compressed_ptrs;
@@ -242,7 +226,8 @@ hipcompStatus_t hipcompBatchedANSGetDecompressSizeAsync(
   (void)batch_size;
   (void)stream;
   std::cerr << "ERROR: hipcomp configured without GPU ANS support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }

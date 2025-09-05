@@ -15,7 +15,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +25,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -40,43 +41,48 @@
 /**
  * \brief Describes a single LZ77 symbol (single entry in batch)
  *
- * Snappy constrains the length and offset of LZ77 literals and copies such that all
- * LZ77 symbols fit into 5 particular symbol classes.
- * These are short literals, long literals as well as copies with 1,2, or 4 offset bytes.
+ * Snappy constrains the length and offset of LZ77 literals and copies such that
+ * all LZ77 symbols fit into 5 particular symbol classes. These are short
+ * literals, long literals as well as copies with 1,2, or 4 offset bytes.
  *
  * On the tag byte of (encoded) Snappy symbols
  * ----------------------------------------------
  *
  * The tag byte of the Snappy symbols is composed as follows:
  *
- *   short literal:            short_literal_len_minus_1: bit*6                 + 0b00: bit*2
- *   long literal:             long_literal_num_len_bytes_plus_59: bit*6        + 0b00: bit*2
- *   copy with 1 offset byte:  c1B_offset[8:11]: bit*3 + c1B_len_minus_4: bit*3 + 0b01: bit*2
- *   copy with 2 offset bytes: c2B4B_len_minus_1: bit*6                         + 0b10: bit*2;
- *   copy with 4 offset bytes: c2B4B_len_minus_1: bit*6                         + 0b11: bit*2;
+ *   short literal:            short_literal_len_minus_1: bit*6 + 0b00: bit*2
+ *   long literal:             long_literal_num_len_bytes_plus_59: bit*6 + 0b00:
+ * bit*2 copy with 1 offset byte:  c1B_offset[8:11]: bit*3 + c1B_len_minus_4:
+ * bit*3 + 0b01: bit*2 copy with 2 offset bytes: c2B4B_len_minus_1: bit*6 +
+ * 0b10: bit*2; copy with 4 offset bytes: c2B4B_len_minus_1: bit*6 + 0b11:
+ * bit*2;
  *
  * where:
  *
- *   short_len_minus_1                   in [0,59]  => short_len                   in [0,60]
- *   long_literal_num_len_bytes_plus_59  in [60,63] => long_literal_num_len_bytes  in [1,4]
- *   c1B_len_minus_4                     in [0,7]   => c1B_len                     in [4,11]
- *   c2B4B_len_minus_1                   in [0,63]  => c2B4B_len                   in [1,64]
+ *   short_len_minus_1                   in [0,59]  => short_len in [0,60]
+ *   long_literal_num_len_bytes_plus_59  in [60,63] =>
+ * long_literal_num_len_bytes  in [1,4] c1B_len_minus_4                     in
+ * [0,7]   => c1B_len                     in [4,11] c2B4B_len_minus_1 in [0,63]
+ * => c2B4B_len                   in [1,64]
  *
- * and where the "+" op concatenates the bit sequences and the least-significant bit is the right-most bit.
+ * and where the "+" op concatenates the bit sequences and the least-significant
+ * bit is the right-most bit.
  *
- * Noteworthy is that the short literal symbol and the copy symbol with 2 and 4 offset bytes
- * use the upper 6 bits of the tag_byte to encode the length information (subtracted by 1).
+ * Noteworthy is that the short literal symbol and the copy symbol with 2 and 4
+ * offset bytes use the upper 6 bits of the tag_byte to encode the length
+ * information (subtracted by 1).
  */
 
 namespace hipcomp {
 namespace snappy {
 
 struct LZ77Symbol {
-  int32_t len;     //> 1..64 = Number of bytes
-  int32_t offset;  //> copy distance if greater than zero, or negative of literal offset in byte stream
-  #ifdef HIPCOMP_PRINT_DEBUG_INFO
-  uint32_t cur;   //> Cursor position when decoding, for debugging purposes.
-  #endif
+  int32_t len;    //> 1..64 = Number of bytes
+  int32_t offset; //> copy distance if greater than zero, or negative of literal
+                  // offset in byte stream
+#ifdef HIPCOMP_PRINT_DEBUG_INFO
+  uint32_t cur; //> Cursor position when decoding, for debugging purposes.
+#endif
 
 public:
   /**
@@ -84,48 +90,53 @@ public:
    * \note Can be used for debugging purposes.
    * \note Argument `cur` is only used if HIPCOMP_PRINT_DEBUG_INFO is defined.
    */
-  __device__ inline void set(int32_t len,int32_t offset,uint32_t cur,const char* context = "") volatile {
+  __device__ inline void set(int32_t len, int32_t offset, uint32_t cur,
+                             const char *context = "") volatile {
     this->len = len;
     this->offset = offset;
-    #ifdef HIPCOMP_PRINT_DEBUG_INFO
+#ifdef HIPCOMP_PRINT_DEBUG_INFO
     this->cur = cur;
-    printf("%10u\t%4u\tdecode\t%u\t<%d,%d>%s\n",(unsigned)blockIdx.x,(unsigned)threadIdx.x,this->cur,this->len,this->offset,context);
-    #endif
+    printf("%10u\t%4u\tdecode\t%u\t<%d,%d>%s\n", (unsigned)blockIdx.x,
+           (unsigned)threadIdx.x, this->cur, this->len, this->offset, context);
+#endif
   }
 
   /***
    * \brief Getter for type attributes.
    * \note Can be used for debugging purposes.
    */
-  __device__ inline void get(int32_t& len,int32_t& offset) volatile {
+  __device__ inline void get(int32_t &len, int32_t &offset) volatile {
     len = this->len;
     offset = this->offset;
-    #ifdef HIPCOMP_PRINT_DEBUG_INFO
-    printf("%10u\t%4u\tprocess\t%u\t<%d,%d>\n",(unsigned)blockIdx.x,(unsigned)threadIdx.x,this->cur,this->len,this->offset);
-    #endif
+#ifdef HIPCOMP_PRINT_DEBUG_INFO
+    printf("%10u\t%4u\tprocess\t%u\t<%d,%d>\n", (unsigned)blockIdx.x,
+           (unsigned)threadIdx.x, this->cur, this->len, this->offset);
+#endif
   }
 
   /**
    * \brief If the tag byte describes a copy with 1 or 4 offset bytes.
    *
-   * \return A positive number if the least-significant bits of the tag byte are 0b01 (copy with 1-byte offset)
-   *         or 0b11 (copy with 4-byte offset).
+   * \return A positive number if the least-significant bits of the tag byte are
+   * 0b01 (copy with 1-byte offset) or 0b11 (copy with 4-byte offset).
    *
    * \param[in] tag_byte the tag byte of a Snappy symbol.
    */
-  __device__ static inline int match_copy_with_1_or_4_offset_bytes(uint32_t tag_byte) {
+  __device__ static inline int
+  match_copy_with_1_or_4_offset_bytes(uint32_t tag_byte) {
     return (tag_byte & 0b01);
   }
 
   /**
    * \brief If the tag byte describes a copy with 2 or 4 offset bytes.
    *
-   * \return A positive number if the least-significant bits of the tag byte are 0b10 (copy with 2-byte offset)
-   *         or 0b11 (copy with 4-byte offset).
+   * \return A positive number if the least-significant bits of the tag byte are
+   * 0b10 (copy with 2-byte offset) or 0b11 (copy with 4-byte offset).
    *
    * \param[in] tag_byte the tag byte of a Snappy symbol.
    */
-  __device__ static inline int match_copy_with_2_or_4_offset_bytes(uint32_t tag_byte) {
+  __device__ static inline int
+  match_copy_with_2_or_4_offset_bytes(uint32_t tag_byte) {
     return tag_byte & 0b10;
   }
 
@@ -156,7 +167,8 @@ public:
    *
    * \param[in] tag_byte the tag byte of a Snappy symbol.
    */
-  __device__ static inline int match_copy_with_2_offset_bytes(uint32_t tag_byte) {
+  __device__ static inline int
+  match_copy_with_2_offset_bytes(uint32_t tag_byte) {
     return (tag_byte & 0b10) >> 1;
   }
 
@@ -165,9 +177,10 @@ public:
    *
    * The tag byte for copy symbols is composed as shown below:
    *
-   *   copy with 1 offset byte:  c1B_offset[8:11]: bit*3 + c1B_len_minus_4: bit*3 + 0b01: bit*2
-   *   copy with 2 offset bytes: c2B4B_len_minus_1: bit*6                         + 0b10: bit*2;
-   *   copy with 4 offset bytes: c2B4B_len_minus_1: bit*6                         + 0b11: bit*2;
+   *   copy with 1 offset byte:  c1B_offset[8:11]: bit*3 + c1B_len_minus_4:
+   * bit*3 + 0b01: bit*2 copy with 2 offset bytes: c2B4B_len_minus_1: bit*6 +
+   * 0b10: bit*2; copy with 4 offset bytes: c2B4B_len_minus_1: bit*6 + 0b11:
+   * bit*2;
    *
    * Only literals are tagged with a bit pair 0b00.
    *
@@ -180,17 +193,20 @@ public:
   }
 
   /**
-   * \brief If this symbol is decoded using 3 bytes (including tag byte) assuming
-   * it can't be a copy with 4 offset bytes is present.
+   * \brief If this symbol is decoded using 3 bytes (including tag byte)
+   * assuming it can't be a copy with 4 offset bytes is present.
    */
-  __device__ static inline int match_3_bytes_long_symbol__no_copy_with_4_offset_bytes(uint32_t tag_byte) {
-    return match_literal_of_len_2(tag_byte) || match_copy_with_2_or_4_offset_bytes(tag_byte);
+  __device__ static inline int
+  match_3_bytes_long_symbol__no_copy_with_4_offset_bytes(uint32_t tag_byte) {
+    return match_literal_of_len_2(tag_byte) ||
+           match_copy_with_2_or_4_offset_bytes(tag_byte);
   }
 
   /**
    * \brief If this symbol is a copy with 4 offset bytes.
    */
-  __device__ static inline int match_copy_with_4_offset_bytes(uint32_t tag_byte) {
+  __device__ static inline int
+  match_copy_with_4_offset_bytes(uint32_t tag_byte) {
     return (tag_byte & 0b11) == 0b11;
   }
 
@@ -198,7 +214,8 @@ public:
    * \brief If this is a literal with more than 4 bytes assuming it can't be
    * a copy symbol.
    */
-  __device__ static inline int match_literal_with_len_gt_4__no_copy(uint32_t tag_byte) {
+  __device__ static inline int
+  match_literal_with_len_gt_4__no_copy(uint32_t tag_byte) {
     return tag_byte > 0b1100;
   }
 
@@ -209,69 +226,81 @@ public:
     return tag_byte >> 2;
   }
 
-  __device__ static inline int decode_len_for_copy_with_1_offset_byte(uint32_t tag_byte) {
+  __device__ static inline int
+  decode_len_for_copy_with_1_offset_byte(uint32_t tag_byte) {
     return (strip_symbol_tag(tag_byte) & 0b111) + 4;
   }
 
-  __device__ static inline int decode_len_for_short_literal_or_large_offset_copy(uint32_t tag_byte) {
+  __device__ static inline int
+  decode_len_for_short_literal_or_large_offset_copy(uint32_t tag_byte) {
     return strip_symbol_tag(tag_byte) + 1;
   }
 
   /**
-   * \brief Decode length property for symbols that consume up to 5 bytes assuming no symbol is a
-   *        copy with 4 offset bytes.
+   * \brief Decode length property for symbols that consume up to 5 bytes
+   * assuming no symbol is a copy with 4 offset bytes.
    *
-   * This function works under the assumption that the symbol consumes up to 5 bytes and
-   * further that the symbol is not a copy with 4 offset bytes.
-   * Hence, it correctly reports the symbol length property for short literals
-   * as well as copies with 1 or 2 offset bytes.
+   * This function works under the assumption that the symbol consumes up to 5
+   * bytes and further that the symbol is not a copy with 4 offset bytes. Hence,
+   * it correctly reports the symbol length property for short literals as well
+   * as copies with 1 or 2 offset bytes.
    *
-   * \note The caller must ensure that the tag_byte does not belong to a copy symbol
-   *       with 4 offset bytes.
+   * \note The caller must ensure that the tag_byte does not belong to a copy
+   * symbol with 4 offset bytes.
    */
-  __device__ static inline int decode_short_symbol_len__no_copy_with_4_offset_bytes(uint32_t tag_byte) {
+  __device__ static inline int
+  decode_short_symbol_len__no_copy_with_4_offset_bytes(uint32_t tag_byte) {
     // Original code:
     // blen = (b0 & 1) ? ((b0 >> 2) & 7) + 4 : ((b0 >> 2) + 1);
     return match_copy_with_1_or_4_offset_bytes(tag_byte)
-          ? decode_len_for_copy_with_1_offset_byte(tag_byte)
-          : decode_len_for_short_literal_or_large_offset_copy(tag_byte);
+               ? decode_len_for_copy_with_1_offset_byte(tag_byte)
+               : decode_len_for_short_literal_or_large_offset_copy(tag_byte);
   }
 
   /**
    * \brief Decode offset property for a copy symbol with 1 offset byte.
    */
-  __device__ static inline int decode_offset_for_copy_with_1_offset_byte(uint32_t tag_byte, uint32_t offset_byte_0) {
+  __device__ static inline int
+  decode_offset_for_copy_with_1_offset_byte(uint32_t tag_byte,
+                                            uint32_t offset_byte_0) {
     return ((tag_byte & 0xe0) << 3) | offset_byte_0;
   }
 
   /**
    * \brief Decode offset property for a copy symbol with 2 offset bytes.
    */
-  __device__ static inline int decode_offset_for_copy_with_2_offset_bytes(uint32_t offset_byte_0, uint32_t offset_byte_1) {
+  __device__ static inline int
+  decode_offset_for_copy_with_2_offset_bytes(uint32_t offset_byte_0,
+                                             uint32_t offset_byte_1) {
     return offset_byte_0 | (offset_byte_1 << 8);
   }
 
   /**
    * \brief Decode offset property for a copy symbol with 4 offset bytes.
    */
-  __device__ static inline int decode_offset_for_copy_with_4_offset_bytes(uint32_t offset_byte_0, uint32_t offset_byte_1,
-                                                                          uint32_t offset_byte_2, uint32_t offset_byte_3) {
-    return offset_byte_0 | (offset_byte_1 << 8) | (offset_byte_2 << 16) | (offset_byte_3 << 24);
+  __device__ static inline int decode_offset_for_copy_with_4_offset_bytes(
+      uint32_t offset_byte_0, uint32_t offset_byte_1, uint32_t offset_byte_2,
+      uint32_t offset_byte_3) {
+    return offset_byte_0 | (offset_byte_1 << 8) | (offset_byte_2 << 16) |
+           (offset_byte_3 << 24);
   }
 
   /**
-   * \brief Decode the number of bytes a symbol of up to 5 bytes consumes assuming no symbol is a
-   *        copy with 4 offset bytes.
-  */
-  __device__ static inline int decode_symbol_num_bytes__no_copy_with_4_offset_bytes(uint32_t tag_byte) {
+   * \brief Decode the number of bytes a symbol of up to 5 bytes consumes
+   * assuming no symbol is a copy with 4 offset bytes.
+   */
+  __device__ static inline int
+  decode_symbol_num_bytes__no_copy_with_4_offset_bytes(uint32_t tag_byte) {
     // Original: code:
-    // clen      = (b0 & 3) ? (b0 & 2) ? 1 : 0 : (b0 >> 2);  // symbol length minus 2
-    // NOTE: When comparing to the original replaced line, the caller needs to subtract 2 from the result of this function.
+    // clen      = (b0 & 3) ? (b0 & 2) ? 1 : 0 : (b0 >> 2);  // symbol length
+    // minus 2 NOTE: When comparing to the original replaced line, the caller
+    // needs to subtract 2 from the result of this function.
     return match_copy(tag_byte)
-         ? match_copy_with_2_or_4_offset_bytes(tag_byte)
-           ? 3 // tag byte + 2 offset bytes
-           : 2 // tag byte + 1 offset byte
-         : (1 /*tag_byte*/ + decode_len_for_short_literal_or_large_offset_copy(tag_byte));
+               ? match_copy_with_2_or_4_offset_bytes(tag_byte)
+                     ? 3 // tag byte + 2 offset bytes
+                     : 2 // tag byte + 1 offset byte
+               : (1 /*tag_byte*/ +
+                  decode_len_for_short_literal_or_large_offset_copy(tag_byte));
   }
 };
 

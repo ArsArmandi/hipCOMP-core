@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -47,14 +48,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "hipcomp/lz4.h"
-
 #include "Check.h"
 #include "HipUtils.h"
 #include "LZ4CompressionKernels.h"
 #include "common.h"
 #include "hipcomp.h"
 #include "hipcomp.hpp"
+#include "hipcomp/lz4.h"
 #include "type_macros.h"
 
 #include <cassert>
@@ -68,17 +68,16 @@
 using namespace hipcomp;
 using namespace hipcomp::lowlevel;
 
-hipcompStatus_t hipcompBatchedLZ4DecompressGetTempSize(
-    const size_t num_chunks,
-    const size_t max_uncompressed_chunk_size,
-    size_t* const temp_bytes)
-{
+hipcompStatus_t
+hipcompBatchedLZ4DecompressGetTempSize(const size_t num_chunks,
+                                       const size_t max_uncompressed_chunk_size,
+                                       size_t *const temp_bytes) {
   CHECK_NOT_NULL(temp_bytes);
 
   try {
-    *temp_bytes
-        = lz4DecompressComputeTempSize(num_chunks, max_uncompressed_chunk_size);
-  } catch (const std::exception& e) {
+    *temp_bytes =
+        lz4DecompressComputeTempSize(num_chunks, max_uncompressed_chunk_size);
+  } catch (const std::exception &e) {
     return Check::exception_to_error(
         e, "hipcompBatchedLZ4DecompressGetTempSize()");
   }
@@ -87,17 +86,13 @@ hipcompStatus_t hipcompBatchedLZ4DecompressGetTempSize(
 }
 
 hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    const size_t* device_uncompressed_bytes,
-    size_t* device_actual_uncompressed_bytes,
-    size_t batch_size,
-    void* const device_temp_ptr,
-    size_t temp_bytes,
-    void* const* device_uncompressed_ptrs,
-    hipcompStatus_t* device_statuses,
-    hipStream_t stream)
-{
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes,
+    const size_t *device_uncompressed_bytes,
+    size_t *device_actual_uncompressed_bytes, size_t batch_size,
+    void *const device_temp_ptr, size_t temp_bytes,
+    void *const *device_uncompressed_ptrs, hipcompStatus_t *device_statuses,
+    hipStream_t stream) {
   // NOTE: if we start using `max_uncompressed_chunk_bytes`, we need to check
   // to make sure it is not zero, as we have notified users to supply zero if
   // they are not finding the maximum size.
@@ -105,19 +100,19 @@ hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
   try {
     lz4BatchDecompress(
         HipUtils::device_pointer(
-            reinterpret_cast<const uint8_t* const*>(device_compressed_ptrs)),
+            reinterpret_cast<const uint8_t *const *>(device_compressed_ptrs)),
         HipUtils::device_pointer(device_compressed_bytes),
-        HipUtils::device_pointer(device_uncompressed_bytes),
-        batch_size,
-        HipUtils::device_pointer(device_temp_ptr),
-        temp_bytes,
+        HipUtils::device_pointer(device_uncompressed_bytes), batch_size,
+        HipUtils::device_pointer(device_temp_ptr), temp_bytes,
         HipUtils::device_pointer(
-            reinterpret_cast<uint8_t* const*>(device_uncompressed_ptrs)),
-        device_actual_uncompressed_bytes ? HipUtils::device_pointer(device_actual_uncompressed_bytes) : nullptr,
+            reinterpret_cast<uint8_t *const *>(device_uncompressed_ptrs)),
+        device_actual_uncompressed_bytes
+            ? HipUtils::device_pointer(device_actual_uncompressed_bytes)
+            : nullptr,
         device_statuses ? HipUtils::device_pointer(device_statuses) : nullptr,
         stream);
 
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     return Check::exception_to_error(e, "hipcompBatchedLZ4DecompressAsync()");
   }
 
@@ -125,12 +120,9 @@ hipcompStatus_t hipcompBatchedLZ4DecompressAsync(
 }
 
 hipcompStatus_t hipcompBatchedLZ4GetDecompressSizeAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    size_t* device_uncompressed_bytes,
-    size_t batch_size,
-    hipStream_t stream)
-{
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes, size_t *device_uncompressed_bytes,
+    size_t batch_size, hipStream_t stream) {
   CHECK_NOT_NULL(device_compressed_ptrs);
   CHECK_NOT_NULL(device_compressed_bytes);
   CHECK_NOT_NULL(device_uncompressed_bytes);
@@ -138,12 +130,11 @@ hipcompStatus_t hipcompBatchedLZ4GetDecompressSizeAsync(
   try {
     lz4BatchGetDecompressSizes(
         HipUtils::device_pointer(
-            reinterpret_cast<const uint8_t* const*>(device_compressed_ptrs)),
+            reinterpret_cast<const uint8_t *const *>(device_compressed_ptrs)),
         HipUtils::device_pointer(device_compressed_bytes),
-        HipUtils::device_pointer(device_uncompressed_bytes),
-        batch_size,
+        HipUtils::device_pointer(device_uncompressed_bytes), batch_size,
         stream);
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     return Check::exception_to_error(
         e, "hipcompBatchedLZ4GetDecompressSizeAsync()");
   }
@@ -152,18 +143,15 @@ hipcompStatus_t hipcompBatchedLZ4GetDecompressSizeAsync(
 }
 
 hipcompStatus_t hipcompBatchedLZ4CompressGetTempSize(
-    const size_t batch_size,
-    const size_t max_chunk_size,
-    const hipcompBatchedLZ4Opts_t /* format_opts */,
-    size_t* const temp_bytes)
-{
+    const size_t batch_size, const size_t max_chunk_size,
+    const hipcompBatchedLZ4Opts_t /* format_opts */, size_t *const temp_bytes) {
   CHECK_NOT_NULL(temp_bytes);
 
   try {
     *temp_bytes = lz4BatchCompressComputeTempSize(max_chunk_size, batch_size);
-  } catch (const std::exception& e) {
-    return Check::exception_to_error(
-        e, "hipcompBatchedLZ4CompressGetTempSize()");
+  } catch (const std::exception &e) {
+    return Check::exception_to_error(e,
+                                     "hipcompBatchedLZ4CompressGetTempSize()");
   }
 
   return hipcompSuccess;
@@ -172,13 +160,12 @@ hipcompStatus_t hipcompBatchedLZ4CompressGetTempSize(
 hipcompStatus_t hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
     const size_t max_chunk_size,
     const hipcompBatchedLZ4Opts_t /* format_opts */,
-    size_t* const max_compressed_size)
-{
+    size_t *const max_compressed_size) {
   CHECK_NOT_NULL(max_compressed_size);
 
   try {
     *max_compressed_size = lz4ComputeMaxSize(max_chunk_size);
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     return Check::exception_to_error(
         e, "hipcompBatchedLZ4CompressGetOutputSize()");
   }
@@ -187,17 +174,13 @@ hipcompStatus_t hipcompBatchedLZ4CompressGetMaxOutputChunkSize(
 }
 
 hipcompStatus_t hipcompBatchedLZ4CompressAsync(
-    const void* const* const device_uncompressed_ptrs,
-    const size_t* const device_uncompressed_bytes,
-    const size_t max_uncompressed_chunk_size,
-    const size_t batch_size,
-    void* const device_temp_ptr,
-    const size_t temp_bytes,
-    void* const* const device_compressed_ptrs,
-    size_t* const device_compressed_bytes,
-    const hipcompBatchedLZ4Opts_t format_opts,
-    hipStream_t stream)
-{
+    const void *const *const device_uncompressed_ptrs,
+    const size_t *const device_uncompressed_bytes,
+    const size_t max_uncompressed_chunk_size, const size_t batch_size,
+    void *const device_temp_ptr, const size_t temp_bytes,
+    void *const *const device_compressed_ptrs,
+    size_t *const device_compressed_bytes,
+    const hipcompBatchedLZ4Opts_t format_opts, hipStream_t stream) {
   // NOTE: if we start using `max_uncompressed_chunk_bytes`, we need to check
   // to make sure it is not zero, as we have notified users to supply zero if
   // they are not finding the maximum size.
@@ -205,18 +188,14 @@ hipcompStatus_t hipcompBatchedLZ4CompressAsync(
   try {
     lz4BatchCompress(
         HipUtils::device_pointer(
-            reinterpret_cast<const uint8_t* const*>(device_uncompressed_ptrs)),
+            reinterpret_cast<const uint8_t *const *>(device_uncompressed_ptrs)),
         HipUtils::device_pointer(device_uncompressed_bytes),
-        max_uncompressed_chunk_size,
-        batch_size,
-        device_temp_ptr,
-        temp_bytes,
+        max_uncompressed_chunk_size, batch_size, device_temp_ptr, temp_bytes,
         HipUtils::device_pointer(
-            reinterpret_cast<uint8_t* const*>(device_compressed_ptrs)),
+            reinterpret_cast<uint8_t *const *>(device_compressed_ptrs)),
         HipUtils::device_pointer(device_compressed_bytes),
-        format_opts.data_type,
-        stream);
-  } catch (const std::exception& e) {
+        format_opts.data_type, stream);
+  } catch (const std::exception &e) {
     return Check::exception_to_error(e, "hipcompBatchedLZ4CompressAsync()");
   }
 

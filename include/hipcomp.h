@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,8 +50,9 @@
 
 #pragma once
 
-#include <hip/hip_runtime.h>
 #include "hipcomp/shared_types.h"
+
+#include <hip/hip_runtime.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -65,8 +67,7 @@ extern "C" {
 #define HIPCOMP_PATCH_VERSION 0
 
 /* Supported datatypes */
-typedef enum hipcompType_t
-{
+typedef enum hipcompType_t {
   HIPCOMP_TYPE_CHAR = 0,      // 1B
   HIPCOMP_TYPE_UCHAR = 1,     // 1B
   HIPCOMP_TYPE_SHORT = 2,     // 2B
@@ -102,11 +103,10 @@ typedef enum hipcompType_t
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
-hipcompStatus_t hipcompDecompressGetMetadata(
-    const void* in_ptr,
-    size_t in_bytes,
-    void** metadata_ptr,
-    hipStream_t stream);
+hipcompStatus_t hipcompDecompressGetMetadata(const void *in_ptr,
+                                             size_t in_bytes,
+                                             void **metadata_ptr,
+                                             hipStream_t stream);
 
 /**
  * DEPRECATED: Will be removed in future releases.
@@ -115,7 +115,7 @@ hipcompStatus_t hipcompDecompressGetMetadata(
  *
  * @param metadata_ptr The pointer to destroy.
  */
-void hipcompDecompressDestroyMetadata(void* metadata_ptr);
+void hipcompDecompressDestroyMetadata(void *metadata_ptr);
 
 /**
  * DEPRECATED: Will be removed in future releases.
@@ -129,8 +129,8 @@ void hipcompDecompressDestroyMetadata(void* metadata_ptr);
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
-hipcompStatus_t
-hipcompDecompressGetTempSize(const void* metadata_ptr, size_t* temp_bytes);
+hipcompStatus_t hipcompDecompressGetTempSize(const void *metadata_ptr,
+                                             size_t *temp_bytes);
 
 /**
  * DEPRECATED: Will be removed in future releases.
@@ -142,8 +142,8 @@ hipcompDecompressGetTempSize(const void* metadata_ptr, size_t* temp_bytes);
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
-hipcompStatus_t
-hipcompDecompressGetOutputSize(const void* metadata_ptr, size_t* output_bytes);
+hipcompStatus_t hipcompDecompressGetOutputSize(const void *metadata_ptr,
+                                               size_t *output_bytes);
 
 /**
  * DEPRECATED: Will be removed in future releases.
@@ -155,8 +155,8 @@ hipcompDecompressGetOutputSize(const void* metadata_ptr, size_t* output_bytes);
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
-hipcompStatus_t
-hipcompDecompressGetType(const void* metadata_ptr, hipcompType_t* type);
+hipcompStatus_t hipcompDecompressGetType(const void *metadata_ptr,
+                                         hipcompType_t *type);
 
 /**
  * DEPRECATED: Will be removed in future releases.
@@ -174,15 +174,10 @@ hipcompDecompressGetType(const void* metadata_ptr, hipcompType_t* type);
  *
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
-hipcompStatus_t hipcompDecompressAsync(
-    const void* in_ptr,
-    size_t in_bytes,
-    void* temp_ptr,
-    size_t temp_bytes,
-    void* metadata_ptr,
-    void* out_ptr,
-    size_t out_bytes,
-    hipStream_t stream);
+hipcompStatus_t hipcompDecompressAsync(const void *in_ptr, size_t in_bytes,
+                                       void *temp_ptr, size_t temp_bytes,
+                                       void *metadata_ptr, void *out_ptr,
+                                       size_t out_bytes, hipStream_t stream);
 
 #ifdef __cplusplus
 }

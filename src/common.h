@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -68,47 +69,40 @@ namespace hipcomp {
 
 namespace {
 
-template <typename T>
-T* align(T* const ptr, const size_t alignment)
-{
+template <typename T> T *align(T *const ptr, const size_t alignment) {
   const size_t bits = reinterpret_cast<size_t>(ptr);
   const size_t mask = alignment - 1;
 
-  return reinterpret_cast<T*>(((bits - 1) | mask) + 1);
+  return reinterpret_cast<T *>(((bits - 1) | mask) + 1);
 }
 
 template <typename T>
-size_t
-relativeEndOffset(const void* start, const T* subsection, const size_t length)
-{
-  std::ptrdiff_t diff = reinterpret_cast<const char*>(subsection)
-                        - static_cast<const char*>(start);
+size_t relativeEndOffset(const void *start, const T *subsection,
+                         const size_t length) {
+  std::ptrdiff_t diff = reinterpret_cast<const char *>(subsection) -
+                        static_cast<const char *>(start);
   return static_cast<size_t>(diff) + length * sizeof(T);
 }
 
 template <typename T = size_t>
-T relativeEndOffset(const void* start, const void* subsection)
-{
-  std::ptrdiff_t diff = reinterpret_cast<const char*>(subsection)
-                        - static_cast<const char*>(start);
+T relativeEndOffset(const void *start, const void *subsection) {
+  std::ptrdiff_t diff = reinterpret_cast<const char *>(subsection) -
+                        static_cast<const char *>(start);
   return static_cast<T>(diff);
 }
 
 template <typename U, typename T>
-constexpr __host__ __device__ U roundUpDiv(U const num, T const chunk)
-{
+constexpr __host__ __device__ U roundUpDiv(U const num, T const chunk) {
   return (num / chunk) + (num % chunk > 0);
 }
 
 template <typename U, typename T>
-constexpr __host__ __device__ U roundDownTo(U const num, T const chunk)
-{
+constexpr __host__ __device__ U roundDownTo(U const num, T const chunk) {
   return (num / chunk) * chunk;
 }
 
 template <typename U, typename T>
-constexpr __host__ __device__ U roundUpTo(U const num, T const chunk)
-{
+constexpr __host__ __device__ U roundUpTo(U const num, T const chunk) {
   return roundUpDiv(num, chunk) * chunk;
 }
 
@@ -120,35 +114,30 @@ constexpr __host__ __device__ U roundUpTo(U const num, T const chunk)
  * @return The first pointer after `ptr` that satisfy the alignment requirement.
  */
 template <typename T>
-constexpr __host__ __device__ T* roundUpToAlignment(void* ptr)
-{
-  return reinterpret_cast<T*>(
+constexpr __host__ __device__ T *roundUpToAlignment(void *ptr) {
+  return reinterpret_cast<T *>(
       roundUpTo(reinterpret_cast<uintptr_t>(ptr), sizeof(T)));
 }
 
 template <typename T>
-constexpr __host__ __device__ const T* roundUpToAlignment(const void* ptr)
-{
-  return reinterpret_cast<const T*>(
+constexpr __host__ __device__ const T *roundUpToAlignment(const void *ptr) {
+  return reinterpret_cast<const T *>(
       roundUpTo(reinterpret_cast<uintptr_t>(ptr), sizeof(T)));
 }
 
 /**
  * @brief Provide a type that is the larger of `U` and `T` in terms of size.
  */
-template <typename U, typename T>
-struct make_larger
-{
+template <typename U, typename T> struct make_larger {
   typedef std::conditional_t<(sizeof(U) >= sizeof(T)), U, T> type;
 };
 
 template <typename U, typename T>
 using larger_t = typename make_larger<U, T>::type;
 
-} // namespace 
+} // namespace
 
-__inline__ size_t sizeOfhipcompType(hipcompType_t type)
-{
+__inline__ size_t sizeOfhipcompType(hipcompType_t type) {
   switch (type) {
   case HIPCOMP_TYPE_BITS:
     return 1;

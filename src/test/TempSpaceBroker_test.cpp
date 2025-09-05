@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,27 +50,22 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "tests/catch.hpp"
 #include "TempSpaceBroker.h"
-
 #include "hip/hip_runtime.h"
+#include "tests/catch.hpp"
 
 #include <cstdint>
 
 #ifndef HIP_CHECK
-#define HIP_CHECK(call)                                                     \
+#define HIP_CHECK(call)                                                        \
   {                                                                            \
-    hipError_t hipStatus = call;                                             \
-    if (hipSuccess != hipStatus) {                                           \
+    hipError_t hipStatus = call;                                               \
+    if (hipSuccess != hipStatus) {                                             \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "    \
           "(%d).\n",                                                           \
-          #call,                                                               \
-          __LINE__,                                                            \
-          __FILE__,                                                            \
-          hipGetErrorString(hipStatus),                                      \
-          hipStatus);                                                         \
+          #call, __LINE__, __FILE__, hipGetErrorString(hipStatus), hipStatus); \
       abort();                                                                 \
     }                                                                          \
   }
@@ -77,18 +73,16 @@
 
 using namespace hipcomp;
 
-struct Test32BStruct
-{
+struct Test32BStruct {
   uint8_t data[32];
 };
 
 template <typename T>
-void checked_alloc(TempSpaceBroker& temp, const size_t num)
-{
+void checked_alloc(TempSpaceBroker &temp, const size_t num) {
   const size_t size = temp.spaceLeft();
-  const void* ptr = temp.next();
+  const void *ptr = temp.next();
 
-  T* first;
+  T *first;
   temp.reserve(&first, num);
 
   // it may have rounded up to get alignment
@@ -100,16 +94,15 @@ void checked_alloc(TempSpaceBroker& temp, const size_t num)
   REQUIRE(temp.next() > ptr);
 
   // make sure the size removed at least fits our allocation
-  const size_t move_size = static_cast<size_t>(
-      static_cast<const uint8_t*>(temp.next())
-      - static_cast<const uint8_t*>(ptr));
+  const size_t move_size =
+      static_cast<size_t>(static_cast<const uint8_t *>(temp.next()) -
+                          static_cast<const uint8_t *>(ptr));
   REQUIRE(move_size >= sizeof(T) * num);
 }
 
 template <typename T>
-void test_base_alloc(const size_t size, const size_t num)
-{
-  void* ptr;
+void test_base_alloc(const size_t size, const size_t num) {
+  void *ptr;
   HIP_CHECK(hipMalloc(&ptr, size));
 
   TempSpaceBroker temp(ptr, size);
@@ -120,18 +113,17 @@ void test_base_alloc(const size_t size, const size_t num)
 }
 
 template <typename T>
-void test_base_alloc_exception(const size_t size, const size_t num)
-{
-  void* ptr;
+void test_base_alloc_exception(const size_t size, const size_t num) {
+  void *ptr;
   HIP_CHECK(hipMalloc(&ptr, size));
 
   TempSpaceBroker temp(ptr, size);
 
   try {
-    T* first;
+    T *first;
     temp.reserve(&first, num);
     REQUIRE(false);
-  } catch (const std::exception&) {
+  } catch (const std::exception &) {
     // pass
   }
 
@@ -142,16 +134,15 @@ void test_base_alloc_exception(const size_t size, const size_t num)
  * UNIT TEST ******************************************************************
  *****************************************************************************/
 
-TEST_CASE("MixedSizeTest", "[small]")
-{
-  void* ptr;
+TEST_CASE("MixedSizeTest", "[small]") {
+  void *ptr;
   const size_t size = 1024;
   HIP_CHECK(hipMalloc(&ptr, size));
 
   TempSpaceBroker temp(ptr, size);
 
   checked_alloc<int16_t>(temp, 5);
-  checked_alloc<double*>(temp, 1);
+  checked_alloc<double *>(temp, 1);
   checked_alloc<double>(temp, 7);
   checked_alloc<char>(temp, 1);
   checked_alloc<int32_t>(temp, 25);
@@ -161,8 +152,7 @@ TEST_CASE("MixedSizeTest", "[small]")
   HIP_CHECK(hipFree(ptr));
 }
 
-TEST_CASE("AllBaseTypeTest", "[small]")
-{
+TEST_CASE("AllBaseTypeTest", "[small]") {
   test_base_alloc<int8_t>(1000, 31);
   test_base_alloc<uint8_t>(1000, 31);
   test_base_alloc<int16_t>(1000, 31);
@@ -173,8 +163,7 @@ TEST_CASE("AllBaseTypeTest", "[small]")
   test_base_alloc<uint64_t>(1000, 31);
 }
 
-TEST_CASE("AllBaseTypeExactSizeTest", "[small]")
-{
+TEST_CASE("AllBaseTypeExactSizeTest", "[small]") {
   test_base_alloc<int8_t>(1024, 1024);
   test_base_alloc<uint8_t>(1024, 1024);
   test_base_alloc<int16_t>(1024, 512);
@@ -185,8 +174,7 @@ TEST_CASE("AllBaseTypeExactSizeTest", "[small]")
   test_base_alloc<uint64_t>(1024, 128);
 }
 
-TEST_CASE("AllBaseTypeOverflowTest", "[small]")
-{
+TEST_CASE("AllBaseTypeOverflowTest", "[small]") {
   test_base_alloc_exception<int8_t>(1023, 1024);
   test_base_alloc_exception<uint8_t>(1023, 1024);
   test_base_alloc_exception<int16_t>(1023, 512);
@@ -197,7 +185,6 @@ TEST_CASE("AllBaseTypeOverflowTest", "[small]")
   test_base_alloc_exception<uint64_t>(1023, 128);
 }
 
-TEST_CASE("Struct32BTest", "[small]")
-{
+TEST_CASE("Struct32BTest", "[small]") {
   test_base_alloc<Test32BStruct>(10000, 19);
 }

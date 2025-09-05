@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,105 +50,81 @@
 
 #pragma once
 
-#include <memory>
-
-#include "hipcomp/snappy.h"
-#include "hipcomp/snappy.hpp"
-
 #include "Check.h"
 #include "HipUtils.h"
 #include "common.h"
 #include "highlevel/BatchManager.hpp"
 #include "highlevel/SnappyHlifKernels.h"
+#include "hipcomp/snappy.h"
+#include "hipcomp/snappy.hpp"
 #include "hipcomp_common_deps/hlif_shared_types.hpp"
+
+#include <memory>
 
 namespace hipcomp {
 
 struct SnappyBatchManager : BatchManager<SnappyFormatSpecHeader> {
 private:
-  SnappyFormatSpecHeader* format_spec;
+  SnappyFormatSpecHeader *format_spec;
 
 public:
-  SnappyBatchManager(size_t uncomp_chunk_size, hipStream_t user_stream = 0, int device_id = 0)
-    : BatchManager(uncomp_chunk_size, user_stream, device_id),
-      format_spec()
-  {
-    HipUtils::check(hipHostMalloc(&format_spec, sizeof(SnappyFormatSpecHeader), hipHostMallocDefault));
+  SnappyBatchManager(size_t uncomp_chunk_size, hipStream_t user_stream = 0,
+                     int device_id = 0)
+      : BatchManager(uncomp_chunk_size, user_stream, device_id), format_spec() {
+    HipUtils::check(hipHostMalloc(&format_spec, sizeof(SnappyFormatSpecHeader),
+                                  hipHostMallocDefault));
 
     finish_init();
   }
 
-  virtual ~SnappyBatchManager()
-  {
-    HipUtils::check(hipHostFree(format_spec));
-  }
+  virtual ~SnappyBatchManager() { HipUtils::check(hipHostFree(format_spec)); }
 
-  SnappyBatchManager& operator=(const SnappyBatchManager&) = delete;
-  SnappyBatchManager(const SnappyBatchManager&) = delete;
+  SnappyBatchManager &operator=(const SnappyBatchManager &) = delete;
+  SnappyBatchManager(const SnappyBatchManager &) = delete;
 
-  size_t compute_max_compressed_chunk_size() final override
-  {
+  size_t compute_max_compressed_chunk_size() final override {
     size_t max_comp_chunk_size;
     hipcompBatchedSnappyCompressGetMaxOutputChunkSize(
-        get_uncomp_chunk_size(), hipcompBatchedSnappyDefaultOpts, &max_comp_chunk_size);
+        get_uncomp_chunk_size(), hipcompBatchedSnappyDefaultOpts,
+        &max_comp_chunk_size);
     return max_comp_chunk_size;
   }
 
-  uint32_t compute_compression_max_block_occupancy() final override
-  {
+  uint32_t compute_compression_max_block_occupancy() final override {
     return snappyHlifCompMaxBlockOccupancy(device_id);
   }
 
-  uint32_t compute_decompression_max_block_occupancy() final override
-  {
+  uint32_t compute_decompression_max_block_occupancy() final override {
     return snappyHlifDecompMaxBlockOccupancy(device_id);
   }
 
-  SnappyFormatSpecHeader* get_format_header() final override
-  {
+  SnappyFormatSpecHeader *get_format_header() final override {
     return format_spec;
   }
 
-  void do_batch_compress(const CompressArgs& compress_args) final override
-  {
-    snappyHlifBatchCompress(
-        compress_args,
-        get_max_comp_ctas(),
-        user_stream);
+  void do_batch_compress(const CompressArgs &compress_args) final override {
+    snappyHlifBatchCompress(compress_args, get_max_comp_ctas(), user_stream);
   }
 
-  void do_batch_decompress(
-      const uint8_t* comp_data_buffer,
-      uint8_t* decomp_buffer,
-      const uint32_t num_chunks,
-      const size_t* comp_chunk_offsets,
-      const size_t* comp_chunk_sizes,
-      hipcompStatus_t* output_status) final override
-  {
+  void do_batch_decompress(const uint8_t *comp_data_buffer,
+                           uint8_t *decomp_buffer, const uint32_t num_chunks,
+                           const size_t *comp_chunk_offsets,
+                           const size_t *comp_chunk_sizes,
+                           hipcompStatus_t *output_status) final override {
     snappyHlifBatchDecompress(
-        comp_data_buffer,
-        decomp_buffer,
-        get_uncomp_chunk_size(),
-        ix_chunk,
-        num_chunks,
-        comp_chunk_offsets,
-        comp_chunk_sizes,
-        get_max_decomp_ctas(),
-        user_stream,
-        output_status);
+        comp_data_buffer, decomp_buffer, get_uncomp_chunk_size(), ix_chunk,
+        num_chunks, comp_chunk_offsets, comp_chunk_sizes, get_max_decomp_ctas(),
+        user_stream, output_status);
   }
 };
 
 // SnappyManager implementation
-SnappyManager::SnappyManager(size_t uncomp_chunk_size, hipStream_t user_stream, int device_id)
-{
-  impl = std::make_unique<SnappyBatchManager>(
-      uncomp_chunk_size,
-      user_stream,
-      device_id);
+SnappyManager::SnappyManager(size_t uncomp_chunk_size, hipStream_t user_stream,
+                             int device_id) {
+  impl = std::make_unique<SnappyBatchManager>(uncomp_chunk_size, user_stream,
+                                              device_id);
 }
 
-SnappyManager::~SnappyManager()
-{}
+SnappyManager::~SnappyManager() {}
 
 } // namespace hipcomp

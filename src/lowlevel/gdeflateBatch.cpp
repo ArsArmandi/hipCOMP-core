@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -47,13 +48,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "hipcomp/gdeflate.h"
-
 #include "Check.h"
 #include "HipUtils.h"
 #include "common.h"
 #include "hipcomp.h"
 #include "hipcomp.hpp"
+#include "hipcomp/gdeflate.h"
 #include "type_macros.h"
 
 #include <cassert>
@@ -72,36 +72,37 @@
 using namespace hipcomp;
 
 #ifdef ENABLE_GDEFLATE
-gdeflate::gdeflate_compression_algo getGdeflateEnumFromFormatOpts(hipcompBatchedGdeflateOpts_t format_opts) {
+gdeflate::gdeflate_compression_algo
+getGdeflateEnumFromFormatOpts(hipcompBatchedGdeflateOpts_t format_opts) {
   gdeflate::gdeflate_compression_algo algo;
-  switch(format_opts.algo) {
-    case (0) :
-      algo = gdeflate::HIGH_THROUGHPUT;
-      break;
-    case(1) :
-      algo = gdeflate::HIGH_COMPRESSION;
-      break;
-    case(2) :
-      algo = gdeflate::ENTROPY_ONLY;
-      break;
-    default :
-      throw std::invalid_argument("Invalid format_opts.algo value (not 0, 1 or 2)");
+  switch (format_opts.algo) {
+  case (0):
+    algo = gdeflate::HIGH_THROUGHPUT;
+    break;
+  case (1):
+    algo = gdeflate::HIGH_COMPRESSION;
+    break;
+  case (2):
+    algo = gdeflate::ENTROPY_ONLY;
+    break;
+  default:
+    throw std::invalid_argument(
+        "Invalid format_opts.algo value (not 0, 1 or 2)");
   }
   return algo;
 }
 #endif
 
 hipcompStatus_t hipcompBatchedGdeflateDecompressGetTempSize(
-    const size_t num_chunks,
-    const size_t max_uncompressed_chunk_size,
-    size_t* const temp_bytes)
-{
+    const size_t num_chunks, const size_t max_uncompressed_chunk_size,
+    size_t *const temp_bytes) {
 #ifdef ENABLE_GDEFLATE
   CHECK_NOT_NULL(temp_bytes);
 
   try {
-    gdeflate::decompressGetTempSize(num_chunks, max_uncompressed_chunk_size, temp_bytes);
-  } catch (const std::exception& e) {
+    gdeflate::decompressGetTempSize(num_chunks, max_uncompressed_chunk_size,
+                                    temp_bytes);
+  } catch (const std::exception &e) {
     return Check::exception_to_error(
         e, "hipcompBatchedGdeflateDecompressGetTempSize()");
   }
@@ -112,23 +113,20 @@ hipcompStatus_t hipcompBatchedGdeflateDecompressGetTempSize(
   (void)max_uncompressed_chunk_size;
   (void)temp_bytes;
   std::cerr << "ERROR: hipcomp configured without gdeflate support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }
 
 hipcompStatus_t hipcompBatchedGdeflateDecompressAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    const size_t* device_uncompressed_bytes,
-    size_t* device_actual_uncompressed_bytes,
-    size_t batch_size,
-    void* const device_temp_ptr,
-    size_t temp_bytes,
-    void* const* device_uncompressed_ptrs,
-    hipcompStatus_t* device_status_ptrs,
-    hipStream_t stream)
-{
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes,
+    const size_t *device_uncompressed_bytes,
+    size_t *device_actual_uncompressed_bytes, size_t batch_size,
+    void *const device_temp_ptr, size_t temp_bytes,
+    void *const *device_uncompressed_ptrs, hipcompStatus_t *device_status_ptrs,
+    hipStream_t stream) {
 #ifdef ENABLE_GDEFLATE
   // NOTE: if we start using `max_uncompressed_chunk_bytes`, we need to check
   // to make sure it is not zero, as we have notified users to supply zero if
@@ -137,20 +135,24 @@ hipcompStatus_t hipcompBatchedGdeflateDecompressAsync(
   try {
     // Use device_status_ptrs as temp space to store gdeflate statuses
     static_assert(sizeof(hipcompStatus_t) == sizeof(gdeflate::gdeflateStatus_t),
-        "Mismatched sizes of hipcompStatus_t and gdeflateStatus_t");
-    auto device_statuses = reinterpret_cast<gdeflate::gdeflateStatus_t*>(device_status_ptrs);
+                  "Mismatched sizes of hipcompStatus_t and gdeflateStatus_t");
+    auto device_statuses =
+        reinterpret_cast<gdeflate::gdeflateStatus_t *>(device_status_ptrs);
 
     // Run the decompression kernel
-    gdeflate::decompressAsync(device_compressed_ptrs, device_compressed_bytes,
-        device_uncompressed_bytes, device_actual_uncompressed_bytes,
-        0, batch_size, device_temp_ptr, temp_bytes,
-        device_uncompressed_ptrs, device_statuses, stream);
+    gdeflate::decompressAsync(
+        device_compressed_ptrs, device_compressed_bytes,
+        device_uncompressed_bytes, device_actual_uncompressed_bytes, 0,
+        batch_size, device_temp_ptr, temp_bytes, device_uncompressed_ptrs,
+        device_statuses, stream);
 
     // Launch a kernel to convert the output statuses
-    if(device_status_ptrs) convertGdeflateOutputStatuses(device_status_ptrs, batch_size, stream);
+    if (device_status_ptrs)
+      convertGdeflateOutputStatuses(device_status_ptrs, batch_size, stream);
 
-  } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "hipcompBatchedGdeflateDecompressAsync()");
+  } catch (const std::exception &e) {
+    return Check::exception_to_error(e,
+                                     "hipcompBatchedGdeflateDecompressAsync()");
   }
 
   return hipcompSuccess;
@@ -166,23 +168,24 @@ hipcompStatus_t hipcompBatchedGdeflateDecompressAsync(
   (void)device_status_ptrs;
   (void)stream;
   std::cerr << "ERROR: hipcomp configured without gdeflate support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }
 
 hipcompStatus_t hipcompBatchedGdeflateGetDecompressSizeAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    size_t* device_uncompressed_bytes,
-    size_t batch_size,
-    hipStream_t stream) {
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes, size_t *device_uncompressed_bytes,
+    size_t batch_size, hipStream_t stream) {
 #ifdef ENABLE_GDEFLATE
   try {
-    gdeflate::getDecompressSizeAsync(device_compressed_ptrs, device_compressed_bytes,
+    gdeflate::getDecompressSizeAsync(
+        device_compressed_ptrs, device_compressed_bytes,
         device_uncompressed_bytes, batch_size, stream);
-  } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "hipcompBatchedGdeflateDecompressAsync()");
+  } catch (const std::exception &e) {
+    return Check::exception_to_error(e,
+                                     "hipcompBatchedGdeflateDecompressAsync()");
   }
 
   return hipcompSuccess;
@@ -193,25 +196,23 @@ hipcompStatus_t hipcompBatchedGdeflateGetDecompressSizeAsync(
   (void)batch_size;
   (void)stream;
   std::cerr << "ERROR: hipcomp configured without gdeflate support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }
 
 hipcompStatus_t hipcompBatchedGdeflateCompressGetTempSize(
-    const size_t batch_size,
-    const size_t max_chunk_size,
-    hipcompBatchedGdeflateOpts_t format_opts,
-    size_t* const temp_bytes)
-{
+    const size_t batch_size, const size_t max_chunk_size,
+    hipcompBatchedGdeflateOpts_t format_opts, size_t *const temp_bytes) {
 #ifdef ENABLE_GDEFLATE
   CHECK_NOT_NULL(temp_bytes);
 
-
   try {
-    gdeflate::gdeflate_compression_algo algo = getGdeflateEnumFromFormatOpts(format_opts);
+    gdeflate::gdeflate_compression_algo algo =
+        getGdeflateEnumFromFormatOpts(format_opts);
     gdeflate::compressGetTempSize(batch_size, max_chunk_size, temp_bytes, algo);
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     return Check::exception_to_error(
         e, "hipcompBatchedGdeflateCompressGetTempSize()");
   }
@@ -223,22 +224,22 @@ hipcompStatus_t hipcompBatchedGdeflateCompressGetTempSize(
   (void)format_opts;
   (void)temp_bytes;
   std::cerr << "ERROR: hipcomp configured without gdeflate support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }
 
 hipcompStatus_t hipcompBatchedGdeflateCompressGetMaxOutputChunkSize(
-    size_t max_chunk_size,
-    hipcompBatchedGdeflateOpts_t /* format_opts */,
-    size_t* max_compressed_size)
-{
+    size_t max_chunk_size, hipcompBatchedGdeflateOpts_t /* format_opts */,
+    size_t *max_compressed_size) {
 #ifdef ENABLE_GDEFLATE
   CHECK_NOT_NULL(max_compressed_size);
 
   try {
-    gdeflate::compressGetMaxOutputChunkSize(max_chunk_size, max_compressed_size);
-  } catch (const std::exception& e) {
+    gdeflate::compressGetMaxOutputChunkSize(max_chunk_size,
+                                            max_compressed_size);
+  } catch (const std::exception &e) {
     return Check::exception_to_error(
         e, "hipcompBatchedGdeflateCompressGetOutputSize()");
   }
@@ -248,30 +249,30 @@ hipcompStatus_t hipcompBatchedGdeflateCompressGetMaxOutputChunkSize(
   (void)max_chunk_size;
   (void)max_compressed_size;
   std::cerr << "ERROR: hipcomp configured without gdeflate support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }
 
 hipcompStatus_t hipcompBatchedGdeflateCompressAsync(
-    const void* const* const device_in_ptrs,
-    const size_t* const device_in_bytes,
-    const size_t max_uncompressed_chunk_size,
-    const size_t batch_size,
-    void* const temp_ptr,
-    const size_t temp_bytes,
-    void* const* const device_out_ptrs,
-    size_t* const device_out_bytes,
-    hipcompBatchedGdeflateOpts_t format_opts,
-    hipStream_t stream)
-{
+    const void *const *const device_in_ptrs,
+    const size_t *const device_in_bytes,
+    const size_t max_uncompressed_chunk_size, const size_t batch_size,
+    void *const temp_ptr, const size_t temp_bytes,
+    void *const *const device_out_ptrs, size_t *const device_out_bytes,
+    hipcompBatchedGdeflateOpts_t format_opts, hipStream_t stream) {
 #ifdef ENABLE_GDEFLATE
   try {
-    gdeflate::gdeflate_compression_algo algo = getGdeflateEnumFromFormatOpts(format_opts);
-    gdeflate::compressAsync(device_in_ptrs, device_in_bytes, max_uncompressed_chunk_size,
-        batch_size, temp_ptr, temp_bytes, device_out_ptrs, device_out_bytes, algo, stream);
-  } catch (const std::exception& e) {
-    return Check::exception_to_error(e, "hipcompBatchedGdeflateCompressAsync()");
+    gdeflate::gdeflate_compression_algo algo =
+        getGdeflateEnumFromFormatOpts(format_opts);
+    gdeflate::compressAsync(device_in_ptrs, device_in_bytes,
+                            max_uncompressed_chunk_size, batch_size, temp_ptr,
+                            temp_bytes, device_out_ptrs, device_out_bytes, algo,
+                            stream);
+  } catch (const std::exception &e) {
+    return Check::exception_to_error(e,
+                                     "hipcompBatchedGdeflateCompressAsync()");
   }
 
   return hipcompSuccess;
@@ -287,7 +288,8 @@ hipcompStatus_t hipcompBatchedGdeflateCompressAsync(
   (void)format_opts;
   (void)stream;
   std::cerr << "ERROR: hipcomp configured without gdeflate support\n"
-            << "Please check the README for configuration instructions" << std::endl;
+            << "Please check the README for configuration instructions"
+            << std::endl;
   return hipcompErrorNotSupported;
 #endif
 }

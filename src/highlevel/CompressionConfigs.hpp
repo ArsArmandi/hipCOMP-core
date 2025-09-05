@@ -29,7 +29,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -38,8 +39,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,13 +50,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <memory>
-#include <vector>
-
 #include "HipUtils.h"
-#include "hipcomp_common_deps/hlif_shared_types.hpp"
 #include "highlevel/PinnedPtrs.hpp"
 #include "hipcomp/hipcompManager.hpp"
+#include "hipcomp_common_deps/hlif_shared_types.hpp"
+
+#include <memory>
+#include <vector>
 
 namespace hipcomp {
 
@@ -64,35 +65,38 @@ namespace hipcomp {
  *****************************************************************************/
 
 /**
- * @brief Config used to aggregate information about the compression of a particular buffer.
- * 
- * Contains a "PinnedPtrHandle" to an hipcompStatus. After the compression is complete,
- * the user can check the result status which resides in pinned host memory.
+ * @brief Config used to aggregate information about the compression of a
+ * particular buffer.
+ *
+ * Contains a "PinnedPtrHandle" to an hipcompStatus. After the compression is
+ * complete, the user can check the result status which resides in pinned host
+ * memory.
  */
 struct CompressionConfig::CompressionConfigImpl {
-private: 
+private:
   std::unique_ptr<PinnedPtrPool<hipcompStatus_t>::PinnedPtrHandle> status;
 
 public:
   /**
    * @brief Construct the config given an hipcompStatus_t memory pool
    */
-  CompressionConfigImpl(PinnedPtrPool<hipcompStatus_t>& pool);
+  CompressionConfigImpl(PinnedPtrPool<hipcompStatus_t> &pool);
 
   /**
    * @brief Get the raw hipcompStatus_t*
    */
-  hipcompStatus_t* get_status() const;
+  hipcompStatus_t *get_status() const;
 };
 
 /**
  * @brief Config used to aggregate information about a particular decompression.
- * 
- * Contains a "PinnedPtrHandle" to an hipcompStatus. After the decompression is complete,
- * the user can check the result status which resides in pinned host memory.
+ *
+ * Contains a "PinnedPtrHandle" to an hipcompStatus. After the decompression is
+ * complete, the user can check the result status which resides in pinned host
+ * memory.
  */
 struct DecompressionConfig::DecompressionConfigImpl {
-private: 
+private:
   std::unique_ptr<PinnedPtrPool<hipcompStatus_t>::PinnedPtrHandle> status;
 
 public:
@@ -102,12 +106,12 @@ public:
   /**
    * @brief Construct the config given an hipcompStatus_t memory pool
    */
-  DecompressionConfigImpl(PinnedPtrPool<hipcompStatus_t>& pool);
+  DecompressionConfigImpl(PinnedPtrPool<hipcompStatus_t> &pool);
 
   /**
    * @brief Get the raw hipcompStatus_t*
    */
-  hipcompStatus_t* get_status() const;
+  hipcompStatus_t *get_status() const;
 };
 
 } // namespace hipcomp

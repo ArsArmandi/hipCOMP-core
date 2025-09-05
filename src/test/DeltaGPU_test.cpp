@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,29 +50,24 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "tests/catch.hpp"
 #include "DeltaGPU.h"
 #include "common.h"
-#include "hipcomp.hpp"
-
 #include "hip/hip_runtime.h"
+#include "hipcomp.hpp"
+#include "tests/catch.hpp"
 
 #include <cstdlib>
 
 #ifndef HIP_CHECK
-#define HIP_CHECK(call)                                                     \
+#define HIP_CHECK(call)                                                        \
   {                                                                            \
-    hipError_t hipStatus = call;                                             \
-    if (hipSuccess != hipStatus) {                                           \
+    hipError_t hipStatus = call;                                               \
+    if (hipSuccess != hipStatus) {                                             \
       fprintf(                                                                 \
           stderr,                                                              \
-          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "   \
+          "ERROR: HIP RT call \"%s\" in line %d of file %s failed with %s "    \
           "(%d).\n",                                                           \
-          #call,                                                               \
-          __LINE__,                                                            \
-          __FILE__,                                                            \
-          hipGetErrorString(hipStatus),                                      \
-          hipStatus);                                                         \
+          #call, __LINE__, __FILE__, hipGetErrorString(hipStatus), hipStatus); \
       abort();                                                                 \
     }                                                                          \
   }
@@ -83,29 +79,20 @@ using namespace hipcomp;
  * HELPER FUNCTIONS ***********************************************************
  *****************************************************************************/
 
-namespace
-{
+namespace {
 
 template <typename T>
-void toGPU(
-    T* const output,
-    T const* const input,
-    size_t const num,
-    hipStream_t stream)
-{
-  HIP_CHECK(hipMemcpyAsync(
-      output, input, num * sizeof(T), hipMemcpyHostToDevice, stream));
+void toGPU(T *const output, T const *const input, size_t const num,
+           hipStream_t stream) {
+  HIP_CHECK(hipMemcpyAsync(output, input, num * sizeof(T),
+                           hipMemcpyHostToDevice, stream));
 }
 
 template <typename T>
-void fromGPU(
-    T* const output,
-    T const* const input,
-    size_t const num,
-    hipStream_t stream)
-{
-  HIP_CHECK(hipMemcpyAsync(
-      output, input, num * sizeof(T), hipMemcpyDeviceToHost, stream));
+void fromGPU(T *const output, T const *const input, size_t const num,
+             hipStream_t stream) {
+  HIP_CHECK(hipMemcpyAsync(output, input, num * sizeof(T),
+                           hipMemcpyDeviceToHost, stream));
 }
 
 } // namespace
@@ -114,8 +101,7 @@ void fromGPU(
  * UNIT TEST ******************************************************************
  *****************************************************************************/
 
-TEST_CASE("compress_10Thousand_Test", "[small]")
-{
+TEST_CASE("compress_10Thousand_Test", "[small]") {
   size_t const n = 10000;
 
   using T = int32_t;
@@ -123,9 +109,9 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
   T *input, *inputHost;
   size_t const numBytes = n * sizeof(*input);
 
-  HIP_CHECK(hipMalloc((void**)&input, numBytes));
+  HIP_CHECK(hipMalloc((void **)&input, numBytes));
 
-  HIP_CHECK(hipHostMalloc((void**)&inputHost, n * sizeof(*inputHost)));
+  HIP_CHECK(hipHostMalloc((void **)&inputHost, n * sizeof(*inputHost)));
 
   float const totalGB = numBytes / (1024.0 * 1024.0 * 1024.0);
 
@@ -145,23 +131,23 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
   toGPU(input, inputHost, n, stream);
 
   T *output, *outputHost;
-  T** outputPtr;
+  T **outputPtr;
 
-  HIP_CHECK(hipMalloc((void**)&output, numBytes));
-  HIP_CHECK(hipHostMalloc((void**)&outputHost, numBytes));
+  HIP_CHECK(hipMalloc((void **)&output, numBytes));
+  HIP_CHECK(hipHostMalloc((void **)&outputHost, numBytes));
 
-  HIP_CHECK(hipMalloc((void**)&outputPtr, sizeof(*outputPtr)));
-  HIP_CHECK(hipMemcpy(
-      outputPtr, &output, sizeof(*outputPtr), hipMemcpyHostToDevice));
+  HIP_CHECK(hipMalloc((void **)&outputPtr, sizeof(*outputPtr)));
+  HIP_CHECK(
+      hipMemcpy(outputPtr, &output, sizeof(*outputPtr), hipMemcpyHostToDevice));
 
-  size_t* inputSizePtr;
-  HIP_CHECK(hipMalloc((void**)&inputSizePtr, sizeof(*inputSizePtr)));
-  HIP_CHECK(hipMemcpy(
-      inputSizePtr, &n, sizeof(*inputSizePtr), hipMemcpyHostToDevice));
+  size_t *inputSizePtr;
+  HIP_CHECK(hipMalloc((void **)&inputSizePtr, sizeof(*inputSizePtr)));
+  HIP_CHECK(hipMemcpy(inputSizePtr, &n, sizeof(*inputSizePtr),
+                      hipMemcpyHostToDevice));
 
-  void* workspace;
+  void *workspace;
   size_t const workspaceSize = DeltaGPU::requiredWorkspaceSize(n, TypeOf<T>());
-  HIP_CHECK(hipMalloc((void**)&workspace, workspaceSize));
+  HIP_CHECK(hipMalloc((void **)&workspace, workspaceSize));
 
   hipEvent_t start, stop;
 
@@ -169,15 +155,8 @@ TEST_CASE("compress_10Thousand_Test", "[small]")
   HIP_CHECK(hipEventCreate(&stop));
   HIP_CHECK(hipEventRecord(start, stream));
 
-  DeltaGPU::compress(
-      workspace,
-      workspaceSize,
-      TypeOf<T>(),
-      (void**)outputPtr,
-      input,
-      inputSizePtr,
-      2 * n,
-      stream);
+  DeltaGPU::compress(workspace, workspaceSize, TypeOf<T>(), (void **)outputPtr,
+                     input, inputSizePtr, 2 * n, stream);
   HIP_CHECK(hipEventRecord(stop, stream));
 
   HIP_CHECK(hipStreamSynchronize(stream));

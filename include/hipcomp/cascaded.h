@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -61,8 +62,7 @@ extern "C" {
 /**
  * @brief Structure that stores the compression configuration
  */
-typedef struct
-{
+typedef struct {
   /**
    * @brief The number of Run Length Encodings to perform.
    */
@@ -86,8 +86,7 @@ typedef struct
 /**
  * @brief Structure that stores the compression configuration
  */
-typedef struct
-{
+typedef struct {
   /**
    * @brief The size of each chunk of data to decompress indepentently with
    * Cascaded compression. Chunk size should be in the range of [512, 16384]
@@ -120,8 +119,8 @@ typedef struct
 } hipcompBatchedCascadedOpts_t;
 
 // Default options for batched compression
-static const hipcompBatchedCascadedOpts_t hipcompBatchedCascadedDefaultOpts
-    = {4096, HIPCOMP_TYPE_INT, 2, 1, 1};
+static const hipcompBatchedCascadedOpts_t hipcompBatchedCascadedDefaultOpts = {
+    4096, HIPCOMP_TYPE_INT, 2, 1, 1};
 
 /**
  * @brief Get temporary space required for compression.
@@ -139,10 +138,8 @@ static const hipcompBatchedCascadedOpts_t hipcompBatchedCascadedDefaultOpts
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedCascadedCompressGetTempSize(
-    size_t batch_size,
-    size_t max_uncompressed_chunk_bytes,
-    hipcompBatchedCascadedOpts_t format_opts,
-    size_t* temp_bytes);
+    size_t batch_size, size_t max_uncompressed_chunk_bytes,
+    hipcompBatchedCascadedOpts_t format_opts, size_t *temp_bytes);
 
 /**
  * @brief Get the maximum size any chunk could compress to in the batch. That
@@ -162,8 +159,7 @@ hipcompStatus_t hipcompBatchedCascadedCompressGetTempSize(
  */
 hipcompStatus_t hipcompBatchedCascadedCompressGetMaxOutputChunkSize(
     size_t max_uncompressed_chunk_bytes,
-    hipcompBatchedCascadedOpts_t format_opts,
-    size_t* max_compressed_bytes);
+    hipcompBatchedCascadedOpts_t format_opts, size_t *max_compressed_bytes);
 
 /**
  * @brief Perform batched asynchronous compression.
@@ -198,16 +194,14 @@ hipcompStatus_t hipcompBatchedCascadedCompressGetMaxOutputChunkSize(
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedCascadedCompressAsync(
-    const void* const* device_uncompressed_ptrs,
-    const size_t* device_uncompressed_bytes,
+    const void *const *device_uncompressed_ptrs,
+    const size_t *device_uncompressed_bytes,
     size_t max_uncompressed_chunk_bytes, // not used
     size_t batch_size,
-    void* device_temp_ptr, // not used
+    void *device_temp_ptr, // not used
     size_t temp_bytes,     // not used
-    void* const* device_compressed_ptrs,
-    size_t* device_compressed_bytes,
-    const hipcompBatchedCascadedOpts_t format_opts,
-    hipStream_t stream);
+    void *const *device_compressed_ptrs, size_t *device_compressed_bytes,
+    const hipcompBatchedCascadedOpts_t format_opts, hipStream_t stream);
 
 /**
  * @brief Get the amount of temp space required on the GPU for decompression.
@@ -221,7 +215,7 @@ hipcompStatus_t hipcompBatchedCascadedCompressAsync(
  * @return hipcompSuccess if successful, and an error code otherwise.
  */
 hipcompStatus_t hipcompBatchedCascadedDecompressGetTempSize(
-    size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t* temp_bytes);
+    size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t *temp_bytes);
 
 /**
  * @brief Perform batched asynchronous decompression.
@@ -260,15 +254,13 @@ hipcompStatus_t hipcompBatchedCascadedDecompressGetTempSize(
  * @param[in] stream The hip stream to operate on.
  */
 hipcompStatus_t hipcompBatchedCascadedDecompressAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    const size_t* device_uncompressed_bytes,
-    size_t* device_actual_uncompressed_bytes,
-    size_t batch_size,
-    void* const device_temp_ptr, // not used
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes,
+    const size_t *device_uncompressed_bytes,
+    size_t *device_actual_uncompressed_bytes, size_t batch_size,
+    void *const device_temp_ptr, // not used
     size_t temp_bytes,           // not used
-    void* const* device_uncompressed_ptrs,
-    hipcompStatus_t* device_statuses,
+    void *const *device_uncompressed_ptrs, hipcompStatus_t *device_statuses,
     hipStream_t stream);
 
 /**
@@ -287,11 +279,9 @@ hipcompStatus_t hipcompBatchedCascadedDecompressAsync(
  * @param[in] stream The hip stream to operate on.
  */
 hipcompStatus_t hipcompBatchedCascadedGetDecompressSizeAsync(
-    const void* const* device_compressed_ptrs,
-    const size_t* device_compressed_bytes,
-    size_t* device_uncompressed_bytes,
-    size_t batch_size,
-    hipStream_t stream);
+    const void *const *device_compressed_ptrs,
+    const size_t *device_compressed_bytes, size_t *device_uncompressed_bytes,
+    size_t batch_size, hipStream_t stream);
 
 #ifdef __cplusplus
 }

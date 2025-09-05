@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,35 +50,33 @@
 
 #pragma once
 
+#include "../src/common.h"
+#include "catch.hpp"
 #include "hipcomp.h"
 #include "hipcomp.hpp"
 #include "hipcomp/cascaded.h"
 
-#include "../src/common.h"
-#include "catch.hpp"
-
-#include <vector>
 #include <hip/hip_runtime.h>
+
 #include <iomanip>
 #include <random>
+#include <vector>
 
 using namespace hipcomp;
 
-#define HIP_CHECK(func)                                                       \
+#define HIP_CHECK(func)                                                        \
   do {                                                                         \
-    hipError_t rt = (func);                                                   \
-    if (rt != hipSuccess) {                                                   \
+    hipError_t rt = (func);                                                    \
+    if (rt != hipSuccess) {                                                    \
       std::cout << "API call failure \"" #func "\" with " << rt << " at "      \
                 << __FILE__ << ":" << __LINE__ << std::endl;                   \
       throw;                                                                   \
     }                                                                          \
   } while (0);
 
-
 template <typename valT, typename runT>
-void random_runs(
-    std::vector<valT>& res, const valT max_val, const runT max_run, int seed)
-{
+void random_runs(std::vector<valT> &res, const valT max_val, const runT max_run,
+                 int seed) {
   std::mt19937 eng(seed);
   std::uniform_int_distribution<runT> distr(0, max_run);
 
@@ -88,8 +87,7 @@ void random_runs(
 }
 
 template <typename T>
-void dump(const std::string desc, std::vector<T>& data, size_t size)
-{
+void dump(const std::string desc, std::vector<T> &data, size_t size) {
 #if VERBOSE > 0
   std::cout << desc << ": ";
   for (size_t i = 0; i < size; i++)

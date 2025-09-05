@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,24 +50,26 @@
 
 #pragma once
 
-#include <cassert>
-
-#include "hipcompManager.hpp"
 #include "ans.hpp"
-#include "gdeflate.hpp"
-#include "lz4.hpp"
-#include "snappy.hpp"
 #include "bitcomp.hpp"
 #include "cascaded.hpp"
+#include "gdeflate.hpp"
+#include "hipcompManager.hpp"
+#include "lz4.hpp"
+#include "snappy.hpp"
+
+#include <cassert>
 
 namespace hipcomp {
 
-/** 
+/**
  * @brief Construct a ManagerBase from a buffer
- * 
+ *
  * This synchronizes the stream
- * 
- */ 
-std::shared_ptr<hipcompManagerBase> create_manager(const uint8_t* comp_buffer, hipStream_t stream = 0, const int device_id = 0);
+ *
+ */
+std::shared_ptr<hipcompManagerBase> create_manager(const uint8_t *comp_buffer,
+                                                   hipStream_t stream = 0,
+                                                   const int device_id = 0);
 
 } // namespace hipcomp

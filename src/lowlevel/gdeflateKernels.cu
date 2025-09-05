@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -47,13 +48,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "hipcomp/gdeflate.h"
-
 #include "Check.h"
 #include "HipUtils.h"
 #include "common.h"
 #include "hipcomp.h"
 #include "hipcomp.hpp"
+#include "hipcomp/gdeflate.h"
 #include "type_macros.h"
 
 #include <cassert>
@@ -62,15 +62,14 @@
 #include "gdeflate.h"
 #include "gdeflateKernels.h"
 
-namespace hipcomp
-{
+namespace hipcomp {
 
 // The Bitcomp batch decompression outputs bitcompResult_t statuses.
 // Need to convert them to hipcompStatus_t.
-__global__ void convertGdeflateOutputStatusesKernel(hipcompStatus_t *statuses, size_t batch_size) {
-  static_assert(
-      sizeof(hipcompStatus_t) == sizeof(gdeflate::gdeflateStatus_t),
-      "gdeflate and nvcomp statuses must be the same size");
+__global__ void convertGdeflateOutputStatusesKernel(hipcompStatus_t *statuses,
+                                                    size_t batch_size) {
+  static_assert(sizeof(hipcompStatus_t) == sizeof(gdeflate::gdeflateStatus_t),
+                "gdeflate and nvcomp statuses must be the same size");
 
   size_t index = (size_t)blockIdx.x * (size_t)blockDim.x + (size_t)threadIdx.x;
   if (index >= batch_size)
@@ -83,13 +82,12 @@ __global__ void convertGdeflateOutputStatusesKernel(hipcompStatus_t *statuses, s
   statuses[index] = hipcomp_err;
 }
 
-void convertGdeflateOutputStatuses(
-    hipcompStatus_t *statuses,
-    size_t batch_size,
-    hipStream_t stream) {
-    const int threads = 512;
-    int blocks = (batch_size - 1) / threads + 1;
-    convertGdeflateOutputStatusesKernel<<<blocks,threads,0,stream>>>(statuses, batch_size);
+void convertGdeflateOutputStatuses(hipcompStatus_t *statuses, size_t batch_size,
+                                   hipStream_t stream) {
+  const int threads = 512;
+  int blocks = (batch_size - 1) / threads + 1;
+  convertGdeflateOutputStatusesKernel<<<blocks, threads, 0, stream>>>(
+      statuses, batch_size);
 }
 
 } // namespace hipcomp

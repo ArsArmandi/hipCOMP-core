@@ -22,30 +22,29 @@ namespace hip_warp_primitives {
 
 __device__ inline lane_mask __activemask() { return __ballot(1); }
 
-__device__ inline lane_mask __activemask(lane_mask mask) { return __ballot(1) & mask; }
+__device__ inline lane_mask __activemask(lane_mask mask) {
+  return __ballot(1) & mask;
+}
 
 __device__ inline lane_mask __branchmask() { return __ballot(1); }
 
-__device__ inline bool __is_thread_in_mask(lane_mask mask)
-{
+__device__ inline bool __is_thread_in_mask(lane_mask mask) {
   return mask & (1LLU << __lane_id()) ? 1 : 0;
 }
 
-__device__ inline bool __is_thread_in_mask(lane_mask mask, unsigned int i)
-{
+__device__ inline bool __is_thread_in_mask(lane_mask mask, unsigned int i) {
   return mask & (1LLU << i) ? 1 : 0;
 }
 
-__device__ inline int __thread_rank(lane_mask mask)
-{
+__device__ inline int __thread_rank(lane_mask mask) {
   /* calling thread must be set in the mask */
   assert(__is_thread_in_mask(mask));
 
-  return cooperative_groups::internal::coalesced_group::masked_bit_count(mask, 0);
+  return cooperative_groups::internal::coalesced_group::masked_bit_count(mask,
+                                                                         0);
 }
 
-__device__ inline unsigned int __mask_size(lane_mask mask)
-{
+__device__ inline unsigned int __mask_size(lane_mask mask) {
 #if WAVEFRONT_SIZE == 64
   return __popcll(mask);
 #else
@@ -53,11 +52,11 @@ __device__ inline unsigned int __mask_size(lane_mask mask)
 #endif
 }
 
-__device__ inline int __thread_rank_to_lane_id(lane_mask mask, int i)
-{
+__device__ inline int __thread_rank_to_lane_id(lane_mask mask, int i) {
   int size = __mask_size(mask);
 
-  if (i < 0 || i >= size) return -1;
+  if (i < 0 || i >= size)
+    return -1;
 
   return (size == WAVEFRONT_SIZE) ? i
          : (WAVEFRONT_SIZE == 64) ? __fns64(mask, 0, (i + 1))
@@ -65,24 +64,21 @@ __device__ inline int __thread_rank_to_lane_id(lane_mask mask, int i)
 }
 
 /* sync active threads inside a warp / wavefront */
-__device__ inline void __sync_active_threads()
-{
+__device__ inline void __sync_active_threads() {
   /* sync/barrier all threads in a warp or a branch */
   __builtin_amdgcn_fence(__ATOMIC_RELEASE, "wavefront");
   __builtin_amdgcn_wave_barrier();
   __builtin_amdgcn_fence(__ATOMIC_ACQUIRE, "wavefront");
 }
 
-__device__ inline void __syncwarp()
-{
+__device__ inline void __syncwarp() {
   /* sync/barrier all threads in a warp */
   __builtin_amdgcn_fence(__ATOMIC_RELEASE, "wavefront");
   __builtin_amdgcn_wave_barrier();
   __builtin_amdgcn_fence(__ATOMIC_ACQUIRE, "wavefront");
 }
 
-__device__ inline int __all_sync(lane_mask mask, int predicate)
-{
+__device__ inline int __all_sync(lane_mask mask, int predicate) {
   /* calling thread must be set in the mask */
 #ifndef WARP_NO_ASSERT
   assert(__is_thread_in_mask(mask));
@@ -91,8 +87,7 @@ __device__ inline int __all_sync(lane_mask mask, int predicate)
   return ((__branchmask() & mask) == __ballot(predicate)) ? 1 : 0;
 }
 
-__device__ inline int __any_sync(lane_mask mask, int predicate)
-{
+__device__ inline int __any_sync(lane_mask mask, int predicate) {
   /* calling thread must be set in the mask */
 #ifndef WARP_NO_ASSERT
   assert(__is_thread_in_mask(mask));
@@ -101,8 +96,7 @@ __device__ inline int __any_sync(lane_mask mask, int predicate)
   return (__ballot(predicate) & mask) ? 1 : 0;
 }
 
-__device__ inline lane_mask __ballot_sync(lane_mask mask, int predicate)
-{
+__device__ inline lane_mask __ballot_sync(lane_mask mask, int predicate) {
   /* calling thread must be set in the mask */
 #ifndef WARP_NO_ASSERT
   assert(__is_thread_in_mask(mask));
@@ -112,8 +106,8 @@ __device__ inline lane_mask __ballot_sync(lane_mask mask, int predicate)
 }
 
 template <class T>
-__device__ inline T __shfl_sync(lane_mask mask, T var, int src, int width = WAVEFRONT_SIZE)
-{
+__device__ inline T __shfl_sync(lane_mask mask, T var, int src,
+                                int width = WAVEFRONT_SIZE) {
   /* calling thread must be set in the mask */
 #ifndef WARP_NO_ASSERT
   assert(__is_thread_in_mask(mask));
@@ -123,11 +117,9 @@ __device__ inline T __shfl_sync(lane_mask mask, T var, int src, int width = WAVE
 }
 
 template <class T>
-__device__ inline T __shfl_down_sync(lane_mask mask,
-                                     T var,
+__device__ inline T __shfl_down_sync(lane_mask mask, T var,
                                      unsigned int lane_delta,
-                                     int width = WAVEFRONT_SIZE)
-{
+                                     int width = WAVEFRONT_SIZE) {
   /* calling thread must be set in the mask */
 #ifndef WARP_NO_ASSERT
   assert(__is_thread_in_mask(mask));
@@ -137,11 +129,9 @@ __device__ inline T __shfl_down_sync(lane_mask mask,
 }
 
 template <class T>
-__device__ inline T __shfl_up_sync(lane_mask mask,
-                                   T var,
+__device__ inline T __shfl_up_sync(lane_mask mask, T var,
                                    unsigned int lane_delta,
-                                   int width = WAVEFRONT_SIZE)
-{
+                                   int width = WAVEFRONT_SIZE) {
   /* calling thread must be set in the mask */
 #ifndef WARP_NO_ASSERT
   assert(__is_thread_in_mask(mask));
@@ -151,8 +141,8 @@ __device__ inline T __shfl_up_sync(lane_mask mask,
 }
 
 template <class T>
-__device__ inline T __shfl_local_sync(lane_mask mask, T var, int src, int width = WAVEFRONT_SIZE)
-{
+__device__ inline T __shfl_local_sync(lane_mask mask, T var, int src,
+                                      int width = WAVEFRONT_SIZE) {
   /* calling thread must be set in the mask */
 #ifndef WARP_NO_ASSERT
   assert(__is_thread_in_mask(mask));
@@ -171,11 +161,9 @@ __device__ inline T __shfl_local_sync(lane_mask mask, T var, int src, int width 
 }
 
 template <class T>
-__device__ inline T __shfl_down_local_sync(lane_mask mask,
-                                           T var,
+__device__ inline T __shfl_down_local_sync(lane_mask mask, T var,
                                            unsigned int lane_delta,
-                                           int width = WAVEFRONT_SIZE)
-{
+                                           int width = WAVEFRONT_SIZE) {
   /* calling thread must be set in the mask */
 #ifndef WARP_NO_ASSERT
   assert(__is_thread_in_mask(mask));
@@ -184,7 +172,9 @@ __device__ inline T __shfl_down_local_sync(lane_mask mask,
   unsigned int size = __mask_size(mask);
 
   /* if mask uses all lanes */
-  if (size == WAVEFRONT_SIZE) { return __shfl_down(var, lane_delta, width); }
+  if (size == WAVEFRONT_SIZE) {
+    return __shfl_down(var, lane_delta, width);
+  }
 
   int lane;
 
@@ -194,17 +184,17 @@ __device__ inline T __shfl_down_local_sync(lane_mask mask,
     lane = __fns32(mask, __lane_id(), lane_delta + 1);
   }
 
-  if (lane == -1) { lane = __lane_id(); }
+  if (lane == -1) {
+    lane = __lane_id();
+  }
 
   return __shfl(var, lane, width);
 }
 
 template <class T>
-__device__ inline T __shfl_up_local_sync(lane_mask mask,
-                                         T var,
+__device__ inline T __shfl_up_local_sync(lane_mask mask, T var,
                                          unsigned int lane_delta,
-                                         int width = WAVEFRONT_SIZE)
-{
+                                         int width = WAVEFRONT_SIZE) {
   /* calling thread must be set in the mask */
 #ifndef WARP_NO_ASSERT
   assert(__is_thread_in_mask(mask));
@@ -213,7 +203,9 @@ __device__ inline T __shfl_up_local_sync(lane_mask mask,
   unsigned int size = __mask_size(mask);
 
   /* if mask uses all lanes */
-  if (size == WAVEFRONT_SIZE) { return __shfl_up(var, lane_delta, width); }
+  if (size == WAVEFRONT_SIZE) {
+    return __shfl_up(var, lane_delta, width);
+  }
 
   int lane;
 
@@ -223,14 +215,15 @@ __device__ inline T __shfl_up_local_sync(lane_mask mask,
     lane = __fns32(mask, __lane_id(), -((int)lane_delta + 1));
   }
 
-  if (lane == -1) { lane = __lane_id(); }
+  if (lane == -1) {
+    lane = __lane_id();
+  }
 
   return __shfl(var, lane, width);
 }
 
 template <class T>
-__device__ inline lane_mask __match_any_sync(lane_mask mask, T value)
-{
+__device__ inline lane_mask __match_any_sync(lane_mask mask, T value) {
 #if 1
   lane_mask smask = 0, bmask;
 
@@ -249,7 +242,8 @@ __device__ inline lane_mask __match_any_sync(lane_mask mask, T value)
     int i = __ffs((unsigned int)bmask) - 1;
 #endif
 
-    if (i < 0) break;
+    if (i < 0)
+      break;
 
     T rvar = __shfl(value, i);
 
@@ -277,13 +271,16 @@ __device__ inline lane_mask __match_any_sync(lane_mask mask, T value)
     int i = __ffs((unsigned int)bmask) - 1;
 #endif
 
-    if (i < 0) break;
+    if (i < 0)
+      break;
 
     T rvar = __shfl(value, i);
 
     lane_mask ballot = __ballot_sync(bmask, value == rvar);
 
-    if (value == rvar) { smask = ballot & mask; }
+    if (value == rvar) {
+      smask = ballot & mask;
+    }
 
     bmask = bmask & (~ballot);
   }
@@ -293,8 +290,8 @@ __device__ inline lane_mask __match_any_sync(lane_mask mask, T value)
 }
 
 template <class T>
-__device__ inline lane_mask __match_all_sync(lane_mask mask, T value, int* pred)
-{
+__device__ inline lane_mask __match_all_sync(lane_mask mask, T value,
+                                             int *pred) {
   /* non exited threads */
   mask = mask & __branchmask();
 
@@ -309,7 +306,7 @@ __device__ inline lane_mask __match_all_sync(lane_mask mask, T value, int* pred)
   }
 }
 
-}  // namespace hip_warp_primitives
+} // namespace hip_warp_primitives
 
 } // namespace hip_extensions
 #endif

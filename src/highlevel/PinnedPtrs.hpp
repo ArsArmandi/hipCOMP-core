@@ -27,7 +27,8 @@
  */
 // MIT License
 //
-// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Modifications Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +37,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,129 +50,120 @@
 
 #pragma once
 
+#include "HipUtils.h"
+
 #include <memory>
 #include <vector>
-#include "HipUtils.h"
 
 namespace hipcomp {
 
 // Static values that should be exposed.
-// These could be static members of the PinnedPtrPool 
+// These could be static members of the PinnedPtrPool
 // but it's complicated by PinnedPtrPool being a template class
 static constexpr size_t PINNED_POOL_PREALLOC_SIZE = 10; // Initial allocation
 static constexpr size_t PINNED_POOL_REALLOC_SIZE = 100; // Reallocations
 
-/** 
- * @brief A memory pool that can allocate pinned host memory in batches 
- * 
- * This class is able to allocate a number of members of type T at once. In standard
- * memory pool fashion, when the user is finished with a value, 
- * the pointer to the value is pushed back into the pool.
- * 
- */ 
-template<typename T>
-struct PoolTestWrapper;
+/**
+ * @brief A memory pool that can allocate pinned host memory in batches
+ *
+ * This class is able to allocate a number of members of type T at once. In
+ * standard memory pool fashion, when the user is finished with a value, the
+ * pointer to the value is pushed back into the pool.
+ *
+ */
+template <typename T> struct PoolTestWrapper;
 
-template<typename T>
-struct PinnedPtrPool {
+template <typename T> struct PinnedPtrPool {
 
 private: // data
-  std::vector<T*> alloced_buffers; 
-  std::vector<T*> pool;
+  std::vector<T *> alloced_buffers;
+  std::vector<T *> pool;
 
 public: // API
-
-  PinnedPtrPool() 
-    : alloced_buffers(1),
-      pool()
-  {
-    T*& first_alloc = alloced_buffers[0];
+  PinnedPtrPool() : alloced_buffers(1), pool() {
+    T *&first_alloc = alloced_buffers[0];
 
     pool.reserve(PINNED_POOL_PREALLOC_SIZE);
 
-    HipUtils::check(hipHostMalloc(&first_alloc, PINNED_POOL_PREALLOC_SIZE * sizeof(T), hipHostMallocDefault));
+    HipUtils::check(hipHostMalloc(&first_alloc,
+                                  PINNED_POOL_PREALLOC_SIZE * sizeof(T),
+                                  hipHostMallocDefault));
 
     for (size_t ix = 0; ix < PINNED_POOL_PREALLOC_SIZE; ++ix) {
       pool.push_back(first_alloc + ix);
     }
   }
 
-  /** 
+  /**
    * @brief A wrapper for pinned ptrs, interacts with PinnedPtrPool.
-   * 
-   * This class is intended to be held in a std::unique. Then, when the 
-   * user is finished, the destructor automatically returns the underlying memory
-   * to the PinnedPtrPool.
-   * 
-   */ 
+   *
+   * This class is intended to be held in a std::unique. Then, when the
+   * user is finished, the destructor automatically returns the underlying
+   * memory to the PinnedPtrPool.
+   *
+   */
   class PinnedPtrHandle {
-    PinnedPtrPool& memory_pool;
-    T* ptr;
+    PinnedPtrPool &memory_pool;
+    T *ptr;
 
     /**
      * @brief The constructor gets a wrapped ptr from the memory pool
-     */ 
-    PinnedPtrHandle(PinnedPtrPool& memory_pool, T* ptr) 
-      : memory_pool(memory_pool),
-        ptr(ptr)
-    {}
+     */
+    PinnedPtrHandle(PinnedPtrPool &memory_pool, T *ptr)
+        : memory_pool(memory_pool), ptr(ptr) {}
 
     // Disallow copies
-    PinnedPtrHandle& operator=(const PinnedPtrHandle&) = delete;
-    PinnedPtrHandle(const PinnedPtrHandle&) = delete;
+    PinnedPtrHandle &operator=(const PinnedPtrHandle &) = delete;
+    PinnedPtrHandle(const PinnedPtrHandle &) = delete;
 
   public: // Public API
     /**
      * @brief Move constructor that steals the pointer from the expiring `other`
-     */ 
-    PinnedPtrHandle(PinnedPtrHandle&& other) 
-      : memory_pool(other.memory_pool),
-        ptr(other.ptr)
-    {
+     */
+    PinnedPtrHandle(PinnedPtrHandle &&other)
+        : memory_pool(other.memory_pool), ptr(other.ptr) {
       other.ptr = nullptr;
     }
 
     /**
-     * @brief The destructor will automatically return the ptr to the memory pool
-     */ 
+     * @brief The destructor will automatically return the ptr to the memory
+     * pool
+     */
     ~PinnedPtrHandle() {
       if (ptr != nullptr) {
         memory_pool.deallocate(ptr);
       }
     }
-    
+
     /**
      * @brief Gets a reference to the underlying value
      */
-  public: // accessor 
-    T& operator*() {
-      return *ptr;
-    }
+  public: // accessor
+    T &operator*() { return *ptr; }
 
-    T* get_ptr() {
-      return ptr;
-    }
+    T *get_ptr() { return ptr; }
 
     friend struct PinnedPtrPool;
-  
+
   }; // End PinnedPtrHandle definition
 
   /**
    * @brief Get a pointer to a T instance in pinned host memory from the pool
-   */ 
-  std::unique_ptr<PinnedPtrHandle> allocate() 
-  {
+   */
+  std::unique_ptr<PinnedPtrHandle> allocate() {
     if (pool.empty()) {
       // realloc
       alloced_buffers.push_back(nullptr);
-      T*& new_alloc = alloced_buffers.back();
+      T *&new_alloc = alloced_buffers.back();
 
-      HipUtils::check(hipHostMalloc(&new_alloc, PINNED_POOL_REALLOC_SIZE * sizeof(T), hipHostMallocDefault));
+      HipUtils::check(hipHostMalloc(&new_alloc,
+                                    PINNED_POOL_REALLOC_SIZE * sizeof(T),
+                                    hipHostMallocDefault));
       for (size_t ix = 0; ix < PINNED_POOL_REALLOC_SIZE; ++ix) {
         pool.push_back(new_alloc + ix);
       }
-    } 
-    T* res = pool.back();
+    }
+    T *res = pool.back();
     pool.pop_back();
 
     return std::make_unique<PinnedPtrHandle>(PinnedPtrHandle{*this, res});
@@ -186,27 +178,22 @@ public: // API
 private: // Only used by PinnedPtrHandle
   /**
    * @brief Push the pointer back into the pool
-   */ 
-  void deallocate(T* ptr) 
-  {
-    pool.push_back(ptr);
-  }
-
+   */
+  void deallocate(T *ptr) { pool.push_back(ptr); }
 
 private: // helpers that PoolTestWrapper will use
   /**
    * @brief Get the number of available pointers without additional allocations
-   */ 
-  size_t get_current_available_pointer_count() {
-    return pool.size();
-  }
+   */
+  size_t get_current_available_pointer_count() { return pool.size(); }
 
   /**
    * @brief Get the total number of T instances that have been allocated
-   */ 
+   */
   size_t capacity() {
-    return (alloced_buffers.size() - 1) * PINNED_POOL_REALLOC_SIZE + PINNED_POOL_PREALLOC_SIZE;
-  }  
+    return (alloced_buffers.size() - 1) * PINNED_POOL_REALLOC_SIZE +
+           PINNED_POOL_PREALLOC_SIZE;
+  }
 
   friend struct PoolTestWrapper<T>;
 };
