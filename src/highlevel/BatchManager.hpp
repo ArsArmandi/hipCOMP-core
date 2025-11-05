@@ -64,7 +64,7 @@ namespace hipcomp {
  * result buffer in arbitrary chunk ordering. The header then includes the
  * information needed to decompress the chunks back into the original ordering.
  *
- * Generally, the code in hlif_shared.hiph can be used to implement
+ * Generally, the code in hlif_shared.cuh can be used to implement
  * do_batch_(compress/decompress). In this case, device code for compression /
  * decompression can be shared between the low level batch API and the
  * BatchManager extension.

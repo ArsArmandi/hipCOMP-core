@@ -34,21 +34,21 @@ This project contains work derived from NVIDIA nvCOMP v2.2 that is licensed unde
   * ``scripts/build_dev_release.sh``
   * ``share/snappy/len3_mask_64.cpp``
   * ``src/BitPackGPU.h``
-  * ``src/BitPackGPU.hip``
-  * ``src/CascadedKernels.hiph``
+  * ``src/BitPackGPU.cu``
+  * ``src/CascadedKernels.cuh``
   * ``src/Check.cpp``
   * ``src/Check.h``
   * ``src/CMakeLists.txt``
   * ``src/common.h``
   * ``src/DeltaGPU.h``
-  * ``src/DeltaGPU.hip``
+  * ``src/DeltaGPU.cu``
   * ``src/highlevel/ANSManager.cpp``
   * ``src/highlevel/ANSManager.hpp``
   * ``src/highlevel/BatchManager.hpp``
-  * ``src/highlevel/BitcompManager.hip``
+  * ``src/highlevel/BitcompManager.cu``
   * ``src/highlevel/BitcompManager.hpp``
   * ``src/highlevel/CascadedHlifKernels.h``
-  * ``src/highlevel/CascadedHlifKernels.hip``
+  * ``src/highlevel/CascadedHlifKernels.cu``
   * ``src/highlevel/CascadedManager.cpp``
   * ``src/highlevel/CascadedManager.hpp``
   * ``src/highlevel/CompressionConfigs.cpp``
@@ -57,38 +57,38 @@ This project contains work derived from NVIDIA nvCOMP v2.2 that is licensed unde
   * ``src/highlevel/GdeflateManager.cpp``
   * ``src/highlevel/hipcompManagerFactory.cpp``
   * ``src/highlevel/LZ4HlifKernels.h``
-  * ``src/highlevel/LZ4HlifKernels.hip``
+  * ``src/highlevel/LZ4HlifKernels.cu``
   * ``src/highlevel/LZ4Manager.cpp``
   * ``src/highlevel/LZ4Manager.hpp``
   * ``src/highlevel/ManagerBase.hpp``
   * ``src/highlevel/PinnedPtrs.hpp``
   * ``src/highlevel/SnappyHlifKernels.h``
-  * ``src/highlevel/SnappyHlifKernels.hip``
+  * ``src/highlevel/SnappyHlifKernels.cu``
   * ``src/highlevel/SnappyManager.cpp``
   * ``src/highlevel/SnappyManager.hpp``
   * ``src/highlevel/test/PinnedPtrPool_test.cpp``
   * ``src/hipcomp_api.cpp``
-  * ``src/hipcomp_common_deps/hlif_shared.hiph``
+  * ``src/hipcomp_common_deps/hlif_shared.cuh``
   * ``src/hipcomp_common_deps/hlif_shared_types.hpp``
-  * ``src/hipcomp_hipcub.hiph``
+  * ``src/hipcomp_hipcub.cuh``
   * ``src/HipUtils.h``
-  * ``src/HipUtils.hip``
+  * ``src/HipUtils.cu``
   * ``src/lowlevel/ansBatch.cpp``
-  * ``src/lowlevel/BitcompBatch.hip``
-  * ``src/lowlevel/CascadedBatch.hip``
+  * ``src/lowlevel/BitcompBatch.cu``
+  * ``src/lowlevel/CascadedBatch.cu``
   * ``src/lowlevel/gdeflateBatch.cpp``
   * ``src/lowlevel/gdeflateKernels.h``
-  * ``src/lowlevel/gdeflateKernels.hip``
+  * ``src/lowlevel/gdeflateKernels.cu``
   * ``src/lowlevel/LZ4Batch.cpp``
   * ``src/lowlevel/LZ4CompressionKernels.h``
-  * ``src/lowlevel/LZ4CompressionKernels.hip``
+  * ``src/lowlevel/LZ4CompressionKernels.cu``
   * ``src/lowlevel/SnappyBatch.cpp``
   * ``src/lowlevel/SnappyBatchKernels.h``
-  * ``src/lowlevel/SnappyBatchKernels.hip``
-  * ``src/LZ4Kernels.hiph``
+  * ``src/lowlevel/SnappyBatchKernels.cu``
+  * ``src/LZ4Kernels.cuh``
   * ``src/LZ4Types.h``
   * ``src/RunLengthEncodeGPU.h``
-  * ``src/RunLengthEncodeGPU.hip``
+  * ``src/RunLengthEncodeGPU.cu``
   * ``src/snappy/types.h``
   * ``src/TempSpaceBroker.cpp``
   * ``src/TempSpaceBroker.h``
@@ -138,21 +138,21 @@ This project contains work derived from NVIDIA nvCOMP v2.2 that is licensed unde
   * ``scripts/build_dev_release.sh``
   * ``share/snappy/len3_mask_64.cpp``
   * ``src/BitPackGPU.h``
-  * ``src/BitPackGPU.hip``
-  * ``src/CascadedKernels.hiph``
+  * ``src/BitPackGPU.cu``
+  * ``src/CascadedKernels.cuh``
   * ``src/Check.cpp``
   * ``src/Check.h``
   * ``src/CMakeLists.txt``
   * ``src/common.h``
   * ``src/DeltaGPU.h``
-  * ``src/DeltaGPU.hip``
+  * ``src/DeltaGPU.cu``
   * ``src/highlevel/ANSManager.cpp``
   * ``src/highlevel/ANSManager.hpp``
   * ``src/highlevel/BatchManager.hpp``
-  * ``src/highlevel/BitcompManager.hip``
+  * ``src/highlevel/BitcompManager.cu``
   * ``src/highlevel/BitcompManager.hpp``
   * ``src/highlevel/CascadedHlifKernels.h``
-  * ``src/highlevel/CascadedHlifKernels.hip``
+  * ``src/highlevel/CascadedHlifKernels.cu``
   * ``src/highlevel/CascadedManager.cpp``
   * ``src/highlevel/CascadedManager.hpp``
   * ``src/highlevel/CompressionConfigs.cpp``
@@ -161,38 +161,38 @@ This project contains work derived from NVIDIA nvCOMP v2.2 that is licensed unde
   * ``src/highlevel/GdeflateManager.cpp``
   * ``src/highlevel/hipcompManagerFactory.cpp``
   * ``src/highlevel/LZ4HlifKernels.h``
-  * ``src/highlevel/LZ4HlifKernels.hip``
+  * ``src/highlevel/LZ4HlifKernels.cu``
   * ``src/highlevel/LZ4Manager.cpp``
   * ``src/highlevel/LZ4Manager.hpp``
   * ``src/highlevel/ManagerBase.hpp``
   * ``src/highlevel/PinnedPtrs.hpp``
   * ``src/highlevel/SnappyHlifKernels.h``
-  * ``src/highlevel/SnappyHlifKernels.hip``
+  * ``src/highlevel/SnappyHlifKernels.cu``
   * ``src/highlevel/SnappyManager.cpp``
   * ``src/highlevel/SnappyManager.hpp``
   * ``src/highlevel/test/PinnedPtrPool_test.cpp``
   * ``src/hipcomp_api.cpp``
-  * ``src/hipcomp_common_deps/hlif_shared.hiph``
+  * ``src/hipcomp_common_deps/hlif_shared.cuh``
   * ``src/hipcomp_common_deps/hlif_shared_types.hpp``
-  * ``src/hipcomp_hipcub.hiph``
+  * ``src/hipcomp_hipcub.cuh``
   * ``src/HipUtils.h``
-  * ``src/HipUtils.hip``
+  * ``src/HipUtils.cu``
   * ``src/lowlevel/ansBatch.cpp``
-  * ``src/lowlevel/BitcompBatch.hip``
-  * ``src/lowlevel/CascadedBatch.hip``
+  * ``src/lowlevel/BitcompBatch.cu``
+  * ``src/lowlevel/CascadedBatch.cu``
   * ``src/lowlevel/gdeflateBatch.cpp``
   * ``src/lowlevel/gdeflateKernels.h``
-  * ``src/lowlevel/gdeflateKernels.hip``
+  * ``src/lowlevel/gdeflateKernels.cu``
   * ``src/lowlevel/LZ4Batch.cpp``
   * ``src/lowlevel/LZ4CompressionKernels.h``
-  * ``src/lowlevel/LZ4CompressionKernels.hip``
+  * ``src/lowlevel/LZ4CompressionKernels.cu``
   * ``src/lowlevel/SnappyBatch.cpp``
   * ``src/lowlevel/SnappyBatchKernels.h``
-  * ``src/lowlevel/SnappyBatchKernels.hip``
-  * ``src/LZ4Kernels.hiph``
+  * ``src/lowlevel/SnappyBatchKernels.cu``
+  * ``src/LZ4Kernels.cuh``
   * ``src/LZ4Types.h``
   * ``src/RunLengthEncodeGPU.h``
-  * ``src/RunLengthEncodeGPU.hip``
+  * ``src/RunLengthEncodeGPU.cu``
   * ``src/snappy/types.h``
   * ``src/TempSpaceBroker.cpp``
   * ``src/TempSpaceBroker.h``
@@ -248,8 +248,8 @@ This project contains work derived from NVIDIA nvCOMP v2.2 that is licensed unde
 
 * FILES:
   * ``cmake/hipcomp-config.cmake.in``
-  * ``src/SnappyBlockUtils.hiph``
-  * ``src/SnappyKernels.hip``
+  * ``src/SnappyBlockUtils.cuh``
+  * ``src/SnappyKernels.cu``
 
 ## Files Subject to the Boost Software Lincese, Version 1.0
 
