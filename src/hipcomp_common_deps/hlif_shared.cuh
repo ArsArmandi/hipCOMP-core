@@ -253,8 +253,16 @@ __global__
     HlifCompressBatch<chunks_per_block>(compression_args, compressor,
                                         cta_group);
   } else {
+#if defined(__AMDGCN_WAVEFRONT_SIZE__)
+    if constexpr (warpsize <= __AMDGCN_WAVEFRONT_SIZE__) {
+      HlifCompressBatch<chunks_per_block>(
+          compression_args, compressor,
+          cg::tiled_partition<warpsize>(cta_group));
+    }
+#else
     HlifCompressBatch<chunks_per_block>(
         compression_args, compressor, cg::tiled_partition<warpsize>(cta_group));
+#endif
   }
 }
 
@@ -278,8 +286,16 @@ __global__
     HlifCompressBatch<chunks_per_block>(compression_args, compressor,
                                         cta_group);
   } else {
+#if defined(__AMDGCN_WAVEFRONT_SIZE__)
+    if constexpr (warpsize <= __AMDGCN_WAVEFRONT_SIZE__) {
+      HlifCompressBatch<chunks_per_block>(
+          compression_args, compressor,
+          cg::tiled_partition<warpsize>(cta_group));
+    }
+#else
     HlifCompressBatch<chunks_per_block>(
         compression_args, compressor, cg::tiled_partition<warpsize>(cta_group));
+#endif
   }
 }
 
@@ -360,11 +376,21 @@ HlifDecompressBatch(const uint8_t *comp_buffer, uint8_t *decomp_buffer,
         comp_chunk_offsets, comp_chunk_sizes, share_buffer,
         kernel_output_status, decompressor, cta_group);
   } else {
+#if defined(__AMDGCN_WAVEFRONT_SIZE__)
+    if constexpr (warpsize <= __AMDGCN_WAVEFRONT_SIZE__) {
+      HlifDecompressBatch<DecompressT, chunks_per_block>(
+          comp_buffer, decomp_buffer, uncomp_chunk_size, ix_chunk, num_chunks,
+          comp_chunk_offsets, comp_chunk_sizes, share_buffer,
+          kernel_output_status, decompressor,
+          cg::tiled_partition<warpsize>(cta_group));
+    }
+#else
     HlifDecompressBatch<DecompressT, chunks_per_block>(
         comp_buffer, decomp_buffer, uncomp_chunk_size, ix_chunk, num_chunks,
         comp_chunk_offsets, comp_chunk_sizes, share_buffer,
         kernel_output_status, decompressor,
         cg::tiled_partition<warpsize>(cta_group));
+#endif
   }
   assert(blockDim.x == warpSize);
 }

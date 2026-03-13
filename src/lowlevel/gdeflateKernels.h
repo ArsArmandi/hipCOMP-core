@@ -53,7 +53,7 @@
 #include "hipcomp.h"
 #include "hipcomp.hpp"
 
-#include <hip.h>
+#include <hip/hip_runtime.h>
 
 #ifdef ENABLE_GDEFLATE
 #include "gdeflate.h"
