@@ -56,6 +56,19 @@ __global__ static void gdeflate_fillConstSizeArray(size_t *d_sizes, size_t val,
     d_sizes[i] = val;
 }
 
+// Fill sizes with min(chunk_size, total_size - i*chunk_size) so the last
+// (possibly partial) chunk gets its actual byte count rather than chunk_size.
+__global__ static void gdeflate_fillActualSizes(size_t *d_sizes,
+                                                size_t chunk_size,
+                                                size_t total_size, size_t n) {
+  size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    size_t offset = i * chunk_size;
+    d_sizes[i] = (offset + chunk_size <= total_size) ? chunk_size
+                                                      : (total_size - offset);
+  }
+}
+
 __global__ static void gdeflate_fillUniformOffsets(size_t *d_offsets,
                                                    size_t stride, size_t n) {
   size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
@@ -147,8 +160,9 @@ void gdeflateHlifBatchCompress(const CompressArgs &compress_args,
       (void **)d_in_ptrs,
       const_cast<uint8_t *>(compress_args.decomp_buffer), uc, n);
 
-  gdeflate_fillConstSizeArray<<<blocks, threads, 0, stream>>>(d_in_sizes, uc,
-                                                              n);
+  // Use actual chunk sizes: the last chunk may be smaller than uc.
+  gdeflate_fillActualSizes<<<blocks, threads, 0, stream>>>(
+      d_in_sizes, uc, compress_args.decomp_buffer_size, n);
 
   gdeflate_buildUniformPtrArray<<<blocks, threads, 0, stream>>>(
       d_out_ptrs, compress_args.comp_buffer, mc, n);
@@ -198,7 +212,8 @@ void gdeflateHlifBatchDecompress(const uint8_t *comp_data_buffer,
                                  const size_t *comp_chunk_sizes,
                                  uint32_t /*max_decomp_ctas*/,
                                  hipStream_t stream,
-                                 hipcompStatus_t *output_status) {
+                                 hipcompStatus_t *output_status,
+                                 size_t total_decomp_size) {
   if (num_chunks == 0)
     return;
 
@@ -220,8 +235,16 @@ void gdeflateHlifBatchDecompress(const uint8_t *comp_data_buffer,
   gdeflate_buildUniformPtrArray<<<blocks, threads, 0, stream>>>(
       d_decomp_ptrs, decomp_buffer, uncomp_chunk_size, num_chunks);
 
-  gdeflate_fillConstSizeArray<<<blocks, threads, 0, stream>>>(
-      d_decomp_sizes, uncomp_chunk_size, num_chunks);
+  // Compute per-chunk uncompressed sizes from the known total: the last chunk
+  // may be smaller than uncomp_chunk_size. Avoid getDecompressSizeAsync which
+  // reads per-chunk sizes from compressed-stream headers — that kernel returns
+  // 0 on gfx1030 (RDNA2) in the current libgdeflate build.
+  gdeflate_fillActualSizes<<<blocks, threads, 0, stream>>>(
+      d_decomp_sizes, uncomp_chunk_size, total_decomp_size, num_chunks);
+
+  // Sync before calling into the gdeflate library: it may launch kernels on
+  // an internal stream, so our pointer and size arrays must be fully ready.
+  hipcomp::HipUtils::check(hipStreamSynchronize(stream));
 
   size_t temp_bytes = 0;
   gdeflate::decompressGetTempSize(num_chunks, uncomp_chunk_size, &temp_bytes);
@@ -241,10 +264,13 @@ void gdeflateHlifBatchDecompress(const uint8_t *comp_data_buffer,
       num_chunks, d_temp, temp_bytes, (void *const *)d_decomp_ptrs,
       d_gdeflate_status, stream);
 
+  // Use hipDeviceSynchronize rather than hipStreamSynchronize: the gdeflate
+  // library may enqueue GPU kernels on an internal stream rather than the
+  // caller's stream, so we must wait for all pending device work.
+  hipcomp::HipUtils::check(hipDeviceSynchronize());
+
   if (output_status)
     hipcomp::convertGdeflateOutputStatuses(output_status, num_chunks, stream);
-
-  hipcomp::HipUtils::check(hipStreamSynchronize(stream));
 
   hipcomp::HipUtils::check(hipFree(d_temp));
   hipcomp::HipUtils::check(hipFree(d_decomp_sizes));
