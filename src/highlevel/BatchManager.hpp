@@ -75,7 +75,6 @@ struct BatchManager : ManagerBase<FormatSpecHeader> {
 
 protected: // members
   uint32_t *ix_chunk;
-  size_t last_decomp_data_size_{0};
   using ManagerBase<FormatSpecHeader>::user_stream;
 
 private: // members
@@ -111,7 +110,6 @@ public: // API
         decomp_chunk_checksums + config.num_chunks);
 
     HipUtils::check(hipMemsetAsync(ix_chunk, 0, sizeof(uint32_t), user_stream));
-    last_decomp_data_size_ = config.decomp_data_size;
     do_batch_decompress(comp_data_buffer, decomp_buffer, config.num_chunks,
                         comp_chunk_offsets, comp_chunk_sizes,
                         config.get_status());

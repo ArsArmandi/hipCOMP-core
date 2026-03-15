@@ -224,8 +224,7 @@ void gdeflateHlifBatchDecompress(const uint8_t *comp_data_buffer,
                                  const size_t *comp_chunk_sizes,
                                  uint32_t /*max_decomp_ctas*/,
                                  hipStream_t stream,
-                                 hipcompStatus_t *output_status,
-                                 size_t total_decomp_size) {
+                                 hipcompStatus_t *output_status) {
   if (num_chunks == 0)
     return;
 
@@ -247,12 +246,9 @@ void gdeflateHlifBatchDecompress(const uint8_t *comp_data_buffer,
   gdeflate_buildUniformPtrArray<<<blocks, threads, 0, stream>>>(
       d_decomp_ptrs, decomp_buffer, uncomp_chunk_size, num_chunks);
 
-  // Compute per-chunk uncompressed sizes from the known total: the last chunk
-  // may be smaller than uncomp_chunk_size. Avoid getDecompressSizeAsync which
-  // reads per-chunk sizes from compressed-stream headers — that kernel returns
-  // 0 on gfx1030 (RDNA2) in the current libgdeflate build.
-  gdeflate_fillActualSizes<<<blocks, threads, 0, stream>>>(
-      d_decomp_sizes, uncomp_chunk_size, total_decomp_size, num_chunks);
+  // Read per-chunk uncompressed sizes from the compressed-stream headers.
+  gdeflate::getDecompressSizeAsync(d_comp_ptrs, comp_chunk_sizes,
+                                   d_decomp_sizes, num_chunks, stream);
 
   // Sync before calling into the gdeflate library: it may launch kernels on
   // an internal stream, so our pointer and size arrays must be fully ready.

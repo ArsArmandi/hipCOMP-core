@@ -47,8 +47,7 @@ void gdeflateHlifBatchDecompress(const uint8_t *comp_data_buffer,
                                  const size_t *comp_chunk_offsets,
                                  const size_t *comp_chunk_sizes,
                                  uint32_t max_decomp_ctas, hipStream_t stream,
-                                 hipcompStatus_t *output_status,
-                                 size_t total_decomp_size);
+                                 hipcompStatus_t *output_status);
 
 } // namespace hlif
 } // namespace gdeflate

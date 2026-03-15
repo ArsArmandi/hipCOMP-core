@@ -160,7 +160,7 @@ public:
     gdeflate::hlif::gdeflateHlifBatchDecompress(
         comp_data_buffer, decomp_buffer, get_uncomp_chunk_size(), ix_chunk,
         num_chunks, comp_chunk_offsets, comp_chunk_sizes, get_max_decomp_ctas(),
-        user_stream, output_status, last_decomp_data_size_);
+        user_stream, output_status);
 #else
     (void)comp_data_buffer;
     (void)decomp_buffer;
