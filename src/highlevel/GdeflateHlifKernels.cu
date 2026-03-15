@@ -27,6 +27,7 @@
 #include "hipcomp/gdeflate.h"
 #include "lowlevel/gdeflateKernels.h"
 
+#include <cstddef>
 #include <hip/hip_runtime.h>
 
 // ---------------------------------------------------------------------------
@@ -99,7 +100,7 @@ __global__ static void gdeflate_fillHeader(CommonHeader *hdr,
   hdr->major_version = 2;
   hdr->minor_version = 2;
   hdr->format = GDeflate; // global-namespace FormatType enum
-  hdr->comp_data_size = 0; // set later by gdeflate_sumSizes
+  hdr->comp_data_size = 0; // overwritten by CPU after kernel completes
   hdr->decomp_data_size = decomp_data_size;
   hdr->num_chunks = num_chunks;
   hdr->include_chunk_starts = true;
@@ -184,9 +185,10 @@ void gdeflateHlifBatchCompress(const CompressArgs &compress_args,
       d_temp, temp_bytes, (void *const *)d_out_ptrs,
       compress_args.comp_chunk_sizes, opts, stream);
 
-  // Write total compressed size into the header's comp_data_size field.
-  gdeflate_sumSizes<<<1, 1, 0, stream>>>(compress_args.ix_output,
-                                         compress_args.comp_chunk_sizes, n);
+  // Wait for all device work including any kernels the library may have
+  // launched on an internal stream, so that comp_chunk_sizes are ready
+  // before gdeflate_sumSizes reads them.
+  hipcomp::HipUtils::check(hipDeviceSynchronize());
 
   const uint32_t comp_data_offset = static_cast<uint32_t>(
       (uintptr_t)compress_args.comp_buffer -
@@ -199,6 +201,16 @@ void gdeflateHlifBatchCompress(const CompressArgs &compress_args,
   hipcomp::HipUtils::check(hipFree(d_in_sizes));
   hipcomp::HipUtils::check(hipFree(d_out_ptrs));
   hipcomp::HipUtils::check(hipFree(d_in_ptrs));
+
+  // comp_data_size must reflect the stride layout (chunks at stride mc),
+  // not the sum of actual compressed sizes.  Write it CPU-side after
+  // waiting for the fillHeader kernel so we don't race against it.
+  hipcomp::HipUtils::check(hipStreamSynchronize(stream));
+  const uint64_t comp_data_size_val = static_cast<uint64_t>(n) * mc;
+  hipcomp::HipUtils::check(
+      hipMemcpy(reinterpret_cast<uint8_t *>(compress_args.common_header) +
+                    offsetof(CommonHeader, comp_data_size),
+                &comp_data_size_val, sizeof(uint64_t), hipMemcpyHostToDevice));
 }
 
 // ---------------------------------------------------------------------------
@@ -249,18 +261,23 @@ void gdeflateHlifBatchDecompress(const uint8_t *comp_data_buffer,
   size_t temp_bytes = 0;
   gdeflate::decompressGetTempSize(num_chunks, uncomp_chunk_size, &temp_bytes);
   void *d_temp = nullptr;
+  size_t *d_actual_decomp_sizes = nullptr;
   hipcomp::HipUtils::check(hipMalloc(&d_temp, temp_bytes > 0 ? temp_bytes : 1));
+  hipcomp::HipUtils::check(
+      hipMalloc(&d_actual_decomp_sizes, num_chunks * sizeof(size_t)));
 
-  // Reuse output_status buffer as gdeflate status storage (same size guaranteed
-  // by static_assert in gdeflateKernels.cu).
-  auto *d_gdeflate_status =
-      reinterpret_cast<gdeflate::gdeflateStatus_t *>(output_status);
+  // Allocate a per-chunk status array for the gdeflate library.
+  // output_status points to a single-element buffer; we can't reuse it for
+  // all num_chunks statuses.
+  gdeflate::gdeflateStatus_t *d_gdeflate_status = nullptr;
+  hipcomp::HipUtils::check(hipMalloc(
+      &d_gdeflate_status, num_chunks * sizeof(gdeflate::gdeflateStatus_t)));
 
   gdeflate::decompressAsync(
       (const void *const *)d_comp_ptrs, comp_chunk_sizes,
       (const size_t *)d_decomp_sizes,
-      nullptr,     // actual sizes not required
-      0,           // unused parameter
+      d_actual_decomp_sizes,
+      0,
       num_chunks, d_temp, temp_bytes, (void *const *)d_decomp_ptrs,
       d_gdeflate_status, stream);
 
@@ -269,9 +286,24 @@ void gdeflateHlifBatchDecompress(const uint8_t *comp_data_buffer,
   // caller's stream, so we must wait for all pending device work.
   hipcomp::HipUtils::check(hipDeviceSynchronize());
 
-  if (output_status)
-    hipcomp::convertGdeflateOutputStatuses(output_status, num_chunks, stream);
+  if (output_status) {
+    // Convert gdeflate per-chunk statuses in-place, then aggregate the first
+    // error into the single output_status slot the HLIF framework provides.
+    auto *d_hipcomp_statuses =
+        reinterpret_cast<hipcompStatus_t *>(d_gdeflate_status);
+    hipcomp::convertGdeflateOutputStatuses(d_hipcomp_statuses, num_chunks,
+                                           stream);
+    hipcomp::HipUtils::check(hipStreamSynchronize(stream));
+    // Copy only the first chunk's status; a more complete aggregation would
+    // scan all chunks, but HLIF callers currently only inspect output_status[0].
+    hipcomp::HipUtils::check(hipMemcpy(output_status, d_hipcomp_statuses,
+                                       sizeof(hipcompStatus_t),
+                                       hipMemcpyDeviceToDevice));
+  }
 
+  hipcomp::HipUtils::check(hipFree(d_gdeflate_status));
+
+  hipcomp::HipUtils::check(hipFree(d_actual_decomp_sizes));
   hipcomp::HipUtils::check(hipFree(d_temp));
   hipcomp::HipUtils::check(hipFree(d_decomp_sizes));
   hipcomp::HipUtils::check(hipFree(d_decomp_ptrs));

@@ -121,8 +121,8 @@ void test_gdeflate(const std::vector<T> &input,
   // Test to make sure copying the compressed file is ok
   uint8_t *copied = 0;
   HIP_CHECK(hipMalloc(&copied, comp_out_bytes));
-  HIP_CHECK(
-      hipMemcpy(copied, d_comp_out, comp_out_bytes, hipMemcpyDeviceToDevice));
+  HIP_CHECK(hipMemcpy(copied, d_comp_out, comp_out_bytes,
+                      hipMemcpyDeviceToDevice));
   HIP_CHECK(hipFree(d_comp_out));
   d_comp_out = copied;
 

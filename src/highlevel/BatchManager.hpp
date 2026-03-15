@@ -200,14 +200,18 @@ private: // helper API overrides
 
     const size_t chunk_offsets_size =
         sizeof(ChunkStartOffset_t) * comp_config.num_chunks;
-    const size_t chunk_sizes_size = sizeof(uint32_t) * comp_config.num_chunks;
+    // comp_chunk_sizes is stored as size_t* in the layout, not uint32_t*
+    const size_t chunk_sizes_size = sizeof(size_t) * comp_config.num_chunks;
     // *2 for decomp and comp checksums
     const size_t checksum_size =
         sizeof(Checksum_t) * comp_config.num_chunks * 2;
+    // Alignment padding: the metadata area is aligned to alignof(size_t)
+    // after sizeof(FormatSpecHeader); add a conservative upper-bound margin.
+    const size_t alignment_padding = alignof(size_t) - 1;
 
     return sizeof(CommonHeader) + sizeof(FormatSpecHeader) +
-           chunk_offsets_size + chunk_sizes_size + checksum_size +
-           comp_buffer_size;
+           alignment_padding + chunk_offsets_size + chunk_sizes_size +
+           checksum_size + comp_buffer_size;
   }
 
   void do_compress(CommonHeader *common_header, const uint8_t *decomp_buffer,
